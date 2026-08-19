@@ -6,7 +6,7 @@ import tenant
 from .models import Cita, LugarConsulta
 from pacientes.models import Paciente
 from consultas.models import Consulta, Procedimiento
-from ginea.decorators import tenant_login_required as login_required
+from pediae.decorators import tenant_login_required as login_required
 import json
 from django.http import JsonResponse
 from django.utils import timezone

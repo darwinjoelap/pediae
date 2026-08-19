@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from ginea.decorators import tenant_login_required as login_required
+from pediae.decorators import tenant_login_required as login_required
 from pacientes.models import Paciente
 from agenda.models import Cita
 from .models import Consulta, AdjuntoConsulta, ConsultaServicio

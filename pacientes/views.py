@@ -1,7 +1,7 @@
 from django.http import request
 from django.shortcuts import render, get_object_or_404, redirect
 import consultas
-from ginea.decorators import tenant_login_required as login_required
+from pediae.decorators import tenant_login_required as login_required
 from django.contrib import messages
 from servicios.models import Servicio
 from datetime import date

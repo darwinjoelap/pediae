@@ -5,7 +5,7 @@ def consultorio_info(request):
     tenant = getattr(request, 'tenant', None)
     if not tenant:
         return {
-            'CONSULTORIO_NOMBRE': 'Ginea',
+            'CONSULTORIO_NOMBRE': 'Pediae',
             'CONSULTORIO_ESPECIALIDAD': '',
             'TENANT_PREFIX': '',
         }

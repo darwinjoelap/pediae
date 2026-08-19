@@ -3,7 +3,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
-from ginea.decorators import tenant_login_required as login_required
+from pediae.decorators import tenant_login_required as login_required
 from datetime import date, timedelta
 from pacientes.models import Paciente
 from consultas.models import ConsultaServicio

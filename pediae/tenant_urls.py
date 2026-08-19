@@ -11,21 +11,21 @@ def manifest_view(request, **kwargs):
     prefix = f'/t/{slug}'
 
     try:
-        nombre = tenant.config.nombre_medico or tenant.nombre if tenant else 'Ginea'
+        nombre = tenant.config.nombre_medico or tenant.nombre if tenant else 'Pediae'
         especialidad = tenant.config.especialidad if tenant else ''
     except Exception:
-        nombre = tenant.nombre if tenant else 'Ginea'
+        nombre = tenant.nombre if tenant else 'Pediae'
         especialidad = ''
 
     manifest = {
-        "name": f"Ginea - {nombre}",
-        "short_name": "Ginea",
-        "description": especialidad or "Sistema de gestión de consultorio",
+        "name": f"Pediae - {nombre}",
+        "short_name": "Pediae",
+        "description": especialidad or "Sistema de gestión pediátrico",
         "start_url": f"{prefix}/agenda/",
         "scope": f"{prefix}/",
         "display": "standalone",
         "background_color": "#ffffff",
-        "theme_color": "#2AACA8",
+        "theme_color": "#38B8D8",
         "orientation": "portrait-primary",
         "icons": [
             {"src": "/static/icons/icon-72x72.png",   "sizes": "72x72",   "type": "image/png", "purpose": "any"},

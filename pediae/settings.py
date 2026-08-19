@@ -43,7 +43,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'ginea.urls'
+ROOT_URLCONF = 'pediae.urls'
 
 TEMPLATES = [
     {
@@ -56,13 +56,13 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'ginea.context_processors.consultorio_info',
+                'pediae.context_processors.consultorio_info',
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'ginea.wsgi.application'
+WSGI_APPLICATION = 'pediae.wsgi.application'
 
 _db_url = config('DATABASE_URL', default='')
 if _db_url:
@@ -109,4 +109,4 @@ CSRF_TRUSTED_ORIGINS = config(
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 TENANT_SLUG = config('TENANT_SLUG', default='')
-APP_BASE_URL = config('APP_BASE_URL', default='https://ginea-saas-production.up.railway.app')
+APP_BASE_URL = config('APP_BASE_URL', default='https://pediae-production.up.railway.app')

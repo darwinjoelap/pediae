@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from ginea.decorators import tenant_login_required as login_required
+from pediae.decorators import tenant_login_required as login_required
 from .models import Servicio, TasaCambio
 from .forms import ServicioForm, TasaCambioForm
 

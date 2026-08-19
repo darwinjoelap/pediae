@@ -26,6 +26,6 @@ urlpatterns = [
     path('sw.js', sw_view),
     path('admin/', admin.site.urls),
     path('panel/', include('panel.urls')),
-    path('t/<slug:tenant_slug>/', include('ginea.tenant_urls')),
+    path('t/<slug:tenant_slug>/', include('pediae.tenant_urls')),
     path('', root_redirect),
 ]

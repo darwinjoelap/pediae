@@ -6,7 +6,7 @@ def tenant_redirect(request, viewname):
     from django.http import HttpResponseRedirect
     tenant = getattr(request, 'tenant', None)
     prefix = f'/t/{tenant.slug}' if tenant else ''
-    
+
     # Mapeo de nombres de vista a paths
     rutas = {
         'agenda:hoy': '/agenda/',
@@ -17,6 +17,6 @@ def tenant_redirect(request, viewname):
         'consultas:lista': '/consultas/',
         'configuracion:editar': '/configuracion/',
     }
-    
+
     path = rutas.get(viewname, '/')
     return HttpResponseRedirect(f'{prefix}{path}')

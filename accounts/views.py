@@ -1,5 +1,5 @@
 from django.contrib.auth import authenticate, login, logout
-from ginea.decorators import tenant_login_required as login_required
+from pediae.decorators import tenant_login_required as login_required
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Usuario

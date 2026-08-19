@@ -1,4 +1,4 @@
-from ginea.decorators import tenant_login_required as login_required
+from pediae.decorators import tenant_login_required as login_required
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from .models import ConfigConsultorio
