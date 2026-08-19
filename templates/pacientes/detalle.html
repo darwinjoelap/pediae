@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% block title %}{{ paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <h5 class="fw-bold mb-1">{{ paciente.nombre_completo }}</h5>
+        <div class="text-muted small mb-1">
+          <i class="bi bi-credit-card2-front me-1"></i>{{ paciente.cedula }}
+          &nbsp;·&nbsp;
+          <i class="bi bi-cake me-1"></i>{{ paciente.get_edad }} años
+        </div>
+        <div class="text-muted small">
+          <i class="bi bi-telephone me-1"></i>{{ paciente.telefono }}
+          &nbsp;·&nbsp;
+          {{ paciente.get_formula_obstetrica }}
+        </div>
+      </div>
+      <div class="d-flex flex-column gap-1">
+        {% if user.es_medico %}
+        <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/editar/"
+           class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-pencil me-1"></i> Editar
+        </a>
+        <a href="{{ TENANT_PREFIX }}/consultas/nueva/{{ paciente.pk }}/{% if ultima_cita_sin_consulta %}?cita={{ ultima_cita_sin_consulta.pk }}{% endif %}"
+           class="btn btn-sm" style="background-color:#2AACA8;color:white">
+          <i class="bi bi-journal-plus me-1"></i> Consulta
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+          data-bs-toggle="modal" data-bs-target="#modalProcedimiento">
+          <i class="bi bi-scissors me-1"></i> Procedimiento
+        </button>
+        <a href="{{ TENANT_PREFIX }}/reportes/{{ paciente.pk }}/pdf/"
+           class="btn btn-outline-danger btn-sm" target="_blank">
+          <i class="bi bi-file-pdf me-1"></i> PDF
+        </a>
+        {% else %}
+        <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/editar/"
+           class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-pencil me-1"></i> Editar datos
+        </a>
+        {% endif %}
+        <a href="{{ TENANT_PREFIX }}/agenda/citas/nueva/?paciente={{ paciente.pk }}"
+           class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-calendar-plus me-1"></i> Cita
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if user.es_medico %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse" data-bs-target="#ficha-collapse"
+       style="cursor:pointer">
+    <span class="fw-bold small text-uppercase text-muted" style="letter-spacing:1px">
+      <i class="bi bi-clipboard2-pulse me-1"></i> Ficha clínica
+    </span>
+    <i class="bi bi-chevron-down"></i>
+  </div>
+  <div id="ficha-collapse" class="collapse">
+    <div class="card-body small">
+      {% if paciente.alergias %}
+      <div class="mb-2">
+        <span class="badge bg-danger me-1">Alergias</span>
+        {{ paciente.alergias }}
+      </div>
+      {% endif %}
+      {% if paciente.enfermedades_cronicas %}
+      <div class="mb-2">
+        <span class="badge bg-warning text-dark me-1">Enf. crónicas</span>
+        {{ paciente.enfermedades_cronicas }}
+      </div>
+      {% endif %}
+      {% if paciente.medicacion_actual %}
+      <div class="mb-2">
+        <span class="badge bg-info text-dark me-1">Medicación</span>
+        {{ paciente.medicacion_actual }}
+      </div>
+      {% endif %}
+      <div class="row g-2 mt-1">
+        <div class="col-6"><strong>FUR:</strong> {{ paciente.fur|default:"—" }}</div>
+        <div class="col-6"><strong>Grupo:</strong> {{ paciente.grupo_sanguineo|default:"—" }}</div>
+        <div class="col-6"><strong>Citología:</strong> {{ paciente.ultima_citologia_fecha|default:"—" }}</div>
+        <div class="col-6"><strong>VIH:</strong> {{ paciente.get_vih_resultado_display }}</div>
+        <div class="col-6"><strong>VPH vacuna:</strong> {% if paciente.vph_vacuna %}Sí{% else %}No{% endif %}</div>
+        <div class="col-6"><strong>Método AC:</strong> {{ paciente.metodo_anticonceptivo|default:"—" }}</div>
+      </div>
+      {% if paciente.observaciones %}
+      <div class="mt-2 p-2 bg-light rounded">
+        <strong>Observaciones:</strong> {{ paciente.observaciones }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<h6 class="fw-bold text-uppercase text-muted mb-3"
+    style="font-size:0.75rem;letter-spacing:1px">
+  <i class="bi bi-clock-history me-1"></i> Historial de consultas
+</h6>
+
+{% if consultas %}
+<div class="timeline">
+  {% for consulta in consultas %}
+  <div class="timeline-item">
+    <div class="card shadow-sm">
+      <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center"
+           data-bs-toggle="collapse"
+           data-bs-target="#consulta-{{ consulta.pk }}"
+           style="cursor:pointer">
+        <div>
+          <span class="fw-bold">{{ consulta.fecha|date:"d/m/Y" }}</span>
+          {% if consulta.es_prenatal %}
+          <span class="badge ms-1" style="background-color:#ec4899!important">
+            Prenatal {{ consulta.semanas_gestacion }}sem
+          </span>
+          {% endif %}
+          <span class="text-muted ms-2 small">{{ consulta.motivo_consulta|truncatechars:40 }}</span>
+          {% if consulta.pagado %}
+          <span class="badge bg-success ms-1" style="font-size:0.65rem">Pagado</span>
+          {% else %}
+          <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem">Pendiente</span>
+          {% endif %}
+        </div>
+        <i class="bi bi-chevron-down small"></i>
+      </div>
+      <div id="consulta-{{ consulta.pk }}" class="collapse">
+        <div class="card-body small">
+          {% if consulta.diagnostico %}
+          <p class="mb-1"><strong>Diagnóstico:</strong> {{ consulta.diagnostico }}</p>
+          {% endif %}
+          {% if consulta.tratamiento %}
+          <p class="mb-1"><strong>Tratamiento:</strong> {{ consulta.tratamiento }}</p>
+          {% endif %}
+          {% if consulta.peso or consulta.tension_arterial %}
+          <p class="mb-1">
+            {% if consulta.peso %}<strong>Peso:</strong> {{ consulta.peso }}kg &nbsp;{% endif %}
+            {% if consulta.tension_arterial %}<strong>TA:</strong> {{ consulta.tension_arterial }}{% endif %}
+          </p>
+          {% endif %}
+          {% if consulta.laboratorio %}
+          <p class="mb-1">
+            <strong>Laboratorio:</strong>
+            <span class="text-muted">{{ consulta.laboratorio|truncatechars:100 }}</span>
+          </p>
+          {% endif %}
+          {% if consulta.observaciones %}
+          <p class="mb-2 text-muted"><i class="bi bi-sticky me-1"></i>{{ consulta.observaciones }}</p>
+          {% endif %}
+          {% if consulta.adjuntos.all %}
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            {% for adj in consulta.adjuntos.all %}
+              {% if adj.tipo == 'imagen' %}
+              <a href="{{ adj.get_url }}" target="_blank">
+                <img src="{{ adj.get_thumbnail_url }}" alt="{{ adj.nombre_original }}"
+                     class="rounded" style="width:70px;height:70px;object-fit:cover">
+              </a>
+              {% else %}
+              <a href="{{ adj.get_url }}"
+                download="{{ adj.nombre_original }}"
+                class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-file-pdf me-1"></i>{{ adj.nombre_original|truncatechars:20 }}
+              </a>
+              {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div class="mt-2 d-flex gap-2">
+            <a href="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/"
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-eye me-1"></i> Ver completa
+            </a>
+            <a href="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/adjuntar/"
+               class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-paperclip me-1"></i> Adjuntar
+            </a>
+            <a href="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/imprimir/"
+               target="_blank" class="btn btn-outline-danger btn-sm">
+              <i class="bi bi-printer me-1"></i> Imprimir
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-4 text-muted">
+  <i class="bi bi-journal-x" style="font-size:2.5rem;opacity:0.3"></i>
+  <p class="mt-2">Aún no hay consultas registradas</p>
+  <a href="{{ TENANT_PREFIX }}/consultas/nueva/{{ paciente.pk }}/{% if ultima_cita_sin_consulta %}?cita={{ ultima_cita_sin_consulta.pk }}{% endif %}"
+     class="btn btn-primary btn-touch">
+    <i class="bi bi-journal-plus me-1"></i> Registrar primera consulta
+  </a>
+</div>
+{% endif %}
+
+<!-- Procedimientos -->
+{% if procedimientos %}
+<h6 class="fw-bold text-uppercase text-muted mb-2 mt-4"
+    style="font-size:0.75rem;letter-spacing:1px">
+  <i class="bi bi-scissors me-1"></i> Procedimientos
+</h6>
+<div class="d-flex flex-column gap-2">
+  {% for proc in procedimientos %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body py-2 d-flex justify-content-between align-items-center">
+      <div>
+        <span class="fw-bold">{{ proc.servicio.nombre }}</span>
+        <span class="text-muted small ms-2">{{ proc.fecha|date:"d/m/Y" }}</span>
+        {% if proc.notas %}
+        <div class="text-muted small">{{ proc.notas }}</div>
+        {% endif %}
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="fw-bold" style="color:var(--color-primary)">${{ proc.precio_usd }}</span>
+        {% if proc.pagado %}
+        <span class="badge bg-success" style="font-size:0.65rem">Pagado</span>
+        {% else %}
+        <span class="badge bg-warning text-dark" style="font-size:0.65rem">Pendiente</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-1"></i>
+  Solo el médico puede ver el historial clínico completo.
+</div>
+{% endif %}
+
+{% if citas %}
+<h6 class="fw-bold text-uppercase text-muted mb-2 mt-4"
+    style="font-size:0.75rem;letter-spacing:1px">
+  <i class="bi bi-calendar3 me-1"></i> Últimas citas
+</h6>
+<div class="d-flex flex-column gap-2">
+  {% for cita in citas %}
+  <div class="card cita-card estado-{{ cita.estado }}">
+    <div class="card-body py-2 d-flex justify-content-between align-items-center">
+      <div>
+        <span class="small fw-bold">{{ cita.fecha|date:"d/m/Y" }}</span>
+        <span class="text-muted small ms-2">{{ cita.hora_inicio|time:"H:i" }}</span>
+        <span class="text-muted small ms-2">{{ cita.motivo }}</span>
+      </div>
+      <span class="badge bg-{{ cita.get_color }}">{{ cita.get_estado_display }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Modal procedimiento rápido -->
+{% if user.es_medico %}
+<div class="modal fade" id="modalProcedimiento" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-scissors me-1"></i> Registrar procedimiento
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ TENANT_PREFIX }}/consultas/procedimiento/{{ paciente.pk }}/">
+        {% csrf_token %}
+        {% if ultima_cita_sin_consulta %}
+        <input type="hidden" name="cita_id" value="{{ ultima_cita_sin_consulta.pk }}">
+        {% endif %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">
+              Servicio / Procedimiento <span class="text-danger">*</span>
+            </label>
+            <select name="servicio" class="form-select" required>
+              <option value="">— Seleccionar —</option>
+              {% for s in servicios_disponibles %}
+              <option value="{{ s.pk }}">{{ s.nombre }} — ${{ s.precio_usd }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">
+              Notas <span class="text-muted fw-normal">(opcional)</span>
+            </label>
+            <textarea name="notas" class="form-control" rows="2"
+              placeholder="Ej: Retiro de implante subdérmico"></textarea>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox"
+              name="pagado" id="pagadoProcedimiento">
+            <label class="form-check-label fw-bold" for="pagadoProcedimiento">
+              <i class="bi bi-cash-coin me-1"></i> Pagado
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i> Registrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

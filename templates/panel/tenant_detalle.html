@@ -1,0 +1,160 @@
+{% extends 'panel/base_panel.html' %}
+{% block title %}{{ tenant.nombre }}{% endblock %}
+{% block header_title %}{{ tenant.nombre }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'panel:dashboard' %}" class="btn-ghost">
+  <i class="bi bi-arrow-left"></i> Volver
+</a>
+<a href="{% url 'panel:entrar' tenant.slug %}" class="btn-teal">
+  <i class="bi bi-box-arrow-in-right"></i> Entrar al consultorio
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Info + acciones -->
+  <div class="col-md-4">
+    <div class="pc mb-3">
+      <div class="pc-header"><i class="bi bi-info-circle"></i> Datos del consultorio</div>
+      <div class="pc-body">
+        <div class="mb-3">
+          <div class="pf-label">Estado</div>
+          {% if tenant.activo %}
+            <span class="pb-success">Activo</span>
+          {% else %}
+            <span class="pb-muted">Inactivo</span>
+          {% endif %}
+        </div>
+        <div class="mb-3">
+          <div class="pf-label">Slug</div>
+          <code>{{ tenant.slug }}</code>
+        </div>
+        <div class="mb-3">
+          <div class="pf-label">Email</div>
+          <span style="font-size:0.875rem">{{ tenant.email }}</span>
+        </div>
+        <div class="mb-3">
+          <div class="pf-label">Teléfono</div>
+          <span style="font-size:0.875rem">{{ tenant.telefono|default:"—" }}</span>
+        </div>
+        <div class="mb-3">
+          <div class="pf-label">URL de la app</div>
+          <a href="{{ tenant.app_url }}" target="_blank" style="font-size:0.8rem;word-break:break-all">
+            {{ tenant.app_url }}
+          </a>
+        </div>
+        <div>
+          <div class="pf-label">Creado</div>
+          <span style="font-size:0.875rem">{{ tenant.creado_en|date:"d/m/Y" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pc">
+      <div class="pc-header"><i class="bi bi-lightning"></i> Acciones</div>
+      <div class="pc-body d-grid gap-2">
+        <form method="post" action="{% url 'panel:toggle' tenant.slug %}">
+          {% csrf_token %}
+          <button type="submit" class="w-100 {% if tenant.activo %}btn-danger-ghost{% else %}btn-teal{% endif %}" style="justify-content:center;padding:0.6rem">
+            <i class="bi {% if tenant.activo %}bi-pause-circle{% else %}bi-play-circle{% endif %}"></i>
+            {% if tenant.activo %}Suspender acceso{% else %}Activar acceso{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Suscripciones -->
+  <div class="col-md-8">
+
+    <!-- Nueva suscripción -->
+    <div class="pc mb-4">
+      <div class="pc-header"><i class="bi bi-plus-circle"></i> Nueva suscripción</div>
+      <div class="pc-body">
+        <form method="post" action="{% url 'panel:suscripcion_crear' tenant.slug %}">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="pf-label">Plan</label>
+              <select name="plan" class="pf-control" required>
+                {% for p in planes %}
+                <option value="{{ p.id }}">{{ p }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="pf-label">Fecha inicio</label>
+              <input type="date" name="fecha_inicio" class="pf-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="pf-label">Fecha fin</label>
+              <input type="date" name="fecha_fin" class="pf-control" required>
+            </div>
+            <div class="col-12">
+              <label class="pf-label">Notas internas</label>
+              <input type="text" name="notas" class="pf-control" placeholder="Ej: Pago por transferencia">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn-teal">
+                <i class="bi bi-check-lg"></i> Crear suscripción
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Historial -->
+    <div class="pc">
+      <div class="pc-header"><i class="bi bi-clock-history"></i> Historial de suscripciones</div>
+      <div style="overflow-x:auto">
+        <table class="pt">
+          <thead>
+            <tr>
+              <th>Plan</th>
+              <th>Estado</th>
+              <th>Inicio</th>
+              <th>Fin</th>
+              <th>Días rest.</th>
+              <th>Notas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in suscripciones %}
+            <tr>
+              <td>{{ s.plan.nombre }}</td>
+              <td>
+                <span class="
+                  {% if s.estado == 'activa' %}pb-success
+                  {% elif s.estado == 'trial' %}pb-teal
+                  {% elif s.estado == 'vencida' %}pb-muted
+                  {% else %}pb-danger{% endif %}">
+                  {{ s.get_estado_display }}
+                </span>
+              </td>
+              <td>{{ s.fecha_inicio }}</td>
+              <td>{{ s.fecha_fin }}</td>
+              <td>
+                {% if s.esta_vigente %}
+                  <span class="{% if s.dias_restantes <= 7 %}pb-danger{% else %}pb-teal{% endif %}">
+                    {{ s.dias_restantes }}d
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+              <td style="color:rgba(255,255,255,0.4);font-size:0.8rem">{{ s.notas|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align:center;color:rgba(255,255,255,0.3);padding:1.5rem">
+              Sin suscripciones registradas
+            </td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

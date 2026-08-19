@@ -1,0 +1,14 @@
+from django.urls import path
+from . import views
+
+app_name = 'panel'
+
+urlpatterns = [
+    path('login/', views.panel_login, name='login'),
+    path('logout/', views.panel_logout, name='logout'),
+    path('', views.dashboard, name='dashboard'),
+    path('<slug:slug>/', views.tenant_detalle, name='detalle'),
+    path('<slug:slug>/toggle/', views.tenant_toggle, name='toggle'),
+    path('<slug:slug>/suscripcion/', views.suscripcion_crear, name='suscripcion_crear'),
+    path('<slug:slug>/entrar/', views.entrar_como_tenant, name='entrar'),
+]

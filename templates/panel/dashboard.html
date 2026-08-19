@@ -1,0 +1,138 @@
+{% extends 'panel/base_panel.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+{% block header_title %}Dashboard{% endblock %}
+
+{% block header_actions %}
+<a href="/admin/tenant/tenant/add/" class="btn-teal">
+  <i class="bi bi-plus-lg"></i> Nuevo consultorio
+</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num">{{ stats.total }}</div>
+      <div class="stat-label">Total</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:#4ade80">{{ stats.activos }}</div>
+      <div class="stat-label">Activos</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:rgba(255,255,255,0.3)">{{ stats.inactivos }}</div>
+      <div class="stat-label">Inactivos</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:#facc15">{{ stats.por_vencer }}</div>
+      <div class="stat-label">Vencen pronto</div>
+    </div>
+  </div>
+</div>
+
+<!-- Alertas de vencimiento -->
+{% if proximos_vencer %}
+<div class="pc mb-4">
+  <div class="pc-header">
+    <i class="bi bi-exclamation-triangle" style="color:#facc15"></i>
+    Suscripciones por vencer (próximos 30 días)
+  </div>
+  <div style="overflow-x:auto">
+    <table class="pt">
+      <thead>
+        <tr>
+          <th>Consultorio</th>
+          <th>Plan</th>
+          <th>Vence</th>
+          <th>Días restantes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in proximos_vencer %}
+        <tr>
+          <td><a href="{% url 'panel:detalle' s.tenant.slug %}">{{ s.tenant.nombre }}</a></td>
+          <td>{{ s.plan }}</td>
+          <td>{{ s.fecha_fin }}</td>
+          <td>
+            <span class="{% if s.dias_restantes <= 7 %}pb-danger{% else %}pb-warning{% endif %}">
+              {{ s.dias_restantes }} días
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Lista de consultorios -->
+<div class="pc">
+  <div class="pc-header">
+    <i class="bi bi-building"></i> Consultorios registrados
+  </div>
+  <div style="overflow-x:auto">
+    <table class="pt">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Slug</th>
+          <th>Estado</th>
+          <th>Suscripción</th>
+          <th>Vence</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tenants %}
+        <tr>
+          <td style="color:#fff;font-weight:600">{{ t.nombre }}</td>
+          <td><code>{{ t.slug }}</code></td>
+          <td>
+            {% if t.activo %}
+              <span class="pb-success">Activo</span>
+            {% else %}
+              <span class="pb-muted">Inactivo</span>
+            {% endif %}
+          </td>
+          <td>
+            {% with s=t.suscripcion_activa %}
+              {% if s %}<span class="pb-teal">{{ s.plan.nombre }}</span>
+              {% else %}<span class="pb-muted">Sin suscripción</span>{% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            {% with s=t.suscripcion_activa %}
+              {% if s %}{{ s.fecha_fin }}{% else %}—{% endif %}
+            {% endwith %}
+          </td>
+          <td>
+            <div class="d-flex gap-2">
+              <a href="{% url 'panel:entrar' t.slug %}" class="btn-teal" title="Entrar al consultorio">
+                <i class="bi bi-box-arrow-in-right"></i> Entrar
+              </a>
+              <a href="{% url 'panel:detalle' t.slug %}" class="btn-ghost" title="Ver detalle">
+                <i class="bi bi-eye"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;color:rgba(255,255,255,0.3);padding:2rem">
+          No hay consultorios registrados
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% block title %}Consulta {{ consulta.fecha|date:"d/m/Y" }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a href="{{ TENANT_PREFIX }}/pacientes/{{ consulta.paciente.pk }}/"
+     class="btn btn-outline-secondary btn-sm me-2">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <h5 class="mb-0 fw-bold">
+    Consulta {{ consulta.fecha|date:"d/m/Y" }}
+    {% if consulta.es_prenatal %}
+    <span class="badge ms-1" style="background-color:#ec4899">Prenatal</span>
+    {% endif %}
+  </h5>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <p class="text-muted small mb-3">
+      <i class="bi bi-person-circle me-1"></i>
+      <a href="{{ TENANT_PREFIX }}/pacientes/{{ consulta.paciente.pk }}/" class="text-decoration-none">
+        {{ consulta.paciente.nombre_completo }}
+      </a>
+      &nbsp;·&nbsp; {{ consulta.paciente.cedula }}
+    </p>
+
+    {% if consulta.peso or consulta.tension_arterial %}
+    <div class="d-flex gap-3 mb-3">
+      {% if consulta.peso %}
+      <span class="badge bg-light text-dark border fs-6">
+        <i class="bi bi-activity me-1"></i>{{ consulta.peso }} kg
+      </span>
+      {% endif %}
+      {% if consulta.tension_arterial %}
+      <span class="badge bg-light text-dark border fs-6">
+        <i class="bi bi-heart-pulse me-1"></i>{{ consulta.tension_arterial }} mmHg
+      </span>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if consulta.motivo_consulta %}
+    <h6 class="text-muted text-uppercase small">Motivo</h6>
+    <p>{{ consulta.motivo_consulta }}</p>
+    {% endif %}
+
+    {% if consulta.sintomas_actuales %}
+    <h6 class="text-muted text-uppercase small">Síntomas</h6>
+    <p>{{ consulta.sintomas_actuales }}</p>
+    {% endif %}
+
+    {% if consulta.examen_fisico %}
+    <h6 class="text-muted text-uppercase small">Examen físico</h6>
+    <p>{{ consulta.examen_fisico }}</p>
+    {% endif %}
+
+    {% if consulta.ecografia %}
+    <h6 class="text-muted text-uppercase small">Ecografía</h6>
+    <p>{{ consulta.ecografia }}</p>
+    {% endif %}
+
+    {% if consulta.colposcopia %}
+    <h6 class="text-muted text-uppercase small">Colposcopía</h6>
+    <p>{{ consulta.colposcopia }}</p>
+    {% endif %}
+
+    {% if consulta.imagenes %}
+    <h6 class="text-muted text-uppercase small">Imágenes</h6>
+    <p>{{ consulta.imagenes }}</p>
+    {% endif %}
+
+    <h6 class="text-muted text-uppercase small">Diagnóstico</h6>
+    <p>{{ consulta.diagnostico }}</p>
+
+    <h6 class="text-muted text-uppercase small">Tratamiento</h6>
+    <p>{{ consulta.tratamiento }}</p>
+
+    {% if consulta.observaciones %}
+    <h6 class="text-muted text-uppercase small">Observaciones</h6>
+    <p>{{ consulta.observaciones }}</p>
+    {% endif %}
+
+    {% if consulta.proxima_cita %}
+    <div class="alert alert-light border mt-3">
+      <i class="bi bi-calendar-event me-1"></i>
+      <strong>Próxima cita:</strong> {{ consulta.proxima_cita|date:"d/m/Y" }}
+    </div>
+    {% endif %}
+
+    {% if consulta.es_prenatal %}
+    <hr>
+    <h6 class="text-uppercase small" style="color:#ec4899">Control prenatal</h6>
+    <div class="row g-2 small">
+      <div class="col-6"><strong>Semanas:</strong> {{ consulta.semanas_gestacion }}</div>
+      <div class="col-6"><strong>FPP:</strong> {{ consulta.fpp|date:"d/m/Y"|default:"—" }}</div>
+      <div class="col-6"><strong>Altura uterina:</strong> {{ consulta.altura_uterina|default:"—" }} cm</div>
+      <div class="col-6"><strong>FCF:</strong> {{ consulta.fcf|default:"—" }} lpm</div>
+      <div class="col-6"><strong>Presentación:</strong> {{ consulta.presentacion_fetal|default:"—" }}</div>
+      <div class="col-6"><strong>Edemas:</strong> {% if consulta.edemas %}Sí{% else %}No{% endif %}</div>
+      {% if consulta.laboratorio %}
+      <div class="col-12 mt-2">
+        <strong>Laboratorio:</strong>
+        <pre class="mt-1 p-2 bg-light rounded small" style="white-space:pre-wrap">{{ consulta.laboratorio }}</pre>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Servicios -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-clipboard2-pulse me-1"></i> Servicios</span>
+    <span class="fw-bold" style="color:var(--color-primary)">
+      Total: ${{ consulta.total_usd }} USD
+      {% if consulta.total_bs %} / Bs {{ consulta.total_bs }}{% endif %}
+    </span>
+  </div>
+  <div class="card-body">
+    {% if consulta.servicios_usados.all %}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      {% for cs in consulta.servicios_usados.all %}
+      <span class="badge fs-6 fw-normal d-inline-flex align-items-center gap-2" style="background-color:var(--color-primary)">
+        {{ cs.servicio.nombre }} — ${{ cs.precio_usd }}
+        <form method="post" action="{{ TENANT_PREFIX }}/consultas/servicio/{{ cs.pk }}/eliminar/" class="d-inline m-0 p-0">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-link p-0 m-0 text-white lh-1"
+                  style="font-size:0.85rem;opacity:0.8;"
+                  onclick="return confirm('¿Quitar este servicio?')"
+                  title="Quitar servicio">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </form>
+      </span>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted small mb-3">Sin servicios registrados.</p>
+    {% endif %}
+
+    <form method="post" action="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/agregar-servicio/" class="d-flex gap-2">
+      {% csrf_token %}
+      <select name="servicio" class="form-select form-select-sm" required>
+        <option value="">— Agregar servicio —</option>
+        {% for s in servicios_disponibles %}
+        <option value="{{ s.pk }}">{{ s.nombre }} (${{ s.precio_usd }})</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-sm btn-primary text-nowrap">
+        <i class="bi bi-plus-lg me-1"></i> Agregar
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h6 class="fw-bold mb-0">Archivos adjuntos</h6>
+  <div class="d-flex gap-2">
+    <a href="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/imprimir/"
+       target="_blank" class="btn btn-sm btn-outline-danger">
+      <i class="bi bi-printer me-1"></i> Imprimir
+    </a>
+    <a href="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/adjuntar/"
+       class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-paperclip me-1"></i> Adjuntar
+    </a>
+  </div>
+</div>
+
+{% if consulta.adjuntos.all %}
+<div class="d-flex flex-wrap gap-2">
+  {% for adj in consulta.adjuntos.all %}
+    {% if adj.tipo == 'imagen' %}
+    <a href="{{ adj.get_url }}" target="_blank">
+      <img src="{{ adj.get_thumbnail_url }}" alt="{{ adj.nombre_original }}"
+           class="rounded border" style="width:80px;height:80px;object-fit:cover">
+    </a>
+    {% else %}
+    <a href="{{ adj.get_url }}"
+      download="{{ adj.nombre_original }}"
+      class="btn btn-outline-danger btn-sm">
+      <i class="bi bi-file-pdf me-1"></i>{{ adj.nombre_original|truncatechars:20 }}
+    </a>
+    {% endif %}
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-muted small">No hay archivos adjuntos.</p>
+{% endif %}
+{% endblock %}

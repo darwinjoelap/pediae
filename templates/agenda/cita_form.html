@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a href="{{ TENANT_PREFIX }}/agenda/" class="btn btn-outline-secondary btn-sm me-2">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <h5 class="mb-0 fw-bold">{{ titulo }}</h5>
+</div>
+
+{% if paciente %}
+<div class="alert alert-light border mb-3">
+  <i class="bi bi-person-circle me-1"></i>
+  <strong>{{ paciente.nombre_completo }}</strong>
+  <span class="text-muted ms-2">{{ paciente.cedula }}</span>
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body p-4">
+    <form method="post">
+      {% csrf_token %}
+
+      <!-- Buscador de paciente -->
+      <div class="mb-3 position-relative">
+        <label class="form-label fw-bold">
+          <i class="bi bi-search me-1"></i> Buscar paciente
+        </label>
+        <input type="text" id="buscador-paciente" class="form-control"
+          placeholder="Nombre, apellido o cédula..."
+          autocomplete="off">
+
+        <!-- Resultados -->
+        <div id="resultados-paciente" class="border rounded shadow-sm bg-white"
+          style="display:none; position:absolute; z-index:1000; width:100%; max-height:220px; overflow-y:auto; top:100%; left:0;">
+        </div>
+      </div>
+
+      <!-- Paciente seleccionado -->
+      <div id="paciente-seleccionado" class="alert alert-light border mb-3 d-flex justify-content-between align-items-center" style="display:none!important">
+        <span>
+          <i class="bi bi-person-check-fill me-1" style="color:var(--color-primary)"></i>
+          <span id="paciente-nombre" class="fw-bold"></span>
+          <span id="paciente-cedula" class="text-muted ms-2 small"></span>
+        </span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="limpiarPaciente()">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+
+      {% crispy form %}
+
+      {% if servicios_disponibles %}
+      <div class="mb-4 mt-2">
+        <label class="form-label fw-bold">
+          <i class="bi bi-clipboard2-pulse me-1" style="color:var(--color-primary)"></i>
+          Servicios esperados <span class="text-muted fw-normal">(opcional)</span>
+        </label>
+        <div class="border rounded p-3">
+          <div class="row g-2">
+            {% for s in servicios_disponibles %}
+            <div class="col-12 col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox"
+                  name="servicios_manual" value="{{ s.pk }}"
+                  id="srv_{{ s.pk }}">
+                <label class="form-check-label d-flex justify-content-between align-items-center w-100" for="srv_{{ s.pk }}">
+                  <span>{{ s.nombre }}</span>
+                  <span class="badge ms-2" style="background-color:var(--color-primary)">${{ s.precio_usd }}</span>
+                </label>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <button type="submit" class="btn btn-primary btn-touch w-100 mt-2">
+        <i class="bi bi-check-lg me-1"></i> Guardar cita
+      </button>
+
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const buscador = document.getElementById('buscador-paciente');
+  const resultados = document.getElementById('resultados-paciente');
+  const select = document.getElementById('id_paciente');
+  const pacienteSeleccionado = document.getElementById('paciente-seleccionado');
+  const pacienteNombre = document.getElementById('paciente-nombre');
+  const pacienteCedula = document.getElementById('paciente-cedula');
+  const nuevoPacienteUrl = '{{ TENANT_PREFIX }}/pacientes/nuevo/';
+
+  if (!buscador || !select) return;
+
+  // Guardar opciones originales (excluye el primer item vacío)
+  const opciones = Array.from(select.options)
+    .filter(opt => opt.value !== '')
+    .map(opt => ({ value: opt.value, text: opt.text }));
+
+  // Si hay paciente preseleccionado mostrarlo
+  if (select.value) {
+    const opt = opciones.find(o => o.value === select.value);
+    if (opt) mostrarSeleccionado(opt);
+  }
+
+  buscador.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    resultados.innerHTML = '';
+
+    if (!q) {
+      resultados.style.display = 'none';
+      return;
+    }
+
+    const filtradas = opciones.filter(opt => opt.text.toLowerCase().includes(q));
+
+    if (filtradas.length > 0) {
+      filtradas.slice(0, 8).forEach(opt => {
+        const div = document.createElement('div');
+        div.className = 'px-3 py-2 border-bottom';
+        div.style.cssText = 'cursor:pointer; transition:background 0.1s;';
+        div.innerHTML = `<i class="bi bi-person me-2 text-muted"></i>${resaltar(opt.text, q)}`;
+        div.addEventListener('mouseenter', () => div.style.background = '#f0fafa');
+        div.addEventListener('mouseleave', () => div.style.background = '');
+        div.addEventListener('click', () => seleccionarPaciente(opt));
+        resultados.appendChild(div);
+      });
+
+      if (filtradas.length > 8) {
+        const mas = document.createElement('div');
+        mas.className = 'px-3 py-2 text-muted small text-center';
+        mas.textContent = `+${filtradas.length - 8} más — sigue escribiendo para afinar`;
+        resultados.appendChild(mas);
+      }
+    } else {
+      const div = document.createElement('div');
+      div.className = 'px-3 py-3 text-center';
+      div.innerHTML = `
+        <div class="text-muted small mb-2">
+          <i class="bi bi-person-x me-1"></i> No se encontró "${this.value}"
+        </div>
+        <a href="${nuevoPacienteUrl}" class="btn btn-sm btn-primary">
+          <i class="bi bi-person-plus me-1"></i> Registrar nueva paciente
+        </a>`;
+      resultados.appendChild(div);
+    }
+
+    resultados.style.display = 'block';
+  });
+
+  function resaltar(texto, q) {
+    const idx = texto.toLowerCase().indexOf(q);
+    if (idx === -1) return texto;
+    return texto.substring(0, idx) +
+      `<strong style="color:var(--color-primary)">${texto.substring(idx, idx + q.length)}</strong>` +
+      texto.substring(idx + q.length);
+  }
+
+  function seleccionarPaciente(opt) {
+    select.value = opt.value;
+    buscador.value = '';
+    resultados.style.display = 'none';
+    mostrarSeleccionado(opt);
+  }
+
+  function mostrarSeleccionado(opt) {
+    // Extraer nombre y cédula del texto "Nombre (V-xxxx)"
+    const match = opt.text.match(/^(.+?)\s*\((.+?)\)$/);
+    pacienteNombre.textContent = match ? match[1] : opt.text;
+    pacienteCedula.textContent = match ? match[2] : '';
+    pacienteSeleccionado.style.display = 'flex';
+  }
+
+  window.limpiarPaciente = function() {
+    select.value = '';
+    buscador.value = '';
+    pacienteSeleccionado.style.display = 'none';
+    buscador.focus();
+  };
+
+  // Cerrar resultados al hacer clic fuera
+  document.addEventListener('click', function(e) {
+    if (!buscador.contains(e.target) && !resultados.contains(e.target)) {
+      resultados.style.display = 'none';
+    }
+  });
+});
+</script>
+{% endblock %}

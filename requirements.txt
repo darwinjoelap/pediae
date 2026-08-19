@@ -1,0 +1,14 @@
+Django==4.2.16
+psycopg2-binary==2.9.10
+python-decouple==3.8
+dj-database-url==2.2.0
+gunicorn==22.0.0
+whitenoise==6.7.0
+Pillow==12.3.0
+reportlab==4.2.5
+django-crispy-forms==2.3
+crispy-bootstrap5==2024.2
+google-api-python-client==2.143.0
+google-auth==2.34.0
+google-auth-httplib2==0.2.0
+cloudinary==1.40.0

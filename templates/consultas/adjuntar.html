@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}Adjuntar archivo{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a href="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/"
+     class="btn btn-outline-secondary btn-sm me-2">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <h5 class="mb-0 fw-bold">Subir archivo</h5>
+</div>
+
+<div class="alert alert-light border mb-3">
+  <i class="bi bi-calendar-event me-1"></i>
+  Consulta del <strong>{{ consulta.fecha|date:"d/m/Y" }}</strong>
+  — {{ consulta.paciente.nombre_completo }}
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body p-4">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% crispy form %}
+    </form>
+  </div>
+</div>
+
+<div class="mt-3 text-muted small">
+  <i class="bi bi-info-circle me-1"></i>
+  Los archivos se guardan en Cloudinary, organizados por paciente y consulta.
+</div>
+{% endblock %}

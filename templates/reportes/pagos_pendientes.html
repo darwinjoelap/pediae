@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block title %}Pagos pendientes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi bi-clock-fill fs-4 text-warning"></i>
+    <h5 class="mb-0">Pagos pendientes</h5>
+  </div>
+  <span class="badge bg-warning text-dark fs-6">
+    Total: ${{ total_pendiente|floatformat:2 }} USD
+  </span>
+</div>
+
+{% if consultas %}
+<h6 class="fw-bold text-uppercase text-muted mb-3"
+    style="font-size:0.75rem;letter-spacing:1px">
+  <i class="bi bi-journal-medical me-1"></i> Consultas
+</h6>
+<div class="d-flex flex-column gap-3 mb-4">
+  {% for c in consultas %}
+  <div class="card border-0 shadow-sm border-start border-warning border-3">
+    <div class="card-body py-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-bold">
+            <a href="{{ TENANT_PREFIX }}/pacientes/{{ c.paciente.pk }}/" class="text-decoration-none text-dark">
+              {{ c.paciente.nombre_completo }}
+            </a>
+          </div>
+          <div class="text-muted small">
+            <i class="bi bi-calendar me-1"></i>{{ c.fecha|date:"d/m/Y" }}
+            {% if c.lugar %}
+            <span class="ms-2"><i class="bi bi-geo-alt me-1"></i>{{ c.lugar.nombre }}</span>
+            {% endif %}
+            {% if c.medico %}
+            <span class="ms-2"><i class="bi bi-person me-1"></i>{{ c.medico.titulo }} {{ c.medico.get_full_name|default:c.medico.username }}</span>
+            {% endif %}
+          </div>
+          {% if c.diagnostico %}
+          <div class="text-muted small mt-1">
+            <i class="bi bi-clipboard me-1"></i>{{ c.diagnostico|truncatechars:60 }}
+          </div>
+          {% endif %}
+          <div class="mt-2 d-flex flex-wrap gap-1">
+            {% for cs in c.servicios_usados.all %}
+            <span class="badge" style="background-color:var(--color-primary)">
+              {{ cs.servicio.nombre }} ${{ cs.precio_usd }}
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="d-flex flex-column align-items-end gap-2 ms-3">
+          <span class="fw-bold" style="color:var(--color-primary)">
+            ${{ c.total_usd }} USD
+          </span>
+          <div class="d-flex gap-2">
+            <a href="{{ TENANT_PREFIX }}/consultas/{{ c.pk }}/"
+               class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-eye me-1"></i> Ver
+            </a>
+            <form method="post" action="{{ TENANT_PREFIX }}/consultas/{{ c.pk }}/pago/" class="d-inline">
+              {% csrf_token %}
+              <input type="hidden" name="forzar" value="true">
+              <button type="submit" class="btn btn-sm btn-success">
+                <i class="bi bi-check-circle me-1"></i> Marcar pagado
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if procedimientos %}
+<h6 class="fw-bold text-uppercase text-muted mb-3"
+    style="font-size:0.75rem;letter-spacing:1px">
+  <i class="bi bi-scissors me-1"></i> Procedimientos
+</h6>
+<div class="d-flex flex-column gap-3 mb-4">
+  {% for proc in procedimientos %}
+  <div class="card border-0 shadow-sm border-start border-warning border-3">
+    <div class="card-body py-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-bold">
+            <a href="{{ TENANT_PREFIX }}/pacientes/{{ proc.paciente.pk }}/" class="text-decoration-none text-dark">
+              {{ proc.paciente.nombre_completo }}
+            </a>
+          </div>
+          <div class="text-muted small">
+            <i class="bi bi-calendar me-1"></i>{{ proc.fecha|date:"d/m/Y" }}
+            <span class="ms-2"><i class="bi bi-scissors me-1"></i>{{ proc.servicio.nombre }}</span>
+          </div>
+          {% if proc.notas %}
+          <div class="text-muted small mt-1">{{ proc.notas }}</div>
+          {% endif %}
+        </div>
+        <div class="d-flex flex-column align-items-end gap-2 ms-3">
+          <span class="fw-bold" style="color:var(--color-primary)">
+            ${{ proc.precio_usd }} USD
+          </span>
+          <form method="post" action="{{ TENANT_PREFIX }}/consultas/procedimiento/{{ proc.pk }}/pago/" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="forzar" value="true">
+            <button type="submit" class="btn btn-sm btn-success">
+              <i class="bi bi-check-circle me-1"></i> Marcar pagado
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not consultas and not procedimientos %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-check-circle" style="font-size:3rem;opacity:0.3;color:green"></i>
+  <p class="mt-3 fw-bold text-success">¡Todo al día!</p>
+  <p>No hay pagos pendientes.</p>
+</div>
+{% endif %}
+
+{% endblock %}

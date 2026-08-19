@@ -1,0 +1,117 @@
+from django.http import request
+from django.shortcuts import render, get_object_or_404, redirect
+import consultas
+from ginea.decorators import tenant_login_required as login_required
+from django.contrib import messages
+from servicios.models import Servicio
+from datetime import date
+from consultas.models import Procedimiento
+from django.db.models import Q
+from .models import Paciente
+from .forms import PacienteAsistenteForm, PacientePersonalForm, PacienteCompletoForm, PacienteDoctoraNuevoForm
+
+
+def _r(request, path):
+    tenant = getattr(request, 'tenant', None)
+    prefix = f'/t/{tenant.slug}' if tenant else ''
+    return redirect(f'{prefix}{path}')
+
+
+@login_required
+def lista_pacientes(request):
+    tenant = request.tenant
+    q = request.GET.get('q', '').strip()
+    pacientes = Paciente.objects.filter(tenant=tenant)
+    if q:
+        pacientes = pacientes.filter(
+            Q(nombre_completo__icontains=q) | Q(cedula__icontains=q) | Q(telefono__icontains=q)
+        )
+    return render(request, 'pacientes/lista.html', {'pacientes': pacientes, 'q': q})
+
+
+@login_required
+def nueva_paciente(request):
+    if request.user.es_medico:
+        FormClass = PacienteDoctoraNuevoForm
+    else:
+        FormClass = PacienteAsistenteForm
+
+    if request.method == 'POST':
+        form = FormClass(request.POST)
+        if form.is_valid():
+            paciente = form.save(commit=False)
+            paciente.tenant = request.tenant
+            paciente.save()
+            messages.success(request, f'Paciente {paciente.nombre_completo} registrada.')
+            if request.user.es_medico:
+                accion = request.POST.get('accion', 'solo_guardar')
+                if accion == 'historia':
+                    return _r(request, f'/pacientes/{paciente.pk}/editar/')
+                elif accion == 'cita':
+                    return _r(request, f'/agenda/citas/nueva/?paciente={paciente.pk}')
+            return _r(request, f'/pacientes/{paciente.pk}/')
+    else:
+        form = FormClass()
+
+    return render(request, 'pacientes/form.html', {
+        'form': form,
+        'titulo': 'Registrar paciente',
+        'modo_nuevo_doctora': request.user.es_medico,
+    })
+
+
+@login_required
+def detalle_paciente(request, pk):
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+    consultas = paciente.consultas.all().prefetch_related('adjuntos') if request.user.es_medico else None
+    citas = paciente.citas.filter(tenant=request.tenant).order_by('-fecha', '-hora_inicio')[:10]
+
+    # Buscar última cita sin consulta registrada (atendida o programada)
+    from agenda.models import Cita
+    from servicios.models import Servicio
+    from consultas.models import Procedimiento
+
+    ultima_cita_sin_consulta = Cita.objects.filter(
+        paciente=paciente,
+        tenant=request.tenant,
+        consulta__isnull=True,
+        fecha__gte=date.today(),
+    ).order_by('fecha', 'hora_inicio').first()
+
+    servicios_disponibles = Servicio.objects.filter(
+        tenant=request.tenant, activo=True
+    )
+
+    procedimientos = Procedimiento.objects.filter(
+        paciente=paciente, tenant=request.tenant
+    ).select_related('servicio')
+
+    return render(request, 'pacientes/detalle.html', {
+        'paciente': paciente,
+        'consultas': consultas,
+        'citas': citas,
+        'ultima_cita_sin_consulta': ultima_cita_sin_consulta,
+        'servicios_disponibles': servicios_disponibles,
+        'procedimientos': procedimientos,
+    })
+@login_required
+def editar_paciente(request, pk):
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+    FormClass = PacienteCompletoForm if request.user.es_medico else PacientePersonalForm
+
+    if request.method == 'POST':
+        form = FormClass(request.POST, instance=paciente)
+        if form.is_valid():
+            p = form.save(commit=False)
+            p.tenant = request.tenant
+            p.save()
+            messages.success(request, 'Ficha actualizada correctamente.')
+            return _r(request, f'/pacientes/{paciente.pk}/')
+    else:
+        form = FormClass(instance=paciente)
+
+    return render(request, 'pacientes/form.html', {
+        'form': form,
+        'paciente': paciente,
+        'titulo': 'Editar ficha',
+    })

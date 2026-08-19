@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/" class="btn btn-outline-secondary btn-sm me-2">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <h5 class="mb-0 fw-bold">{{ titulo }}</h5>
+</div>
+
+<div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #2AACA8!important">
+  <div class="card-body py-3">
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <h6 class="fw-bold mb-1">{{ paciente.nombre_completo }}</h6>
+        <div class="text-muted small">
+          {{ paciente.cedula }}
+          {% if paciente.fecha_nacimiento %} · {{ paciente.get_edad }} años{% endif %}
+          · {{ paciente.get_formula_obstetrica }}
+        </div>
+      </div>
+      <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/editar/"
+         class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-pencil me-1"></i>Editar ficha
+      </a>
+    </div>
+
+    <div class="mt-2 d-flex flex-wrap gap-2">
+      {% if paciente.alergias %}
+      <span class="badge bg-danger">
+        <i class="bi bi-exclamation-triangle me-1"></i>Alergias: {{ paciente.alergias|truncatechars:40 }}
+      </span>
+      {% endif %}
+      {% if paciente.medicacion_actual %}
+      <span class="badge bg-warning text-dark">
+        <i class="bi bi-capsule me-1"></i>{{ paciente.medicacion_actual|truncatechars:40 }}
+      </span>
+      {% endif %}
+      {% if paciente.enfermedades_cronicas %}
+      <span class="badge bg-info text-dark">{{ paciente.enfermedades_cronicas|truncatechars:40 }}</span>
+      {% endif %}
+    </div>
+
+    <div class="row g-2 mt-2 small text-muted">
+      <div class="col-6 col-md-3"><strong>FUR:</strong> {{ paciente.fur|date:"d/m/Y"|default:"—" }}</div>
+      <div class="col-6 col-md-3">
+        <strong>Citología:</strong>
+        {% if paciente.ultima_citologia_fecha %}
+          {{ paciente.ultima_citologia_fecha|date:"d/m/Y" }}
+        {% elif paciente.ultima_citologia_hace %}
+          {{ paciente.ultima_citologia_hace }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+      <div class="col-6 col-md-3"><strong>VPH:</strong> {% if paciente.vph_vacuna %}Vacunada{% else %}No vacunada{% endif %}</div>
+      <div class="col-6 col-md-3"><strong>Método AC:</strong> {{ paciente.metodo_anticonceptivo|default:"—" }}</div>
+      <div class="col-6 col-md-3"><strong>VIH:</strong> {{ paciente.get_vih_resultado_display }}</div>
+      <div class="col-6 col-md-3"><strong>Grupo:</strong> {{ paciente.grupo_sanguineo|default:"—" }}</div>
+      <div class="col-6 col-md-3"><strong>Menopausia:</strong> {% if paciente.menopausia %}Sí{% else %}No{% endif %}</div>
+      <div class="col-6 col-md-3"><strong>DIU:</strong> {{ paciente.diu_tipo|default:"—" }}</div>
+    </div>
+  </div>
+</div>
+
+{% if cita %}
+<div class="alert alert-info mb-3">
+  <i class="bi bi-calendar-check me-1"></i>
+  Cita del {{ cita.fecha|date:"d/m/Y" }} a las {{ cita.hora_inicio|time:"H:i" }}
+  {% if cita.lugar %} — <strong>{{ cita.lugar.nombre }}</strong>{% endif %}
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body p-3 p-md-4">
+    <h6 class="fw-bold mb-3" style="color:#2AACA8">
+      <i class="bi bi-journal-medical me-1"></i>Consulta del día
+    </h6>
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <!-- Servicios -->
+      {% if servicios_disponibles %}
+      <div class="mb-4">
+        <label class="form-label fw-bold">
+          <i class="bi bi-clipboard2-pulse me-1" style="color:var(--color-primary)"></i>
+          Servicios prestados
+        </label>
+        <div class="border rounded p-3">
+          <div class="row g-2">
+            {% for s in servicios_disponibles %}
+            <div class="col-12 col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox"
+                  name="servicios" value="{{ s.pk }}"
+                  id="srv_{{ s.pk }}"
+                  {% if s.pk in servicios_seleccionados %}checked{% endif %}>
+                <label class="form-check-label d-flex justify-content-between align-items-center w-100" for="srv_{{ s.pk }}">
+                  <span>{{ s.nombre }}</span>
+                  <span class="badge ms-2" style="background-color:var(--color-primary)">${{ s.precio_usd }}</span>
+                </label>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% crispy form %}
+
+      <!-- Pago -->
+      <div class="card border-0 bg-light mt-3 mb-3">
+        <div class="card-body row g-3 align-items-center">
+          <div class="col-auto">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox"
+                name="pagado" id="pagado" role="switch"
+                {% if form.instance.pagado %}checked{% endif %}>
+              <label class="form-check-label fw-bold" for="pagado">
+                <i class="bi bi-cash-coin me-1"></i> Consulta pagada
+              </label>
+            </div>
+          </div>
+          <div class="col">
+            <input type="text" name="notas_pago" class="form-control form-control-sm"
+              placeholder="Notas de pago (efectivo, transferencia...)"
+              value="{{ form.instance.notas_pago }}">
+          </div>
+        </div>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}
