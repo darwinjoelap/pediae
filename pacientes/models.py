@@ -182,6 +182,15 @@ class Paciente(models.Model):
         else:
             return f'{delta.days} días'
 
+    def get_edad_en_meses(self):
+        """Retorna la edad actual en meses (para calcular vacunas pendientes)."""
+        if not self.fecha_nacimiento:
+            return None
+        from datetime import date
+        from dateutil.relativedelta import relativedelta
+        delta = relativedelta(date.today(), self.fecha_nacimiento)
+        return delta.years * 12 + delta.months
+
     def clean(self):
         from django.core.exceptions import ValidationError
         if self.no_cedulado:
@@ -212,3 +221,88 @@ class Paciente(models.Model):
         if not self.tenant_id:
             raise ValueError('Un paciente no puede guardarse sin tenant.')
         super().save(*args, **kwargs)
+
+
+# ── Catálogo de vacunas ───────────────────────────────────────────────────────
+
+class Vacuna(models.Model):
+    """Catálogo de vacunas — base PAI Venezuela + vacunas adicionales por tenant."""
+    tenant = models.ForeignKey(
+        'tenant.Tenant',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='vacunas_extra',
+        verbose_name='Consultorio',
+        help_text='Null = vacuna PAI (compartida). Con tenant = vacuna adicional del consultorio.',
+    )
+    nombre = models.CharField(max_length=100, verbose_name='Vacuna')
+    enfermedad = models.CharField(max_length=200, blank=True, verbose_name='Protege contra')
+    dosis_numero = models.PositiveSmallIntegerField(verbose_name='N° dosis')
+    edad_recomendada_meses = models.PositiveSmallIntegerField(
+        verbose_name='Edad recomendada (meses)',
+        help_text='0 = al nacer, 2 = 2 meses, 12 = 1 año, etc.'
+    )
+    edad_max_meses = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name='Edad máxima (meses)',
+        help_text='Si se supera esta edad se marca como atrasada.',
+    )
+    es_pai = models.BooleanField(default=True, verbose_name='Vacuna PAI (esquema oficial)')
+    activa = models.BooleanField(default=True)
+    orden = models.PositiveSmallIntegerField(default=0, verbose_name='Orden de visualización')
+
+    class Meta:
+        verbose_name = 'Vacuna'
+        verbose_name_plural = 'Vacunas'
+        ordering = ['orden', 'edad_recomendada_meses', 'dosis_numero']
+
+    def __str__(self):
+        return f'{self.nombre} (dosis {self.dosis_numero}) — {self.edad_recomendada_meses}m'
+
+    def edad_display(self):
+        m = self.edad_recomendada_meses
+        if m == 0:
+            return 'Al nacer'
+        if m < 12:
+            return f'{m} meses'
+        if m % 12 == 0:
+            return f'{m // 12} año{"s" if m // 12 > 1 else ""}'
+        return f'{m // 12} año{"s" if m // 12 > 1 else ""} y {m % 12} m'
+
+
+class VacunaAplicada(models.Model):
+    """Registro de una dosis aplicada a un paciente."""
+    tenant = models.ForeignKey(
+        'tenant.Tenant',
+        on_delete=models.CASCADE,
+        related_name='vacunas_aplicadas',
+    )
+    paciente = models.ForeignKey(
+        Paciente,
+        on_delete=models.CASCADE,
+        related_name='vacunas_aplicadas',
+    )
+    vacuna = models.ForeignKey(
+        Vacuna,
+        on_delete=models.PROTECT,
+        related_name='aplicaciones',
+    )
+    fecha = models.DateField(verbose_name='Fecha de aplicación')
+    lote = models.CharField(max_length=50, blank=True, verbose_name='Lote / Laboratorio')
+    observaciones = models.CharField(max_length=300, blank=True, verbose_name='Observaciones')
+    aplicada_por = models.ForeignKey(
+        'accounts.Usuario',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='vacunas_aplicadas',
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Vacuna aplicada'
+        verbose_name_plural = 'Vacunas aplicadas'
+        ordering = ['fecha']
+        unique_together = [['paciente', 'vacuna']]
+
+    def __str__(self):
+        return f'{self.paciente} — {self.vacuna.nombre} d{self.vacuna.dosis_numero} ({self.fecha})'

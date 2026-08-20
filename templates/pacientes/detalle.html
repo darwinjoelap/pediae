@@ -278,6 +278,36 @@
 </script>
 {% endif %}
 
+{# ── Vacunas resumen ───────────────────────────────────────────────────────── #}
+{% if vacunas_resumen %}
+<div class="card shadow-sm mb-3
+  {% if vacunas_resumen.atrasadas %}border-danger{% elif vacunas_resumen.pendientes > 0 %}border-warning{% else %}border-success{% endif %}">
+  <div class="card-body py-2 d-flex justify-content-between align-items-center">
+    <div>
+      <span class="fw-semibold me-2">
+        <i class="bi bi-shield-plus me-1"></i> Vacunas
+      </span>
+      <span class="badge bg-success me-1">{{ vacunas_resumen.aplicadas }} aplicadas</span>
+      {% if vacunas_resumen.atrasadas %}
+        <span class="badge bg-danger me-1">{{ vacunas_resumen.atrasadas|length }} atrasada{{ vacunas_resumen.atrasadas|length|pluralize }}</span>
+      {% endif %}
+      {% if vacunas_resumen.pendientes %}
+        <span class="badge bg-warning text-dark">{{ vacunas_resumen.pendientes }} pendiente{{ vacunas_resumen.pendientes|pluralize }}</span>
+      {% endif %}
+      {% if vacunas_resumen.atrasadas %}
+      <div class="text-danger small mt-1">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        {% for v in vacunas_resumen.atrasadas %}{{ v.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <a href="{% url 'pacientes:vacunas' paciente.pk %}" class="btn btn-sm btn-outline-secondary">
+      Ver esquema <i class="bi bi-arrow-right"></i>
+    </a>
+  </div>
+</div>
+{% endif %}
+
 <h6 class="fw-bold text-uppercase text-muted mb-3"
     style="font-size:0.75rem;letter-spacing:1px">
   <i class="bi bi-clock-history me-1"></i> Historial de consultas

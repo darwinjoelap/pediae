@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Paciente
+from .models import Paciente, Vacuna, VacunaAplicada
 
 
 @admin.register(Paciente)
@@ -56,3 +56,24 @@ class PacienteAdmin(admin.ModelAdmin):
     def get_edad_detallada(self, obj):
         return obj.get_edad_detallada()
     get_edad_detallada.short_description = 'Edad'
+
+
+@admin.register(Vacuna)
+class VacunaAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'dosis_numero', 'edad_display', 'edad_max_meses', 'es_pai', 'activa', 'tenant', 'orden')
+    list_filter = ('es_pai', 'activa', 'tenant')
+    search_fields = ('nombre', 'enfermedad')
+    ordering = ('orden', 'edad_recomendada_meses', 'dosis_numero')
+
+    def edad_display(self, obj):
+        return obj.edad_display()
+    edad_display.short_description = 'Edad rec.'
+
+
+@admin.register(VacunaAplicada)
+class VacunaAplicadaAdmin(admin.ModelAdmin):
+    list_display = ('paciente', 'vacuna', 'fecha', 'lote', 'aplicada_por', 'tenant')
+    list_filter = ('tenant', 'vacuna__es_pai')
+    search_fields = ('paciente__nombre_completo', 'vacuna__nombre', 'lote')
+    date_hierarchy = 'fecha'
+    readonly_fields = ('creado_en',)
