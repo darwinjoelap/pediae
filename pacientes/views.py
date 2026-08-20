@@ -107,6 +107,18 @@ def detalle_paciente(request, pk):
         )
         fechas, pesos, tallas, pcs = [], [], [], []
         p_peso, p_talla, p_pc = [], [], []
+
+        # Punto de nacimiento (si está registrado en la ficha)
+        if paciente.fecha_nacimiento and (paciente.peso_nacer or paciente.talla_nacer):
+            fechas.append(paciente.fecha_nacimiento.strftime('%d/%m/%Y') + ' (nacer)')
+            # peso_nacer en gramos → convertir a kg para la gráfica
+            pesos.append(round(float(paciente.peso_nacer) / 1000, 3) if paciente.peso_nacer else None)
+            tallas.append(_f(paciente.talla_nacer, 1) if paciente.talla_nacer else None)
+            pcs.append(None)
+            p_peso.append(None)
+            p_talla.append(None)
+            p_pc.append(None)
+
         for p in puntos:
             fechas.append(p['fecha'].strftime('%d/%m/%Y'))
             pesos.append(_f(p['peso'], 2))
@@ -115,15 +127,16 @@ def detalle_paciente(request, pk):
             p_peso.append(_f(p['percentil_peso'], 0))
             p_talla.append(_f(p['percentil_talla'], 0))
             p_pc.append(_f(p['percentil_pc'], 0))
-        graficas_json = json.dumps({
-            'fechas': fechas,
-            'pesos': pesos,
-            'tallas': tallas,
-            'pcs': pcs,
-            'p_peso': p_peso,
-            'p_talla': p_talla,
-            'p_pc': p_pc,
-        }, cls=DjangoJSONEncoder)
+        if fechas:
+            graficas_json = json.dumps({
+                'fechas': fechas,
+                'pesos': pesos,
+                'tallas': tallas,
+                'pcs': pcs,
+                'p_peso': p_peso,
+                'p_talla': p_talla,
+                'p_pc': p_pc,
+            }, cls=DjangoJSONEncoder)
 
     return render(request, 'pacientes/detalle.html', {
         'paciente': paciente,

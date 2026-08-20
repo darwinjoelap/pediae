@@ -122,9 +122,19 @@
       {% endif %}
 
       {# Antecedentes perinatales #}
-      {% if paciente.antec_embarazo or paciente.antec_parto or paciente.antec_neonatal %}
+      {% if paciente.antec_embarazo or paciente.antec_parto or paciente.antec_neonatal or paciente.peso_nacer or paciente.talla_nacer %}
       <div class="mt-2">
         <strong class="small text-uppercase text-muted" style="letter-spacing:0.5px">Perinatales</strong>
+        {% if paciente.peso_nacer or paciente.talla_nacer %}
+        <div class="mt-1 d-flex gap-3">
+          {% if paciente.peso_nacer %}
+          <span><strong>Peso al nacer:</strong> {{ paciente.peso_nacer|floatformat:0 }} g</span>
+          {% endif %}
+          {% if paciente.talla_nacer %}
+          <span><strong>Talla al nacer:</strong> {{ paciente.talla_nacer }} cm</span>
+          {% endif %}
+        </div>
+        {% endif %}
         {% if paciente.antec_embarazo %}
         <div class="mt-1"><strong>Embarazo:</strong> {{ paciente.antec_embarazo }}</div>
         {% endif %}
@@ -350,14 +360,25 @@
           {# Antropometría pediátrica #}
           {% if consulta.peso or consulta.talla or consulta.perimetro_cefalico %}
           <p class="mb-1">
-            {% if consulta.peso %}<strong>Peso:</strong> {{ consulta.peso }} kg &nbsp;{% endif %}
-            {% if consulta.talla %}<strong>Talla:</strong> {{ consulta.talla }} cm &nbsp;{% endif %}
-            {% if consulta.perimetro_cefalico %}<strong>PC:</strong> {{ consulta.perimetro_cefalico }} cm{% endif %}
+            {% if consulta.peso %}
+              <strong>Peso:</strong> {{ consulta.peso }} kg
+              {% if consulta.percentil_peso %}<span class="text-muted small">(P{{ consulta.percentil_peso|floatformat:0 }})</span>{% endif %}
+              &nbsp;
+            {% endif %}
+            {% if consulta.talla %}
+              <strong>Talla:</strong> {{ consulta.talla }} cm
+              {% if consulta.percentil_talla %}<span class="text-muted small">(P{{ consulta.percentil_talla|floatformat:0 }})</span>{% endif %}
+              &nbsp;
+            {% endif %}
+            {% if consulta.perimetro_cefalico %}
+              <strong>PC:</strong> {{ consulta.perimetro_cefalico }} cm
+              {% if consulta.percentil_pc %}<span class="text-muted small">(P{{ consulta.percentil_pc|floatformat:0 }})</span>{% endif %}
+            {% endif %}
           </p>
           {% endif %}
           {% if consulta.clasificacion_nutricional %}
           <p class="mb-1"><strong>Estado nutricional:</strong>
-            <span class="badge bg-{% if consulta.clasificacion_nutricional == 'normal' %}success{% elif consulta.clasificacion_nutricional == 'obesidad' or consulta.clasificacion_nutricional == 'desnutricion_severa' %}danger{% else %}warning text-dark{% endif %}">
+            <span class="badge bg-{% if consulta.clasificacion_nutricional == 'eutrofico' %}success{% elif consulta.clasificacion_nutricional == 'obesidad' or consulta.clasificacion_nutricional == 'desnutricion_severa' %}danger{% else %}warning text-dark{% endif %}">
               {{ consulta.get_clasificacion_nutricional_display }}
             </span>
           </p>
