@@ -23,7 +23,7 @@ def _r(request, path):
 def _get_config(request):
     tenant = getattr(request, 'tenant', None)
     if not tenant:
-        return 'Ginea', '', '', '', None
+        return 'Pediae', '', '', '', None
     try:
         config = tenant.config
         return (
@@ -368,15 +368,12 @@ def generar_pdf_historial(request, paciente_id):
     return response
 
 
-# REEMPLAZA la función estadisticas en reportes/views.py
-# Busca "@login_required\ndef estadisticas(request):" y reemplaza toda la función
-
 @login_required
 def estadisticas(request):
     if not request.user.es_medico:
         return _r(request, '/agenda/')
 
-    tenant = request.tenant
+    _tenant = request.tenant
     from agenda.models import Cita
     from consultas.models import Consulta
     from accounts.models import Usuario
@@ -393,20 +390,18 @@ def estadisticas(request):
         fecha_desde = hoy - timedelta(days=365)
         fecha_hasta = hoy
 
-    # Lista de médicos del tenant para el selector
-    medicos = Usuario.objects.filter(tenant=tenant, rol='medico')
+    medicos = Usuario.objects.filter(tenant=_tenant, rol='medico')
     medico_seleccionado = None
     if medico_id:
         try:
-            medico_seleccionado = Usuario.objects.get(pk=medico_id, tenant=tenant)
+            medico_seleccionado = Usuario.objects.get(pk=medico_id, tenant=_tenant)
         except Usuario.DoesNotExist:
             medico_id = ''
 
-    pacientes = Paciente.objects.filter(tenant=tenant)
-    citas = Cita.objects.filter(tenant=tenant, fecha__range=[fecha_desde, fecha_hasta])
-    consultas = Consulta.objects.filter(tenant=tenant, fecha__range=[fecha_desde, fecha_hasta])
+    pacientes = Paciente.objects.filter(tenant=_tenant)
+    citas = Cita.objects.filter(tenant=_tenant, fecha__range=[fecha_desde, fecha_hasta])
+    consultas = Consulta.objects.filter(tenant=_tenant, fecha__range=[fecha_desde, fecha_hasta])
 
-    # Filtrar por médico si se seleccionó
     if medico_seleccionado:
         consultas = consultas.filter(medico=medico_seleccionado)
         citas = citas.filter(creado_por=medico_seleccionado)
@@ -423,10 +418,26 @@ def estadisticas(request):
         stats_citas['atendidas'] / stats_citas['total'] * 100, 1
     ) if stats_citas['total'] > 0 else 0
 
+    # Consultas por tipo (pediátrico)
+    tipos_consulta = consultas.values('tipo_consulta').annotate(
+        total=Count('id')
+    ).order_by('-total')
+    tipos_dict = {t['tipo_consulta']: t['total'] for t in tipos_consulta}
+
+    # Usar get_tipo_consulta_display equivalente — mapear los choices manualmente
+    TIPO_LABELS = {
+        'control': 'Control',
+        'enfermedad': 'Enfermedad',
+        'urgencia': 'Urgencia',
+        'procedimiento': 'Procedimiento',
+        'otro': 'Otro',
+    }
     stats_consultas = {
         'total': consultas.count(),
-        'prenatales': consultas.filter(es_prenatal=True).count(),
-        'regulares': consultas.filter(es_prenatal=False).count(),
+        'por_tipo': [
+            {'tipo': TIPO_LABELS.get(k, k), 'total': v}
+            for k, v in tipos_dict.items()
+        ],
     }
 
     # Ingresos
@@ -440,10 +451,10 @@ def estadisticas(request):
         consulta_id__in=consultas_ids,
         consulta__pagado=False,
     ).aggregate(total=Sum('precio_usd'))['total'] or 0
-    # Ingresos por procedimientos
+
     from consultas.models import Procedimiento
     procedimientos_qs = Procedimiento.objects.filter(
-    tenant=tenant,
+        tenant=_tenant,
         fecha__range=[fecha_desde, fecha_hasta],
     )
     if medico_seleccionado:
@@ -459,6 +470,7 @@ def estadisticas(request):
 
     total_ingresos_usd = total_ingresos_usd + total_ingresos_proc
     ingresos_pendientes = ingresos_pendientes + ingresos_pendientes_proc
+
     servicios_top = ConsultaServicio.objects.filter(
         consulta_id__in=consultas_ids,
     ).values('servicio__nombre').annotate(
@@ -475,8 +487,8 @@ def estadisticas(request):
         total=Sum('precio_usd')
     ).order_by('mes')
 
-    # Pacientes nuevas por mes
-    pacientes_nuevas = pacientes.filter(
+    # Pacientes nuevos por mes
+    pacientes_nuevos = pacientes.filter(
         creado_en__date__range=[fecha_desde, fecha_hasta]
     ).annotate(mes=TruncMonth('creado_en')).values('mes').annotate(
         total=Count('id')
@@ -495,58 +507,60 @@ def estadisticas(request):
         mes=TruncMonth('fecha')
     ).values('mes').annotate(total=Count('id')).order_by('mes')
 
-    # Perfil de pacientes
-    edades = {'0-20': 0, '21-30': 0, '31-40': 0, '41-50': 0, '51-60': 0, '60+': 0}
+    # Distribución por edad (pediátrica: 0-1, 1-3, 3-6, 6-10, 10-15, 15+)
+    edades = {'0-1': 0, '1-3': 0, '3-6': 0, '6-10': 0, '10-15': 0, '15+': 0}
+    sexos = {'M': 0, 'F': 0, 'otro': 0}
     for p in pacientes:
-        if not p.fecha_nacimiento:
-            continue
-        edad = p.get_edad()
-        if not isinstance(edad, int):
-            continue
-        if edad <= 20: edades['0-20'] += 1
-        elif edad <= 30: edades['21-30'] += 1
-        elif edad <= 40: edades['31-40'] += 1
-        elif edad <= 50: edades['41-50'] += 1
-        elif edad <= 60: edades['51-60'] += 1
-        else: edades['60+'] += 1
+        # Edad en años
+        if p.fecha_nacimiento:
+            from dateutil.relativedelta import relativedelta
+            delta = relativedelta(date.today(), p.fecha_nacimiento)
+            edad_anios = delta.years
+            if edad_anios < 1: edades['0-1'] += 1
+            elif edad_anios < 3: edades['1-3'] += 1
+            elif edad_anios < 6: edades['3-6'] += 1
+            elif edad_anios < 10: edades['6-10'] += 1
+            elif edad_anios < 15: edades['10-15'] += 1
+            else: edades['15+'] += 1
+        # Sexo
+        if hasattr(p, 'sexo'):
+            if p.sexo == 'M': sexos['M'] += 1
+            elif p.sexo == 'F': sexos['F'] += 1
+            else: sexos['otro'] += 1
 
-    metodos = pacientes.exclude(
-        metodo_anticonceptivo=''
-    ).values('metodo_anticonceptivo').annotate(
+    # Estado nutricional
+    nutricion = consultas.exclude(
+        clasificacion_nutricional=''
+    ).exclude(
+        clasificacion_nutricional__isnull=True
+    ).values('clasificacion_nutricional').annotate(
         total=Count('id')
-    ).order_by('-total')[:8]
+    ).order_by('-total')
 
-    vih = pacientes.values('vih_resultado').annotate(total=Count('id'))
-    vih_data = {v['vih_resultado']: v['total'] for v in vih}
+    NUTRICION_LABELS = {
+        'normal': 'Normal',
+        'desnutricion_leve': 'Desnutrición leve',
+        'desnutricion_moderada': 'Desnutrición moderada',
+        'desnutricion_severa': 'Desnutrición severa',
+        'sobrepeso': 'Sobrepeso',
+        'obesidad': 'Obesidad',
+        'talla_baja': 'Talla baja',
+        'macrosomia': 'Macrosomía',
+    }
 
-    vph_vacuna = pacientes.filter(vph_vacuna=True).count()
-    vph_diagnostico = pacientes.filter(vph_diagnostico=True).count()
-    vph_sin_vacuna = pacientes.count() - vph_vacuna
-
-    con_citologia = pacientes.exclude(ultima_citologia_fecha__isnull=True).count()
-    sin_citologia = pacientes.filter(ultima_citologia_fecha__isnull=True).count()
-
+    # Antecedentes familiares pediátricos
     antecedentes = {
-        'Cáncer de mama': pacientes.filter(antec_cancer_mama=True).count(),
-        'Cáncer cervical': pacientes.filter(antec_cancer_cuello=True).count(),
         'Diabetes': pacientes.filter(antec_diabetes=True).count(),
         'Hipertensión': pacientes.filter(antec_hipertension=True).count(),
+        'Cardiopatías': pacientes.filter(antec_cardiopatias=True).count(),
+        'Epilepsia': pacientes.filter(antec_epilepsia=True).count(),
+        'Asma/Atopía': pacientes.filter(antec_asma_atopia=True).count(),
     }
 
     dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     citas_por_dia = [0] * 7
     for cita in citas:
         citas_por_dia[cita.fecha.weekday()] += 1
-
-    prenatales = consultas.filter(es_prenatal=True)
-    semanas_prom = 0
-    if prenatales.exists():
-        semanas_vals = [c.semanas_gestacion for c in prenatales if c.semanas_gestacion]
-        semanas_prom = round(sum(semanas_vals) / len(semanas_vals), 1) if semanas_vals else 0
-
-    prenatales_por_mes = prenatales.annotate(
-        mes=TruncMonth('fecha')
-    ).values('mes').annotate(total=Count('id')).order_by('mes')
 
     def meses_labels(qs):
         return [item['mes'].strftime('%b %Y') for item in qs]
@@ -561,33 +575,25 @@ def estadisticas(request):
             'labels': meses_labels(consultas_por_mes),
             'data': [item['total'] for item in consultas_por_mes],
         },
-        'pacientes_nuevas': {
-            'labels': meses_labels(pacientes_nuevas),
-            'data': [item['total'] for item in pacientes_nuevas],
+        'pacientes_nuevos': {
+            'labels': meses_labels(pacientes_nuevos),
+            'data': [item['total'] for item in pacientes_nuevos],
         },
         'edades': {
             'labels': list(edades.keys()),
             'data': list(edades.values()),
         },
-        'metodos': {
-            'labels': [m['metodo_anticonceptivo'] for m in metodos],
-            'data': [m['total'] for m in metodos],
+        'sexos': {
+            'labels': ['Masculino', 'Femenino', 'Otro'],
+            'data': [sexos['M'], sexos['F'], sexos['otro']],
         },
-        'vih': {
-            'labels': ['Negativo', 'Positivo', 'No realizado'],
-            'data': [
-                vih_data.get('negativo', 0),
-                vih_data.get('positivo', 0),
-                vih_data.get('no_realizado', 0),
-            ],
+        'tipos_consulta': {
+            'labels': [TIPO_LABELS.get(t['tipo_consulta'], t['tipo_consulta']) for t in tipos_consulta],
+            'data': [t['total'] for t in tipos_consulta],
         },
-        'vph': {
-            'labels': ['Vacunadas', 'Sin vacuna', 'Con diagnóstico VPH'],
-            'data': [vph_vacuna, vph_sin_vacuna, vph_diagnostico],
-        },
-        'citologia': {
-            'labels': ['Con citología', 'Sin citología'],
-            'data': [con_citologia, sin_citologia],
+        'nutricion': {
+            'labels': [NUTRICION_LABELS.get(n['clasificacion_nutricional'], n['clasificacion_nutricional']) for n in nutricion],
+            'data': [n['total'] for n in nutricion],
         },
         'antecedentes': {
             'labels': list(antecedentes.keys()),
@@ -597,10 +603,6 @@ def estadisticas(request):
             'labels': dias_semana,
             'data': citas_por_dia,
         },
-        'prenatales_meses': {
-            'labels': meses_labels(prenatales_por_mes),
-            'data': [item['total'] for item in prenatales_por_mes],
-        },
         'ingresos_mes': {
             'labels': [item['mes'].strftime('%b %Y') for item in ingresos_mes],
             'data': [float(item['total']) for item in ingresos_mes],
@@ -608,7 +610,7 @@ def estadisticas(request):
         'servicios_top': {
             'labels': [item['servicio__nombre'] for item in servicios_top],
             'data': [item['total'] for item in servicios_top],
-            'ingresos': [float(item['ingresos']) for item in servicios_top],
+            'ingresos': [float(item['ingresos'] or 0) for item in servicios_top],
         },
     }
 
@@ -616,15 +618,9 @@ def estadisticas(request):
         'stats_citas': stats_citas,
         'stats_consultas': stats_consultas,
         'total_pacientes': pacientes.count(),
-        'semanas_prom': semanas_prom,
         'charts': json.dumps(charts, default=str),
         'fecha_desde': fecha_desde,
         'fecha_hasta': fecha_hasta,
-        'vph_vacuna': vph_vacuna,
-        'vph_sin_vacuna': vph_sin_vacuna,
-        'vph_diagnostico': vph_diagnostico,
-        'con_citologia': con_citologia,
-        'sin_citologia': sin_citologia,
         'total_ingresos_usd': total_ingresos_usd,
         'ingresos_pendientes': ingresos_pendientes,
         'medicos': medicos,
@@ -638,7 +634,7 @@ def estadisticas_pdf(request):
     if not request.user.es_medico:
         return _r(request, '/agenda/')
 
-    tenant = request.tenant
+    _tenant = request.tenant
     from agenda.models import Cita
     from consultas.models import Consulta
     from reportlab.lib.pagesizes import letter
@@ -658,9 +654,9 @@ def estadisticas_pdf(request):
         fecha_desde = hoy - timedelta(days=365)
         fecha_hasta = hoy
 
-    pacientes = Paciente.objects.filter(tenant=tenant)
-    citas = Cita.objects.filter(tenant=tenant, fecha__range=[fecha_desde, fecha_hasta])
-    consultas = Consulta.objects.filter(tenant=tenant, fecha__range=[fecha_desde, fecha_hasta])
+    pacientes = Paciente.objects.filter(tenant=_tenant)
+    citas = Cita.objects.filter(tenant=_tenant, fecha__range=[fecha_desde, fecha_hasta])
+    consultas = Consulta.objects.filter(tenant=_tenant, fecha__range=[fecha_desde, fecha_hasta])
 
     nombre, especialidad, telefono, email, logo_url = _get_config(request)
 
@@ -707,32 +703,44 @@ def estadisticas_pdf(request):
     total_citas = citas.count()
     atendidas = citas.filter(estado='atendida').count()
     tasa = round(atendidas / total_citas * 100, 1) if total_citas > 0 else 0
-    vph_vacuna = pacientes.filter(vph_vacuna=True).count()
-    vph_dx = pacientes.filter(vph_diagnostico=True).count()
-    con_cito = pacientes.exclude(ultima_citologia_fecha__isnull=True).count()
 
     total_ingresos = ConsultaServicio.objects.filter(
-        consulta__tenant=tenant,
+        consulta__tenant=_tenant,
         consulta__fecha__range=[fecha_desde, fecha_hasta],
         consulta__pagado=True,
     ).aggregate(total=Sum('precio_usd'))['total'] or 0
 
     ingresos_pendientes = ConsultaServicio.objects.filter(
-        consulta__tenant=tenant,
+        consulta__tenant=_tenant,
         consulta__fecha__range=[fecha_desde, fecha_hasta],
         consulta__pagado=False,
     ).aggregate(total=Sum('precio_usd'))['total'] or 0
 
+    # Consultas por tipo
+    TIPO_LABELS = {
+        'control': 'Control',
+        'enfermedad': 'Enfermedad',
+        'urgencia': 'Urgencia',
+        'procedimiento': 'Procedimiento',
+        'otro': 'Otro',
+    }
+    tipos_consulta = consultas.values('tipo_consulta').annotate(
+        total=Count('id')
+    ).order_by('-total')
+
     elementos.append(Paragraph('RESUMEN GENERAL', e_seccion))
     resumen = [
-        ['Total pacientes registradas', str(pacientes.count())],
+        ['Total pacientes registrados', str(pacientes.count())],
         ['Total citas en el período', str(total_citas)],
         ['Citas atendidas', f'{atendidas} ({tasa}%)'],
         ['Citas canceladas', str(citas.filter(estado='cancelada').count())],
         ['Citas no asistidas', str(citas.filter(estado='no_asistio').count())],
         ['Consultas registradas', str(consultas.count())],
-        ['Controles prenatales', str(consultas.filter(es_prenatal=True).count())],
     ]
+    for t in tipos_consulta:
+        lbl = TIPO_LABELS.get(t['tipo_consulta'], t['tipo_consulta'])
+        resumen.append([f'  · {lbl}', str(t['total'])])
+
     tabla_r = Table(resumen, colWidths=[10*cm, 7*cm])
     tabla_r.setStyle(TableStyle([
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -759,30 +767,13 @@ def estadisticas_pdf(request):
     ]))
     elementos.append(tabla_ing)
 
-    elementos.append(Paragraph('VPH Y CITOLOGÍA', e_seccion))
-    vph_data = [
-        ['Pacientes vacunadas VPH', str(vph_vacuna)],
-        ['Pacientes sin vacuna VPH', str(pacientes.count() - vph_vacuna)],
-        ['Pacientes con diagnóstico VPH', str(vph_dx)],
-        ['Pacientes con citología registrada', str(con_cito)],
-        ['Pacientes sin citología', str(pacientes.filter(ultima_citologia_fecha__isnull=True).count())],
-    ]
-    tabla_vph = Table(vph_data, colWidths=[10*cm, 7*cm])
-    tabla_vph.setStyle(TableStyle([
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('TEXTCOLOR', (0, 0), (0, -1), gris),
-        ('TEXTCOLOR', (1, 0), (1, -1), oscuro),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ]))
-    elementos.append(tabla_vph)
-
     elementos.append(Paragraph('ANTECEDENTES FAMILIARES', e_seccion))
     antec_data = [
-        ['Cáncer de mama', str(pacientes.filter(antec_cancer_mama=True).count())],
-        ['Cáncer cervical', str(pacientes.filter(antec_cancer_cuello=True).count())],
         ['Diabetes', str(pacientes.filter(antec_diabetes=True).count())],
         ['Hipertensión', str(pacientes.filter(antec_hipertension=True).count())],
+        ['Cardiopatías', str(pacientes.filter(antec_cardiopatias=True).count())],
+        ['Epilepsia', str(pacientes.filter(antec_epilepsia=True).count())],
+        ['Asma/Atopía', str(pacientes.filter(antec_asma_atopia=True).count())],
     ]
     tabla_antec = Table(antec_data, colWidths=[10*cm, 7*cm])
     tabla_antec.setStyle(TableStyle([
@@ -795,19 +786,19 @@ def estadisticas_pdf(request):
     elementos.append(tabla_antec)
 
     elementos.append(Paragraph('DISTRIBUCIÓN POR EDAD', e_seccion))
-    edades = {'0-20': 0, '21-30': 0, '31-40': 0, '41-50': 0, '51-60': 0, '60+': 0}
-    rangos = [(0,20,'0-20'),(21,30,'21-30'),(31,40,'31-40'),(41,50,'41-50'),(51,60,'51-60'),(61,999,'60+')]
+    edades = {'0-1': 0, '1-3': 0, '3-6': 0, '6-10': 0, '10-15': 0, '15+': 0}
     for p in pacientes:
         if not p.fecha_nacimiento:
             continue
-        edad = p.get_edad()
-        if not isinstance(edad, int):
-            continue
-        for mn, mx, lbl in rangos:
-            if mn <= edad <= mx:
-                edades[lbl] += 1
-                break
-    edad_data = [[rango, str(cnt)] for rango, cnt in edades.items()]
+        from dateutil.relativedelta import relativedelta
+        edad_anios = relativedelta(date.today(), p.fecha_nacimiento).years
+        if edad_anios < 1: edades['0-1'] += 1
+        elif edad_anios < 3: edades['1-3'] += 1
+        elif edad_anios < 6: edades['3-6'] += 1
+        elif edad_anios < 10: edades['6-10'] += 1
+        elif edad_anios < 15: edades['10-15'] += 1
+        else: edades['15+'] += 1
+    edad_data = [[f'{rango} años', str(cnt)] for rango, cnt in edades.items()]
     tabla_edad = Table(edad_data, colWidths=[10*cm, 7*cm])
     tabla_edad.setStyle(TableStyle([
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -831,31 +822,32 @@ def estadisticas_pdf(request):
     response['Content-Disposition'] = f'inline; filename="estadisticas_{fecha_desde}_{fecha_hasta}.pdf"'
     return response
 
+
 @login_required
 def pagos_pendientes(request):
     if not request.user.es_medico:
         return _r(request, '/agenda/')
 
-    tenant = request.tenant
+    _tenant = request.tenant
     from consultas.models import Consulta, ConsultaServicio, Procedimiento
     from django.db.models import Sum
 
     consultas = Consulta.objects.filter(
-        tenant=tenant, pagado=False, servicios_usados__isnull=False,
+        tenant=_tenant, pagado=False, servicios_usados__isnull=False,
     ).select_related('paciente', 'medico').prefetch_related(
         'servicios_usados__servicio'
     ).distinct().order_by('-fecha')
 
     procedimientos = Procedimiento.objects.filter(
-        tenant=tenant, pagado=False,
+        tenant=_tenant, pagado=False,
     ).select_related('paciente', 'servicio').order_by('-fecha')
 
     total_consultas = ConsultaServicio.objects.filter(
-        consulta__tenant=tenant, consulta__pagado=False,
+        consulta__tenant=_tenant, consulta__pagado=False,
     ).aggregate(total=Sum('precio_usd'))['total'] or 0
 
     total_procedimientos = Procedimiento.objects.filter(
-        tenant=tenant, pagado=False,
+        tenant=_tenant, pagado=False,
     ).aggregate(total=Sum('precio_usd'))['total'] or 0
 
     total_pendiente = total_consultas + total_procedimientos
