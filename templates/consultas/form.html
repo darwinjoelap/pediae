@@ -10,16 +10,23 @@
   <h5 class="mb-0 fw-bold">{{ titulo }}</h5>
 </div>
 
+{# Tarjeta resumen del paciente — solo datos pediátricos relevantes #}
 <div class="card border-0 shadow-sm mb-3" style="border-left:4px solid #2AACA8!important">
   <div class="card-body py-3">
     <div class="d-flex justify-content-between align-items-start">
       <div>
         <h6 class="fw-bold mb-1">{{ paciente.nombre_completo }}</h6>
         <div class="text-muted small">
-          {{ paciente.cedula }}
-          {% if paciente.fecha_nacimiento %} · {{ paciente.get_edad }} años{% endif %}
-          · {{ paciente.get_formula_obstetrica }}
+          {% if not paciente.no_cedulado %}{{ paciente.cedula }} · {% endif %}
+          {{ paciente.get_edad_detallada }}
+          {% if paciente.sexo %} · {{ paciente.get_sexo_display }}{% endif %}
         </div>
+        {% if paciente.nombre_representante %}
+        <div class="text-muted small mt-1">
+          <i class="bi bi-person-hearts me-1"></i>
+          {{ paciente.get_filiacion_representante_display }}: {{ paciente.nombre_representante }}
+        </div>
+        {% endif %}
       </div>
       <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/editar/"
          class="btn btn-outline-secondary btn-sm">
@@ -27,6 +34,7 @@
       </a>
     </div>
 
+    {# Alertas clínicas #}
     <div class="mt-2 d-flex flex-wrap gap-2">
       {% if paciente.alergias %}
       <span class="badge bg-danger">
@@ -43,24 +51,21 @@
       {% endif %}
     </div>
 
+    {# Datos rápidos pediátricos #}
     <div class="row g-2 mt-2 small text-muted">
-      <div class="col-6 col-md-3"><strong>FUR:</strong> {{ paciente.fur|date:"d/m/Y"|default:"—" }}</div>
       <div class="col-6 col-md-3">
-        <strong>Citología:</strong>
-        {% if paciente.ultima_citologia_fecha %}
-          {{ paciente.ultima_citologia_fecha|date:"d/m/Y" }}
-        {% elif paciente.ultima_citologia_hace %}
-          {{ paciente.ultima_citologia_hace }}
-        {% else %}
-          —
-        {% endif %}
+        <strong>Grupo:</strong> {{ paciente.grupo_sanguineo|default:"—" }}
       </div>
-      <div class="col-6 col-md-3"><strong>VPH:</strong> {% if paciente.vph_vacuna %}Vacunada{% else %}No vacunada{% endif %}</div>
-      <div class="col-6 col-md-3"><strong>Método AC:</strong> {{ paciente.metodo_anticonceptivo|default:"—" }}</div>
-      <div class="col-6 col-md-3"><strong>VIH:</strong> {{ paciente.get_vih_resultado_display }}</div>
-      <div class="col-6 col-md-3"><strong>Grupo:</strong> {{ paciente.grupo_sanguineo|default:"—" }}</div>
-      <div class="col-6 col-md-3"><strong>Menopausia:</strong> {% if paciente.menopausia %}Sí{% else %}No{% endif %}</div>
-      <div class="col-6 col-md-3"><strong>DIU:</strong> {{ paciente.diu_tipo|default:"—" }}</div>
+      {% if paciente.antec_diabetes or paciente.antec_hipertension or paciente.antec_cardiopatias or paciente.antec_epilepsia or paciente.antec_asma_atopia %}
+      <div class="col-12">
+        <strong>Antec. familiares:</strong>
+        {% if paciente.antec_diabetes %}<span class="badge bg-secondary ms-1">Diabetes</span>{% endif %}
+        {% if paciente.antec_hipertension %}<span class="badge bg-secondary ms-1">HTA</span>{% endif %}
+        {% if paciente.antec_cardiopatias %}<span class="badge bg-secondary ms-1">Cardiopatías</span>{% endif %}
+        {% if paciente.antec_epilepsia %}<span class="badge bg-secondary ms-1">Epilepsia</span>{% endif %}
+        {% if paciente.antec_asma_atopia %}<span class="badge bg-secondary ms-1">Asma/Atopía</span>{% endif %}
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -81,7 +86,6 @@
     <form method="post" novalidate>
       {% csrf_token %}
 
-      <!-- Servicios -->
       {% if servicios_disponibles %}
       <div class="mb-4">
         <label class="form-label fw-bold">
@@ -111,7 +115,6 @@
 
       {% crispy form %}
 
-      <!-- Pago -->
       <div class="card border-0 bg-light mt-3 mb-3">
         <div class="card-body row g-3 align-items-center">
           <div class="col-auto">
