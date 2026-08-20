@@ -7,6 +7,11 @@ cedula_validator = RegexValidator(
     message='La cédula debe tener formato V-xxxxxxxx o E-xxxxxxxx'
 )
 
+cedula_representante_validator = RegexValidator(
+    regex=r'^[VvEe]-\d{6,9}-\d+$',
+    message='La cédula del representante debe tener formato V-xxxxxxxx-N (ej: V-12345678-1)'
+)
+
 
 class Paciente(models.Model):
     ESTADO_CIVIL_CHOICES = [
@@ -45,11 +50,29 @@ class Paciente(models.Model):
 
     # Datos personales
     nombre_completo = models.CharField(max_length=200, verbose_name='Nombre completo')
+    no_cedulado = models.BooleanField(
+        default=False,
+        verbose_name='Paciente no cedulado',
+        help_text='Marcar si el paciente aún no tiene cédula (niño/a sin cédula)'
+    )
     cedula = models.CharField(
         max_length=15,
         validators=[cedula_validator],
-        verbose_name='Cédula',
+        verbose_name='Cédula del paciente',
         help_text='Formato: V-12345678 o E-12345678',
+        blank=True,
+        default='',
+    )
+    # Datos del representante
+    nombre_padre = models.CharField(max_length=200, blank=True, verbose_name='Nombre del padre')
+    nombre_madre = models.CharField(max_length=200, blank=True, verbose_name='Nombre de la madre')
+    nombre_representante = models.CharField(max_length=200, blank=True, verbose_name='Nombre del representante')
+    cedula_representante = models.CharField(
+        max_length=20,
+        blank=True,
+        validators=[cedula_representante_validator],
+        verbose_name='Cédula del representante',
+        help_text='Formato: V-12345678-1 (el número final identifica al hijo/representado)'
     )
     fecha_nacimiento = models.DateField(
         null=True, blank=True,
@@ -146,6 +169,8 @@ class Paciente(models.Model):
         unique_together = [['tenant', 'cedula']]
 
     def __str__(self):
+        if self.no_cedulado:
+            return f'{self.nombre_completo} (S/C - Rep: {self.cedula_representante})'
         return f'{self.nombre_completo} ({self.cedula})'
 
     def get_edad(self):
@@ -160,6 +185,16 @@ class Paciente(models.Model):
 
     def get_formula_obstetrica(self):
         return f'G{self.gestas} P{self.partos} C{self.cesareas} A{self.abortos}'
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.no_cedulado:
+            self.cedula = ''
+            if not self.cedula_representante:
+                raise ValidationError({'cedula_representante': 'Debe ingresar la cédula del representante para pacientes no cedulados.'})
+        else:
+            if not self.cedula:
+                raise ValidationError({'cedula': 'La cédula es obligatoria para pacientes cedulados.'})
 
     def save(self, *args, **kwargs):
         if not self.tenant_id:
