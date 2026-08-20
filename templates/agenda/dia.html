@@ -335,27 +335,29 @@ function marcarRecordatorio(citaId, canal) {
   }).catch(() => {});
 }
 
+function _aplicarEstadoPago(badge, pagado) {
+  if (pagado) {
+    badge.className = 'badge bg-success';
+    badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Pagado';
+  } else {
+    badge.className = 'badge bg-warning text-dark';
+    badge.innerHTML = '<i class="bi bi-clock-fill me-1"></i>Pago pendiente';
+  }
+  badge.style.cursor = 'pointer';
+  badge.style.fontSize = '0.7rem';
+}
+
 function togglePago(pk, badge) {
   fetch(`{{ TENANT_PREFIX }}/consultas/${pk}/pago/`, {
     method: 'POST',
     headers: {
       'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '',
+      'X-Requested-With': 'XMLHttpRequest',
     },
   })
   .then(r => r.json())
-  .then(data => {
-    if (data.pagado) {
-      badge.className = 'badge bg-success';
-      badge.style.cursor = 'pointer';
-      badge.style.fontSize = '0.7rem';
-      badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Pagado';
-    } else {
-      badge.className = 'badge bg-warning text-dark';
-      badge.style.cursor = 'pointer';
-      badge.style.fontSize = '0.7rem';
-      badge.innerHTML = '<i class="bi bi-clock-fill me-1"></i>Pago pendiente';
-    }
-  });
+  .then(data => { _aplicarEstadoPago(badge, data.pagado); })
+  .catch(() => { badge.style.opacity = '0.5'; });
 }
 
 function togglePagoProcedimiento(pk, badge) {
@@ -363,22 +365,12 @@ function togglePagoProcedimiento(pk, badge) {
     method: 'POST',
     headers: {
       'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '',
+      'X-Requested-With': 'XMLHttpRequest',
     },
   })
   .then(r => r.json())
-  .then(data => {
-    if (data.pagado) {
-      badge.className = 'badge bg-success';
-      badge.style.cursor = 'pointer';
-      badge.style.fontSize = '0.7rem';
-      badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Pagado';
-    } else {
-      badge.className = 'badge bg-warning text-dark';
-      badge.style.cursor = 'pointer';
-      badge.style.fontSize = '0.7rem';
-      badge.innerHTML = '<i class="bi bi-clock-fill me-1"></i>Pago pendiente';
-    }
-  });
+  .then(data => { _aplicarEstadoPago(badge, data.pagado); })
+  .catch(() => { badge.style.opacity = '0.5'; });
 }
 
 function abrirProcedimiento(pacienteId, citaId) {

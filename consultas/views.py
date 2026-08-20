@@ -548,7 +548,11 @@ def toggle_pago_procedimiento(request, pk):
     from django.http import JsonResponse
     if request.method == 'POST':
         proc = get_object_or_404(Procedimiento, pk=pk, tenant=request.tenant)
-        proc.pagado = not proc.pagado
+        forzar = request.POST.get('forzar') == 'true'
+        if forzar:
+            proc.pagado = True
+        else:
+            proc.pagado = not proc.pagado
         proc.save(update_fields=['pagado'])
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
             return JsonResponse({'pagado': proc.pagado})
