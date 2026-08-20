@@ -86,6 +86,39 @@ def detalle_paciente(request, pk):
         paciente=paciente, tenant=request.tenant
     ).select_related('servicio')
 
+    # Datos de evolución para gráficas (solo si es médico)
+    graficas_json = None
+    if request.user.es_medico and consultas is not None:
+        import json
+        puntos = (
+            paciente.consultas
+            .filter(tenant=request.tenant)
+            .exclude(peso__isnull=True, talla__isnull=True, perimetro_cefalico__isnull=True)
+            .order_by('fecha')
+            .values('fecha', 'peso', 'talla', 'perimetro_cefalico',
+                    'percentil_peso', 'percentil_talla', 'percentil_pc')
+        )
+        fechas, pesos, tallas, pcs = [], [], [], []
+        p_peso, p_talla, p_pc = [], [], []
+        for p in puntos:
+            f = p['fecha'].strftime('%d/%m/%Y')
+            fechas.append(f)
+            pesos.append(float(p['peso']) if p['peso'] else None)
+            tallas.append(float(p['talla']) if p['talla'] else None)
+            pcs.append(float(p['perimetro_cefalico']) if p['perimetro_cefalico'] else None)
+            p_peso.append(p['percentil_peso'])
+            p_talla.append(p['percentil_talla'])
+            p_pc.append(p['percentil_pc'])
+        graficas_json = json.dumps({
+            'fechas': fechas,
+            'pesos': pesos,
+            'tallas': tallas,
+            'pcs': pcs,
+            'p_peso': p_peso,
+            'p_talla': p_talla,
+            'p_pc': p_pc,
+        })
+
     return render(request, 'pacientes/detalle.html', {
         'paciente': paciente,
         'consultas': consultas,
@@ -93,6 +126,7 @@ def detalle_paciente(request, pk):
         'ultima_cita_sin_consulta': ultima_cita_sin_consulta,
         'servicios_disponibles': servicios_disponibles,
         'procedimientos': procedimientos,
+        'graficas_json': graficas_json,
     })
 @login_required
 def editar_paciente(request, pk):

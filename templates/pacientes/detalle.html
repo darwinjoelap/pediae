@@ -171,6 +171,113 @@
   </div>
 </div>
 
+{% if graficas_json %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse" data-bs-target="#graficas-collapse"
+       style="cursor:pointer">
+    <span class="fw-bold small text-uppercase text-muted" style="letter-spacing:1px">
+      <i class="bi bi-graph-up me-1"></i> Curvas de crecimiento
+    </span>
+    <i class="bi bi-chevron-down"></i>
+  </div>
+  <div id="graficas-collapse" class="collapse show">
+    <div class="card-body p-2">
+      <!-- Selector de métrica -->
+      <div class="d-flex gap-2 mb-2 px-1">
+        <button class="btn btn-sm btn-primary" onclick="mostrarGrafica('peso')" id="btn-peso">Peso (kg)</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="mostrarGrafica('talla')" id="btn-talla">Talla (cm)</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="mostrarGrafica('pc')" id="btn-pc">Per. cefálico (cm)</button>
+      </div>
+      <div style="position:relative;height:240px">
+        <canvas id="graficaEvolucion"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  var datos = {{ graficas_json|safe }};
+  var chart = null;
+  var metricaActual = 'peso';
+
+  var configs = {
+    peso:  { label: 'Peso (kg)',            data: datos.pesos,  percentil: datos.p_peso,  color: '#2AACA8' },
+    talla: { label: 'Talla (cm)',           data: datos.tallas, percentil: datos.p_talla, color: '#6366f1' },
+    pc:    { label: 'Perímetro cefálico (cm)', data: datos.pcs, percentil: datos.p_pc,    color: '#f59e0b' },
+  };
+
+  function renderChart(metrica) {
+    var cfg = configs[metrica];
+    var ctx = document.getElementById('graficaEvolucion').getContext('2d');
+    if (chart) chart.destroy();
+
+    // Construir tooltips con percentil
+    var tooltipPlugin = {
+      callbacks: {
+        afterLabel: function(ctx) {
+          var p = cfg.percentil[ctx.dataIndex];
+          return p != null ? 'Percentil: P' + p : '';
+        }
+      }
+    };
+
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: datos.fechas,
+        datasets: [{
+          label: cfg.label,
+          data: cfg.data,
+          borderColor: cfg.color,
+          backgroundColor: cfg.color + '22',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          spanGaps: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: tooltipPlugin,
+        },
+        scales: {
+          x: { ticks: { font: { size: 11 } } },
+          y: {
+            ticks: { font: { size: 11 } },
+            beginAtZero: false,
+          }
+        }
+      }
+    });
+  }
+
+  window.mostrarGrafica = function(metrica) {
+    metricaActual = metrica;
+    ['peso','talla','pc'].forEach(function(m) {
+      var btn = document.getElementById('btn-' + m);
+      btn.className = m === metrica
+        ? 'btn btn-sm btn-primary'
+        : 'btn btn-sm btn-outline-secondary';
+    });
+    renderChart(metrica);
+  };
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // Solo renderizar si hay datos
+    var tieneDatos = datos.fechas && datos.fechas.length > 0;
+    if (tieneDatos) renderChart('peso');
+  });
+})();
+</script>
+{% endif %}
+
 <h6 class="fw-bold text-uppercase text-muted mb-3"
     style="font-size:0.75rem;letter-spacing:1px">
   <i class="bi bi-clock-history me-1"></i> Historial de consultas
