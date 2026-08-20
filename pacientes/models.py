@@ -120,9 +120,21 @@ class Paciente(models.Model):
         blank=True, verbose_name='Antecedentes del embarazo',
         help_text='Patologías maternas, control prenatal, exposición a riesgos'
     )
+    peso_nacer = models.DecimalField(
+        max_digits=4, decimal_places=0,
+        null=True, blank=True,
+        verbose_name='Peso al nacer (g)',
+        help_text='En gramos. Ej: 3200'
+    )
+    talla_nacer = models.DecimalField(
+        max_digits=4, decimal_places=1,
+        null=True, blank=True,
+        verbose_name='Talla al nacer (cm)',
+        help_text='En centímetros. Ej: 50.5'
+    )
     antec_parto = models.TextField(
         blank=True, verbose_name='Antecedentes del parto / nacimiento',
-        help_text='Vía de parto, edad gestacional, APGAR, peso y talla al nacer'
+        help_text='Vía de parto, edad gestacional, APGAR'
     )
     antec_neonatal = models.TextField(
         blank=True, verbose_name='Período neonatal',

@@ -127,6 +127,83 @@ class Consulta(models.Model):
     proxima_cita = models.DateField(null=True, blank=True, verbose_name='Próxima cita')
     observaciones = models.TextField(blank=True, verbose_name='Observaciones')
 
+    # ── Hábitos (alimentación, sueño, eliminación) ──────────────────────────
+    ALIMENTACION_CHOICES = [
+        ('lme', 'Lactancia materna exclusiva'),
+        ('mixta', 'Lactancia mixta'),
+        ('formula', 'Fórmula exclusiva'),
+        ('complementaria', 'Alimentación complementaria + lactancia'),
+        ('familiar', 'Dieta familiar'),
+    ]
+    APETITO_CHOICES = [
+        ('bueno', 'Bueno'),
+        ('regular', 'Regular'),
+        ('malo', 'Malo / hiporexia'),
+    ]
+    DEPOSICIONES_CHOICES = [
+        ('varias_dia', 'Varias veces al día'),
+        ('una_dia', 'Una vez al día'),
+        ('cada_2_3', 'Cada 2-3 días'),
+        ('estreñimiento', 'Estreñimiento (>3 días)'),
+    ]
+    CONSISTENCIA_CHOICES = [
+        ('normal', 'Normal / pastosa'),
+        ('blanda', 'Blanda / semilíquida'),
+        ('liquida', 'Líquida / diarrea'),
+        ('dura', 'Dura / caprinas'),
+    ]
+
+    tipo_alimentacion = models.CharField(
+        max_length=20, choices=ALIMENTACION_CHOICES,
+        blank=True, verbose_name='Tipo de alimentación',
+    )
+    apetito = models.CharField(
+        max_length=10, choices=APETITO_CHOICES,
+        blank=True, verbose_name='Apetito',
+    )
+    num_comidas = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name='Número de comidas al día',
+    )
+    notas_alimentacion = models.TextField(
+        blank=True, verbose_name='Notas de alimentación',
+        help_text='Alimentos rechazados, alergias alimentarias, hábitos especiales',
+    )
+
+    horas_sueno_nocturno = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name='Horas de sueño nocturno',
+    )
+    num_siestas = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name='Número de siestas al día',
+    )
+    duracion_siesta = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name='Duración de siesta (min)',
+    )
+    notas_sueno = models.TextField(
+        blank=True, verbose_name='Notas de sueño',
+        help_text='Ronquidos, despertares frecuentes, pesadillas, comparte cama',
+    )
+
+    frecuencia_deposiciones = models.CharField(
+        max_length=15, choices=DEPOSICIONES_CHOICES,
+        blank=True, verbose_name='Frecuencia de deposiciones',
+    )
+    consistencia_deposiciones = models.CharField(
+        max_length=10, choices=CONSISTENCIA_CHOICES,
+        blank=True, verbose_name='Consistencia de deposiciones',
+    )
+    control_esfinteres = models.BooleanField(
+        null=True, blank=True,
+        verbose_name='Control de esfínteres logrado',
+    )
+    notas_eliminacion = models.TextField(
+        blank=True, verbose_name='Notas de eliminación',
+        help_text='Hematuria, disuria, enuresis, encopresis',
+    )
+
     # Pago
     pagado = models.BooleanField(default=False, verbose_name='Pagado')
     notas_pago = models.CharField(max_length=200, blank=True, verbose_name='Notas de pago')

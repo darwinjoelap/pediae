@@ -34,6 +34,10 @@ class ConsultaForm(forms.ModelForm):
             'tratamiento': forms.Textarea(attrs={'rows': 3}),
             'laboratorio': forms.Textarea(attrs={'rows': 2}),
             'observaciones': forms.Textarea(attrs={'rows': 2}),
+            'notas_alimentacion': forms.Textarea(attrs={'rows': 2}),
+            'notas_sueno': forms.Textarea(attrs={'rows': 2}),
+            'notas_eliminacion': forms.Textarea(attrs={'rows': 2}),
+            'control_esfinteres': forms.NullBooleanSelect(),
         }
 
     def __init__(self, *args, tenant=None, **kwargs):
@@ -50,6 +54,11 @@ class ConsultaForm(forms.ModelForm):
             'temperatura', 'saturacion_oxigeno', 'tension_arterial',
             'sintomas_actuales', 'examen_fisico', 'desarrollo_psicomotor',
             'laboratorio', 'proxima_cita', 'observaciones',
+            # hábitos
+            'tipo_alimentacion', 'apetito', 'num_comidas', 'notas_alimentacion',
+            'horas_sueno_nocturno', 'num_siestas', 'duracion_siesta', 'notas_sueno',
+            'frecuencia_deposiciones', 'consistencia_deposiciones',
+            'control_esfinteres', 'notas_eliminacion',
         ]
         for f in optional:
             if f in self.fields:
@@ -104,6 +113,30 @@ class ConsultaForm(forms.ModelForm):
                 Column('proxima_cita', css_class='col-12 col-md-6'),
             ),
             'observaciones',
+
+            seccion('Hábitos — Alimentación'),
+            Row(
+                Column('tipo_alimentacion', css_class='col-12 col-md-4'),
+                Column('apetito', css_class='col-6 col-md-3'),
+                Column('num_comidas', css_class='col-6 col-md-2'),
+            ),
+            'notas_alimentacion',
+
+            seccion('Hábitos — Sueño'),
+            Row(
+                Column('horas_sueno_nocturno', css_class='col-6 col-md-3'),
+                Column('num_siestas', css_class='col-6 col-md-3'),
+                Column('duracion_siesta', css_class='col-6 col-md-3'),
+            ),
+            'notas_sueno',
+
+            seccion('Hábitos — Eliminación'),
+            Row(
+                Column('frecuencia_deposiciones', css_class='col-12 col-md-4'),
+                Column('consistencia_deposiciones', css_class='col-12 col-md-4'),
+                Column('control_esfinteres', css_class='col-12 col-md-4'),
+            ),
+            'notas_eliminacion',
 
             Submit('submit', 'Guardar consulta', css_class='btn btn-primary btn-touch w-100 mt-4'),
         )

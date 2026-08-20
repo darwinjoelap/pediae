@@ -282,7 +282,8 @@ class PacienteCompletoForm(forms.ModelForm):
             'cedula_representante', 'telefono_representante', 'ocupacion_representante',
             'alergias', 'enfermedades_cronicas', 'cirugias_previas',
             'medicacion_actual', 'grupo_sanguineo',
-            'antec_embarazo', 'antec_parto', 'antec_neonatal',
+            'antec_embarazo', 'peso_nacer', 'talla_nacer',
+            'antec_parto', 'antec_neonatal',
             'antec_autoinmunes', 'antec_geneticas', 'antec_otros',
             'observaciones',
         ]
@@ -329,6 +330,10 @@ class PacienteCompletoForm(forms.ModelForm):
             ),
             seccion('Antecedentes perinatales'),
             'antec_embarazo',
+            Row(
+                Column('peso_nacer', css_class='col-6 col-md-3'),
+                Column('talla_nacer', css_class='col-6 col-md-3'),
+            ),
             'antec_parto',
             'antec_neonatal',
             seccion('Antecedentes familiares'),
