@@ -183,7 +183,6 @@ class Paciente(models.Model):
         verbose_name = 'Paciente'
         verbose_name_plural = 'Pacientes'
         ordering = ['nombre_completo']
-        unique_together = [['tenant', 'cedula']]
 
     def __str__(self):
         if self.no_cedulado:
@@ -209,9 +208,27 @@ class Paciente(models.Model):
             self.cedula = ''
             if not self.cedula_representante:
                 raise ValidationError({'cedula_representante': 'Debe ingresar la cédula del representante para pacientes no cedulados.'})
+            # Unicidad: no puede haber dos pacientes con la misma cedula_representante en el mismo tenant
+            qs = Paciente.objects.filter(
+                tenant=self.tenant,
+                cedula_representante=self.cedula_representante,
+            )
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError({'cedula_representante': 'Ya existe un paciente registrado con esta cédula de representante en este consultorio.'})
         else:
             if not self.cedula:
                 raise ValidationError({'cedula': 'La cédula es obligatoria para pacientes cedulados.'})
+            # Unicidad: no puede haber dos pacientes con la misma cedula en el mismo tenant
+            qs = Paciente.objects.filter(
+                tenant=self.tenant,
+                cedula=self.cedula,
+            )
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError({'cedula': 'Ya existe una paciente registrada con esta cédula en este consultorio.'})
 
     def save(self, *args, **kwargs):
         if not self.tenant_id:
