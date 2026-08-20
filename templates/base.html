@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#2AACA8">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Ginea">
+  <meta name="apple-mobile-web-app-title" content="Pediae">
   {% load static %}
   <link rel="icon" type="image/x-icon" href="{% static 'icons/favicon.ico' %}">
   <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}">
   <link rel="manifest" href="{{ TENANT_PREFIX }}/manifest.json">
-  <title>{% block title %}Ginea{% endblock %} - {{ CONSULTORIO_NOMBRE }}</title>
+  <title>{% block title %}Pediae{% endblock %} - {{ CONSULTORIO_NOMBRE }}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
@@ -93,7 +93,7 @@
 
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <h6><i class="bi bi-heart-pulse-fill me-1" style="color:#2AACA8"></i>{{ CONSULTORIO_NOMBRE }}</h6>
+    <h6><img src="{% static 'icons/logo-icon.png' %}" alt="Pediae" style="height:28px;width:auto;margin-right:6px">{{ CONSULTORIO_NOMBRE }}</h6>
     <small>{{ CONSULTORIO_ESPECIALIDAD }}</small>
   </div>
   <div class="sidebar-nav">
@@ -164,7 +164,7 @@
     <button class="btn-menu" onclick="openSidebar()" aria-label="Menú">
       <i class="bi bi-list"></i>
     </button>
-    <span class="brand"><i class="bi bi-heart-pulse-fill me-1" style="color:#2AACA8"></i>{{ CONSULTORIO_NOMBRE }}</span>
+    <span class="brand"><img src="{% static 'icons/logo-icon.png' %}" alt="Pediae" style="height:24px;width:auto;margin-right:6px">{{ CONSULTORIO_NOMBRE }}</span>
   </div>
   <div class="d-flex align-items-center gap-2">
     {% if user.es_medico %}
