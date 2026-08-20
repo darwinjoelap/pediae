@@ -273,7 +273,7 @@ def imprimir_consulta(request, pk):
     p = consulta.paciente
     datos = [
         ['Paciente:', p.nombre_completo, 'Cédula:', p.cedula],
-        ['Edad:', f'{p.get_edad()} años' if p.fecha_nacimiento else '—',
+        ['Edad:', p.get_edad_detallada() if p.fecha_nacimiento else '—',
          'Teléfono:', p.telefono],
         ['Fecha de consulta:', consulta.fecha.strftime('%d/%m/%Y'),
          'Lugar:', consulta.lugar.nombre if consulta.lugar else '—'],
@@ -337,13 +337,42 @@ def imprimir_consulta(request, pk):
         elementos.append(Paragraph('MOTIVO / NOTAS', e_seccion))
         elementos.append(Paragraph(consulta.motivo_consulta, e_normal))
 
-    if consulta.peso or consulta.tension_arterial:
+    # Antropometría pediátrica
+    antrop = []
+    if consulta.peso:
+        antrop.append(['Peso:', f'{consulta.peso} kg' + (f'  (P{consulta.percentil_peso})' if consulta.percentil_peso else '')])
+    if consulta.talla:
+        antrop.append(['Talla:', f'{consulta.talla} cm' + (f'  (P{consulta.percentil_talla})' if consulta.percentil_talla else '')])
+    if consulta.perimetro_cefalico:
+        antrop.append(['Per. cefálico:', f'{consulta.perimetro_cefalico} cm' + (f'  (P{consulta.percentil_pc})' if consulta.percentil_pc else '')])
+    if consulta.clasificacion_nutricional:
+        antrop.append(['Estado nutr.:', consulta.get_clasificacion_nutricional_display()])
+    if antrop:
+        elementos.append(Paragraph('ANTROPOMETRÍA', e_seccion))
+        tabla_antrop = Table(antrop, colWidths=[5*cm, 12*cm])
+        tabla_antrop.setStyle(TableStyle([
+            ('FONTSIZE', (0,0), (-1,-1), 8.5),
+            ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0,0), (0,-1), gris),
+            ('TEXTCOLOR', (1,0), (1,-1), oscuro),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ]))
+        elementos.append(tabla_antrop)
+
+    # Signos vitales
+    sv = []
+    if consulta.frecuencia_cardiaca:
+        sv.append(['Frec. cardíaca:', f'{consulta.frecuencia_cardiaca} lpm'])
+    if consulta.frecuencia_respiratoria:
+        sv.append(['Frec. respiratoria:', f'{consulta.frecuencia_respiratoria} rpm'])
+    if consulta.temperatura:
+        sv.append(['Temperatura:', f'{consulta.temperatura} °C'])
+    if consulta.saturacion_oxigeno:
+        sv.append(['SatO₂:', f'{consulta.saturacion_oxigeno}%'])
+    if consulta.tension_arterial:
+        sv.append(['Tensión arterial:', f'{consulta.tension_arterial}'])
+    if sv:
         elementos.append(Paragraph('SIGNOS VITALES', e_seccion))
-        sv = []
-        if consulta.peso:
-            sv.append(['Peso:', f'{consulta.peso} kg'])
-        if consulta.tension_arterial:
-            sv.append(['Tensión arterial:', f'{consulta.tension_arterial} mmHg'])
         tabla_sv = Table(sv, colWidths=[5*cm, 12*cm])
         tabla_sv.setStyle(TableStyle([
             ('FONTSIZE', (0,0), (-1,-1), 8.5),
@@ -370,34 +399,9 @@ def imprimir_consulta(request, pk):
             e_normal
         ))
 
-    if consulta.es_prenatal:
-        elementos.append(Paragraph('CONTROL PRENATAL', e_seccion))
-        pre = []
-        if consulta.semanas_gestacion:
-            pre.append(['Semanas:', str(consulta.semanas_gestacion)])
-        if consulta.fpp:
-            pre.append(['FPP:', consulta.fpp.strftime('%d/%m/%Y')])
-        if consulta.altura_uterina:
-            pre.append(['Altura uterina:', f'{consulta.altura_uterina} cm'])
-        if consulta.fcf:
-            pre.append(['FCF:', f'{consulta.fcf} lpm'])
-        if consulta.presentacion_fetal:
-            pre.append(['Presentación:', consulta.presentacion_fetal])
-        if consulta.edemas is not None:
-            pre.append(['Edemas:', 'Sí' if consulta.edemas else 'No'])
-        if pre:
-            tabla_pre = Table(pre, colWidths=[5*cm, 12*cm])
-            tabla_pre.setStyle(TableStyle([
-                ('FONTSIZE', (0,0), (-1,-1), 8.5),
-                ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
-                ('TEXTCOLOR', (0,0), (0,-1), gris),
-                ('TEXTCOLOR', (1,0), (1,-1), oscuro),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-            ]))
-            elementos.append(tabla_pre)
-        if consulta.laboratorio:
-            elementos.append(Paragraph('Laboratorio:', e_label))
-            elementos.append(Paragraph(consulta.laboratorio, e_normal))
+    if consulta.laboratorio:
+        elementos.append(Paragraph('LABORATORIO / PARACLÍNICOS', e_seccion))
+        elementos.append(Paragraph(consulta.laboratorio, e_normal))
 
     # Firma
     elementos.append(Spacer(1, 1.5*cm))

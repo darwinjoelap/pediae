@@ -9,8 +9,11 @@
   </a>
   <h5 class="mb-0 fw-bold">
     Consulta {{ consulta.fecha|date:"d/m/Y" }}
-    {% if consulta.es_prenatal %}
-    <span class="badge ms-1" style="background-color:#ec4899">Prenatal</span>
+    {% if consulta.tipo_consulta %}
+    <span class="badge ms-1"
+      style="background-color:{% if consulta.tipo_consulta == 'control_sano' %}#2AACA8{% elif consulta.tipo_consulta == 'enfermedad' %}#dc3545{% else %}#6c757d{% endif %}">
+      {{ consulta.get_tipo_consulta_display }}
+    </span>
     {% endif %}
   </h5>
 </div>
@@ -22,24 +25,85 @@
       <a href="{{ TENANT_PREFIX }}/pacientes/{{ consulta.paciente.pk }}/" class="text-decoration-none">
         {{ consulta.paciente.nombre_completo }}
       </a>
-      &nbsp;·&nbsp; {{ consulta.paciente.cedula }}
+      &nbsp;·&nbsp; {{ consulta.paciente.get_edad_detallada }}
+      {% if consulta.lugar %} &nbsp;·&nbsp; <i class="bi bi-geo-alt me-1"></i>{{ consulta.lugar.nombre }}{% endif %}
     </p>
 
-    {% if consulta.peso or consulta.tension_arterial %}
-    <div class="d-flex gap-3 mb-3">
+    {# ── Antropometría + percentiles ── #}
+    {% if consulta.peso or consulta.talla or consulta.perimetro_cefalico %}
+    <div class="row g-2 mb-3">
       {% if consulta.peso %}
-      <span class="badge bg-light text-dark border fs-6">
-        <i class="bi bi-activity me-1"></i>{{ consulta.peso }} kg
+      <div class="col-auto">
+        <div class="border rounded px-3 py-2 text-center" style="min-width:90px">
+          <div class="fw-bold" style="font-size:1.1rem">{{ consulta.peso }} <small class="fw-normal text-muted">kg</small></div>
+          <div class="text-muted" style="font-size:0.72rem">Peso
+            {% if consulta.percentil_peso %}<span class="badge bg-secondary ms-1">P{{ consulta.percentil_peso }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% if consulta.talla %}
+      <div class="col-auto">
+        <div class="border rounded px-3 py-2 text-center" style="min-width:90px">
+          <div class="fw-bold" style="font-size:1.1rem">{{ consulta.talla }} <small class="fw-normal text-muted">cm</small></div>
+          <div class="text-muted" style="font-size:0.72rem">Talla
+            {% if consulta.percentil_talla %}<span class="badge bg-secondary ms-1">P{{ consulta.percentil_talla }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% if consulta.perimetro_cefalico %}
+      <div class="col-auto">
+        <div class="border rounded px-3 py-2 text-center" style="min-width:90px">
+          <div class="fw-bold" style="font-size:1.1rem">{{ consulta.perimetro_cefalico }} <small class="fw-normal text-muted">cm</small></div>
+          <div class="text-muted" style="font-size:0.72rem">PC
+            {% if consulta.percentil_pc %}<span class="badge bg-secondary ms-1">P{{ consulta.percentil_pc }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% if consulta.clasificacion_nutricional %}
+      <div class="col-auto d-flex align-items-center">
+        <span class="badge fs-6 bg-{% if consulta.clasificacion_nutricional == 'normal' %}success{% elif consulta.clasificacion_nutricional == 'obesidad' or consulta.clasificacion_nutricional == 'desnutricion_severa' %}danger{% else %}warning text-dark{% endif %}">
+          {{ consulta.get_clasificacion_nutricional_display }}
+        </span>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# ── Signos vitales ── #}
+    {% if consulta.frecuencia_cardiaca or consulta.frecuencia_respiratoria or consulta.temperatura or consulta.saturacion_oxigeno or consulta.tension_arterial %}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      {% if consulta.frecuencia_cardiaca %}
+      <span class="badge bg-light text-dark border">
+        <i class="bi bi-heart-pulse me-1 text-danger"></i>{{ consulta.frecuencia_cardiaca }} lpm
+      </span>
+      {% endif %}
+      {% if consulta.frecuencia_respiratoria %}
+      <span class="badge bg-light text-dark border">
+        <i class="bi bi-lungs me-1 text-primary"></i>{{ consulta.frecuencia_respiratoria }} rpm
+      </span>
+      {% endif %}
+      {% if consulta.temperatura %}
+      <span class="badge bg-light text-dark border">
+        <i class="bi bi-thermometer-half me-1 text-warning"></i>{{ consulta.temperatura }} °C
+      </span>
+      {% endif %}
+      {% if consulta.saturacion_oxigeno %}
+      <span class="badge bg-light text-dark border">
+        <i class="bi bi-droplet me-1 text-info"></i>SatO₂ {{ consulta.saturacion_oxigeno }}%
       </span>
       {% endif %}
       {% if consulta.tension_arterial %}
-      <span class="badge bg-light text-dark border fs-6">
-        <i class="bi bi-heart-pulse me-1"></i>{{ consulta.tension_arterial }} mmHg
+      <span class="badge bg-light text-dark border">
+        <i class="bi bi-activity me-1"></i>TA {{ consulta.tension_arterial }}
       </span>
       {% endif %}
     </div>
     {% endif %}
 
+    {# ── Clínica ── #}
     {% if consulta.motivo_consulta %}
     <h6 class="text-muted text-uppercase small">Motivo</h6>
     <p>{{ consulta.motivo_consulta }}</p>
@@ -55,19 +119,9 @@
     <p>{{ consulta.examen_fisico }}</p>
     {% endif %}
 
-    {% if consulta.ecografia %}
-    <h6 class="text-muted text-uppercase small">Ecografía</h6>
-    <p>{{ consulta.ecografia }}</p>
-    {% endif %}
-
-    {% if consulta.colposcopia %}
-    <h6 class="text-muted text-uppercase small">Colposcopía</h6>
-    <p>{{ consulta.colposcopia }}</p>
-    {% endif %}
-
-    {% if consulta.imagenes %}
-    <h6 class="text-muted text-uppercase small">Imágenes</h6>
-    <p>{{ consulta.imagenes }}</p>
+    {% if consulta.desarrollo_psicomotor %}
+    <h6 class="text-muted text-uppercase small">Desarrollo psicomotor</h6>
+    <p>{{ consulta.desarrollo_psicomotor }}</p>
     {% endif %}
 
     <h6 class="text-muted text-uppercase small">Diagnóstico</h6>
@@ -75,6 +129,11 @@
 
     <h6 class="text-muted text-uppercase small">Tratamiento</h6>
     <p>{{ consulta.tratamiento }}</p>
+
+    {% if consulta.laboratorio %}
+    <h6 class="text-muted text-uppercase small">Laboratorio / Paraclínicos</h6>
+    <pre class="mt-1 p-2 bg-light rounded small" style="white-space:pre-wrap">{{ consulta.laboratorio }}</pre>
+    {% endif %}
 
     {% if consulta.observaciones %}
     <h6 class="text-muted text-uppercase small">Observaciones</h6>
@@ -85,25 +144,6 @@
     <div class="alert alert-light border mt-3">
       <i class="bi bi-calendar-event me-1"></i>
       <strong>Próxima cita:</strong> {{ consulta.proxima_cita|date:"d/m/Y" }}
-    </div>
-    {% endif %}
-
-    {% if consulta.es_prenatal %}
-    <hr>
-    <h6 class="text-uppercase small" style="color:#ec4899">Control prenatal</h6>
-    <div class="row g-2 small">
-      <div class="col-6"><strong>Semanas:</strong> {{ consulta.semanas_gestacion }}</div>
-      <div class="col-6"><strong>FPP:</strong> {{ consulta.fpp|date:"d/m/Y"|default:"—" }}</div>
-      <div class="col-6"><strong>Altura uterina:</strong> {{ consulta.altura_uterina|default:"—" }} cm</div>
-      <div class="col-6"><strong>FCF:</strong> {{ consulta.fcf|default:"—" }} lpm</div>
-      <div class="col-6"><strong>Presentación:</strong> {{ consulta.presentacion_fetal|default:"—" }}</div>
-      <div class="col-6"><strong>Edemas:</strong> {% if consulta.edemas %}Sí{% else %}No{% endif %}</div>
-      {% if consulta.laboratorio %}
-      <div class="col-12 mt-2">
-        <strong>Laboratorio:</strong>
-        <pre class="mt-1 p-2 bg-light rounded small" style="white-space:pre-wrap">{{ consulta.laboratorio }}</pre>
-      </div>
-      {% endif %}
     </div>
     {% endif %}
   </div>
