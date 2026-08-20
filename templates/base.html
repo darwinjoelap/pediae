@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#2AACA8">
+  <meta name="theme-color" content="{{ COLOR_PRIMARIO }}">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Pediae">
@@ -17,7 +17,11 @@
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   {% block extra_css %}{% endblock %}
   <style>
-    :root { --sidebar-width: 220px; --color-primary: #2AACA8; }
+    :root {
+      --sidebar-width: 220px;
+      --color-primary: {{ COLOR_PRIMARIO }};
+      --color-primary-alpha: {{ COLOR_PRIMARIO }}26;
+    }
 
     /* Sidebar */
     .sidebar {
@@ -33,7 +37,7 @@
     .sidebar-brand small { color: rgba(255,255,255,0.5); font-size: 0.7rem; }
     .sidebar-nav { flex: 1; padding: 1rem 0; overflow-y: auto; }
     .sidebar-nav .nav-link { color: rgba(255,255,255,0.65); padding: 0.65rem 1.2rem; font-size: 0.9rem; display: flex; align-items: center; gap: 0.6rem; transition: all 0.15s; border-left: 3px solid transparent; text-decoration: none; }
-    .sidebar-nav .nav-link:hover, .sidebar-nav .nav-link.active { color: #fff; background: rgba(42,172,168,0.3); border-left-color: var(--color-primary); }
+    .sidebar-nav .nav-link:hover, .sidebar-nav .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); border-left-color: var(--color-primary); }
     .sidebar-nav .nav-section { color: rgba(255,255,255,0.3); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; padding: 0.8rem 1.2rem 0.3rem; }
     .sidebar-footer { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); }
     .sidebar-footer .user-info { color: rgba(255,255,255,0.7); font-size: 0.8rem; }
@@ -144,7 +148,7 @@
     <div class="user-info mb-2">
       <i class="bi bi-person-circle me-1"></i>{{ user.get_full_name|default:user.username }}
       {% if user.es_medico %}
-        <span class="badge ms-1" style="background-color:#2AACA8;font-size:0.65rem">{{ user.titulo }}</span>
+        <span class="badge ms-1" style="background-color:var(--color-primary);font-size:0.65rem">{{ user.titulo }}</span>
       {% else %}
         <span class="badge bg-info text-dark ms-1" style="font-size:0.65rem">Asistente</span>
       {% endif %}
@@ -168,7 +172,7 @@
   </div>
   <div class="d-flex align-items-center gap-2">
     {% if user.es_medico %}
-      <span class="badge" style="background-color:#2AACA8;font-size:0.7rem">{{ user.titulo }}</span>
+      <span class="badge" style="background-color:var(--color-primary);font-size:0.7rem">{{ user.titulo }}</span>
     {% else %}
       <span class="badge bg-info text-dark" style="font-size:0.7rem">Asistente</span>
     {% endif %}
