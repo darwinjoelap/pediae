@@ -27,7 +27,7 @@
     .sidebar {
       position: fixed; top: 0; left: 0;
       width: var(--sidebar-width); height: 100vh;
-      background: #1e1b2e; z-index: 200;
+      background: {{ COLOR_SIDEBAR }}; z-index: 200;
       display: flex; flex-direction: column;
       transition: transform 0.25s ease;
     }
@@ -56,7 +56,7 @@
 
     /* Topbar móvil */
     .topbar-mobile {
-      background: #1e1b2e; padding: 0.6rem 1rem;
+      background: {{ COLOR_SIDEBAR }}; padding: 0.6rem 1rem;
       display: flex; align-items: center; justify-content: space-between;
       position: sticky; top: 0; z-index: 100;
     }

@@ -12,10 +12,10 @@ class ConfigConsultorio(models.Model):
     # Identidad
     nombre_consultorio = models.CharField(max_length=200, blank=True,
         verbose_name='Nombre del consultorio',
-        help_text='Ej: Consultorio Ginecológico Santa María')
+        help_text='Ej: Consultorio Pediátrico Santa María')
     nombre_medico = models.CharField(max_length=200, blank=True,
         verbose_name='Nombre del médico',
-        help_text='Ej: Dra. Vanessa Pereira')
+        help_text='Ej: Dr. Carlos Pérez')
     especialidad = models.CharField(max_length=200, blank=True,
         verbose_name='Especialidad')
 
@@ -38,7 +38,11 @@ class ConfigConsultorio(models.Model):
 
     # Apariencia
     color_primario = models.CharField(max_length=7, default='#2AACA8',
-        verbose_name='Color primario', help_text='Código hex: #2AACA8')
+        verbose_name='Color primario',
+        help_text='Color de botones y acentos')
+    color_sidebar = models.CharField(max_length=7, default='#1e1b2e',
+        verbose_name='Color de la barra lateral',
+        help_text='Fondo del menú lateral')
 
     actualizado_en = models.DateTimeField(auto_now=True)
 

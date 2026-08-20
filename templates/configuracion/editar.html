@@ -103,9 +103,18 @@
           <div class="col-auto">
             <label class="form-label">{{ form.color_primario.label }}</label>
             {{ form.color_primario }}
+            <div class="form-text">Botones y acentos</div>
+          </div>
+          <div class="col-auto">
+            <label class="form-label">{{ form.color_sidebar.label }}</label>
+            {{ form.color_sidebar }}
+            <div class="form-text">Fondo del menú lateral</div>
           </div>
           <div class="col">
-            <small class="text-muted">Color que se usará en botones y elementos destacados de la app.</small>
+            <div id="sidebar-preview"
+              style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:8px;font-size:0.85rem;color:#fff;font-weight:600;transition:background 0.2s">
+              <i class="bi bi-layout-sidebar"></i> Vista previa del sidebar
+            </div>
           </div>
         </div>
       </div>
@@ -135,4 +144,23 @@
   </div>
 
 </div>
+
+<script>
+(function() {
+  const primario = document.querySelector('[name="color_primario"]');
+  const sidebar = document.querySelector('[name="color_sidebar"]');
+  const preview = document.getElementById('sidebar-preview');
+
+  function updatePreview() {
+    const bg = sidebar ? sidebar.value : '#1e1b2e';
+    const accent = primario ? primario.value : '#2AACA8';
+    preview.style.background = bg;
+    preview.style.borderLeft = '4px solid ' + accent;
+  }
+
+  if (primario) primario.addEventListener('input', updatePreview);
+  if (sidebar) sidebar.addEventListener('input', updatePreview);
+  updatePreview();
+})();
+</script>
 {% endblock %}
