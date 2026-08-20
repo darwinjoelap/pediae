@@ -129,15 +129,18 @@ def generar_pdf_historial(request, paciente_id):
 
     elementos.append(Paragraph('HISTORIA CLÍNICA', e_seccion))
 
+    # Cédula: puede ser del paciente o del representante si no está cedulado
+    cedula_display = paciente.cedula if not paciente.no_cedulado else f'S/C (Rep: {paciente.cedula_representante})'
     datos = [
-        ['Paciente:', paciente.nombre_completo, 'Cédula:', paciente.cedula],
+        ['Paciente:', paciente.nombre_completo,
+         'Cédula:', cedula_display],
         ['F. Nacimiento:',
          paciente.fecha_nacimiento.strftime('%d/%m/%Y') if paciente.fecha_nacimiento else '—',
-         'Edad:', f'{paciente.get_edad()} años' if paciente.fecha_nacimiento else '—'],
+         'Edad:', paciente.get_edad_detallada()],
         ['Teléfono:', paciente.telefono,
-         'Estado civil:', paciente.get_estado_civil_display() if paciente.estado_civil else '—'],
+         'Sexo:', paciente.get_sexo_display() if paciente.sexo else '—'],
         ['Seguro:', paciente.seguro_medico or '—',
-         'Ocupación:', paciente.ocupacion or '—'],
+         'Grupo sang.:', paciente.grupo_sanguineo or '—'],
     ]
     tabla_datos = Table(datos, colWidths=[3*cm, 6*cm, 3*cm, 5*cm])
     tabla_datos.setStyle(TableStyle([
@@ -153,6 +156,29 @@ def generar_pdf_historial(request, paciente_id):
     ]))
     elementos.append(tabla_datos)
 
+    # Representante
+    if paciente.no_cedulado or paciente.nombre_representante:
+        rep_lineas = []
+        if paciente.nombre_representante:
+            fil = paciente.get_filiacion_representante_display() if paciente.filiacion_representante else 'Representante'
+            rep_lineas.append([f'{fil}:', paciente.nombre_representante])
+        if paciente.cedula_representante:
+            rep_lineas.append(['C.I. Rep.:', paciente.cedula_representante])
+        if paciente.telefono_representante:
+            rep_lineas.append(['Tel. Rep.:', paciente.telefono_representante])
+        if rep_lineas:
+            elementos.append(Paragraph('REPRESENTANTE', e_seccion))
+            tabla_rep = Table(rep_lineas, colWidths=[3.5*cm, 13.5*cm])
+            tabla_rep.setStyle(TableStyle([
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('TEXTCOLOR', (0, 0), (0, -1), gris),
+                ('TEXTCOLOR', (1, 0), (1, -1), oscuro),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            elementos.append(tabla_rep)
+
+    # Antecedentes personales y familiares
     antec = []
     if paciente.alergias:
         antec.append(['Alergias:', paciente.alergias])
@@ -163,12 +189,13 @@ def generar_pdf_historial(request, paciente_id):
     if paciente.cirugias_previas:
         antec.append(['Cirugías:', paciente.cirugias_previas])
     antec_fam = []
-    if paciente.antec_cancer_mama: antec_fam.append('Ca. mama')
-    if paciente.antec_cancer_cuello: antec_fam.append('Ca. cuello')
     if paciente.antec_diabetes: antec_fam.append('Diabetes')
     if paciente.antec_hipertension: antec_fam.append('HTA')
+    if paciente.antec_cardiopatias: antec_fam.append('Cardiopatías')
+    if paciente.antec_epilepsia: antec_fam.append('Epilepsia')
+    if paciente.antec_asma_atopia: antec_fam.append('Asma/Atopía')
     if antec_fam:
-        antec.append(['Fam.:', ', '.join(antec_fam)])
+        antec.append(['Antec. fam.:', ', '.join(antec_fam)])
 
     if antec:
         elementos.append(Paragraph('ANTECEDENTES', e_seccion))
@@ -182,29 +209,54 @@ def generar_pdf_historial(request, paciente_id):
         ]))
         elementos.append(tabla_antec)
 
-    elementos.append(Paragraph('GINECO-OBSTÉTRICO', e_seccion))
-    go_data = [
-        ['Fórmula obs.:', paciente.get_formula_obstetrica(),
-         'FUR:', paciente.fur.strftime('%d/%m/%Y') if paciente.fur else '—'],
-        ['Citología:', paciente.ultima_citologia_fecha.strftime('%d/%m/%Y') if paciente.ultima_citologia_fecha else '—',
-         'Result.:', paciente.ultima_citologia_resultado or '—'],
-        ['VIH:', paciente.get_vih_resultado_display(),
-         'VPH vacuna:', 'Sí' if paciente.vph_vacuna else 'No'],
-        ['Método AC:', paciente.metodo_anticonceptivo or '—',
-         'Menopausia:', 'Sí' if paciente.menopausia else 'No'],
-    ]
-    tabla_go = Table(go_data, colWidths=[3*cm, 6*cm, 3*cm, 5*cm])
-    tabla_go.setStyle(TableStyle([
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-        ('TEXTCOLOR', (0, 0), (0, -1), gris),
-        ('TEXTCOLOR', (2, 0), (2, -1), gris),
-        ('TEXTCOLOR', (1, 0), (1, -1), oscuro),
-        ('TEXTCOLOR', (3, 0), (3, -1), oscuro),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-    ]))
-    elementos.append(tabla_go)
+    # Antecedentes perinatales
+    perinatal = []
+    if paciente.antec_embarazo:
+        perinatal.append(['Embarazo:', paciente.antec_embarazo])
+    if paciente.antec_parto:
+        perinatal.append(['Parto:', paciente.antec_parto])
+    if paciente.antec_neonatal:
+        perinatal.append(['Neonatal:', paciente.antec_neonatal])
+    if perinatal:
+        elementos.append(Paragraph('ANTECEDENTES PERINATALES', e_seccion))
+        tabla_perinatal = Table(perinatal, colWidths=[3.5*cm, 13.5*cm])
+        tabla_perinatal.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (0, -1), gris),
+            ('TEXTCOLOR', (1, 0), (1, -1), oscuro),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        elementos.append(tabla_perinatal)
+
+    # Vacunas aplicadas
+    from pacientes.models import VacunaAplicada
+    vacunas_aplicadas = VacunaAplicada.objects.filter(
+        paciente=paciente, tenant=request.tenant
+    ).select_related('vacuna').order_by('fecha')
+    if vacunas_aplicadas.exists():
+        elementos.append(Paragraph('VACUNAS APLICADAS', e_seccion))
+        vac_filas = [['Vacuna', 'Dosis', 'Fecha', 'Lote']]
+        for va in vacunas_aplicadas:
+            vac_filas.append([
+                va.vacuna.nombre,
+                f'd{va.vacuna.dosis_numero}',
+                va.fecha.strftime('%d/%m/%Y'),
+                va.lote or '—',
+            ])
+        tabla_vac = Table(vac_filas, colWidths=[6*cm, 2*cm, 3.5*cm, 5.5*cm])
+        tabla_vac.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F3F4F6')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), oscuro),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')]),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#E5E7EB')),
+        ]))
+        elementos.append(tabla_vac)
 
     elementos.append(Spacer(1, 0.3*cm))
     elementos.append(HRFlowable(width='100%', thickness=1, color=colors.HexColor('#E5E7EB')))
@@ -212,7 +264,7 @@ def generar_pdf_historial(request, paciente_id):
 
     if consultas:
         for consulta in consultas:
-            tipo = 'CONTROL PRENATAL' if consulta.es_prenatal else 'CONSULTA'
+            tipo = consulta.get_tipo_consulta_display() if hasattr(consulta, 'get_tipo_consulta_display') else 'CONSULTA'
             bloque = []
 
             header_data = [[
@@ -238,29 +290,44 @@ def generar_pdf_historial(request, paciente_id):
                 filas_consulta.append(['Diagnóstico:', consulta.diagnostico])
             if consulta.tratamiento:
                 filas_consulta.append(['Tratamiento:', consulta.tratamiento])
-            if consulta.peso or consulta.tension_arterial:
-                sv = []
-                if consulta.peso: sv.append(f'Peso: {consulta.peso} kg')
-                if consulta.tension_arterial: sv.append(f'TA: {consulta.tension_arterial}')
+
+            # Antropometría pediátrica
+            antrop = []
+            if consulta.peso:
+                txt = f'{consulta.peso} kg'
+                if consulta.percentil_peso: txt += f'  (P{consulta.percentil_peso})'
+                antrop.append(txt)
+            if consulta.talla:
+                txt = f'{consulta.talla} cm'
+                if consulta.percentil_talla: txt += f'  (P{consulta.percentil_talla})'
+                antrop.append(txt)
+            if consulta.perimetro_cefalico:
+                txt = f'PC {consulta.perimetro_cefalico} cm'
+                if consulta.percentil_pc: txt += f'  (P{consulta.percentil_pc})'
+                antrop.append(txt)
+            if antrop:
+                filas_consulta.append(['Antropometría:', ' · '.join(antrop)])
+            if consulta.clasificacion_nutricional:
+                filas_consulta.append(['Estado nutr.:', consulta.get_clasificacion_nutricional_display()])
+
+            # Signos vitales
+            sv = []
+            if consulta.frecuencia_cardiaca: sv.append(f'FC: {consulta.frecuencia_cardiaca} lpm')
+            if consulta.frecuencia_respiratoria: sv.append(f'FR: {consulta.frecuencia_respiratoria} rpm')
+            if consulta.temperatura: sv.append(f'T°: {consulta.temperatura} °C')
+            if consulta.saturacion_oxigeno: sv.append(f'SatO₂: {consulta.saturacion_oxigeno}%')
+            if consulta.tension_arterial: sv.append(f'TA: {consulta.tension_arterial}')
+            if sv:
                 filas_consulta.append(['Signos vitales:', ' · '.join(sv)])
+
+            if consulta.desarrollo_psicomotor:
+                filas_consulta.append(['Desarrollo:', consulta.desarrollo_psicomotor])
+            if consulta.laboratorio:
+                filas_consulta.append(['Laboratorio:', consulta.laboratorio])
             if consulta.observaciones:
                 filas_consulta.append(['Observaciones:', consulta.observaciones])
             if consulta.proxima_cita:
                 filas_consulta.append(['Próxima cita:', consulta.proxima_cita.strftime('%d/%m/%Y')])
-
-            if consulta.es_prenatal:
-                if consulta.semanas_gestacion:
-                    filas_consulta.append(['Semanas gest.:', str(consulta.semanas_gestacion)])
-                if consulta.fpp:
-                    filas_consulta.append(['FPP:', consulta.fpp.strftime('%d/%m/%Y')])
-                if consulta.altura_uterina:
-                    filas_consulta.append(['Altura uterina:', f'{consulta.altura_uterina} cm'])
-                if consulta.fcf:
-                    filas_consulta.append(['FCF:', f'{consulta.fcf} lpm'])
-                if consulta.presentacion_fetal:
-                    filas_consulta.append(['Presentación:', consulta.presentacion_fetal])
-                if consulta.laboratorio:
-                    filas_consulta.append(['Laboratorio:', consulta.laboratorio])
 
             if filas_consulta:
                 tabla_c = Table(filas_consulta, colWidths=[3.5*cm, 13.5*cm])
