@@ -8,11 +8,41 @@ def seccion(titulo):
     return HTML(f'''
         <div class="col-12 mt-4 mb-2">
           <h6 class="fw-bold text-uppercase text-muted border-bottom pb-1"
-              style="font-size:0.75rem;letter-spacing:1px;color:#6f42c1!important">
+              style="font-size:0.75rem;letter-spacing:1px;color:#38B8D8!important">
             {titulo}
           </h6>
         </div>
     ''')
+
+
+NO_CEDULADO_JS = HTML('''
+<div class="col-12">
+  <script>
+  (function() {
+    function toggleCedula() {
+      var chk = document.getElementById('id_no_cedulado');
+      if (!chk) return;
+      var cedRow = document.getElementById('cedula-paciente-row');
+      var repRow = document.getElementById('representante-row');
+      if (chk.checked) {
+        if (cedRow) cedRow.style.display = 'none';
+        if (repRow) repRow.style.display = '';
+      } else {
+        if (cedRow) cedRow.style.display = '';
+        if (repRow) repRow.style.display = 'none';
+      }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      var chk = document.getElementById('id_no_cedulado');
+      if (chk) {
+        toggleCedula();
+        chk.addEventListener('change', toggleCedula);
+      }
+    });
+  })();
+  </script>
+</div>
+''')
 
 
 class PacienteAsistenteForm(forms.ModelForm):
@@ -20,8 +50,9 @@ class PacienteAsistenteForm(forms.ModelForm):
     class Meta:
         model = Paciente
         fields = [
-            'nombre_completo', 'cedula', 'fecha_nacimiento',
-            'telefono', 'email', 'contacto_emergencia',
+            'nombre_completo', 'no_cedulado', 'cedula',
+            'nombre_representante', 'cedula_representante',
+            'fecha_nacimiento', 'telefono', 'email', 'contacto_emergencia',
         ]
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date', 'value': ''}, format='%Y-%m-%d'),
@@ -33,14 +64,25 @@ class PacienteAsistenteForm(forms.ModelForm):
         self.fields['fecha_nacimiento'].required = False
         self.fields['email'].required = False
         self.fields['contacto_emergencia'].required = False
+        self.fields['cedula'].required = False
+        self.fields['cedula_representante'].required = False
+        self.fields['nombre_representante'].required = False
         self._set_defaults()
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Row(
                 Column('nombre_completo', css_class='col-12 col-md-8'),
-                Column('cedula', css_class='col-12 col-md-4'),
+                Column('no_cedulado', css_class='col-12 col-md-4 pt-md-4'),
             ),
+            NO_CEDULADO_JS,
+            HTML('<div id="cedula-paciente-row" class="row g-2 mb-2">'),
+            Column('cedula', css_class='col-12'),
+            HTML('</div>'),
+            HTML('<div id="representante-row" class="row g-2 mb-2" style="display:none">'),
+            Column('nombre_representante', css_class='col-12 col-md-6'),
+            Column('cedula_representante', css_class='col-12 col-md-6'),
+            HTML('</div>'),
             Row(
                 Column('fecha_nacimiento', css_class='col-12 col-md-4'),
                 Column('telefono', css_class='col-12 col-md-4'),
@@ -68,8 +110,9 @@ class PacienteDoctoraNuevoForm(forms.ModelForm):
     class Meta:
         model = Paciente
         fields = [
-            'nombre_completo', 'cedula', 'fecha_nacimiento',
-            'telefono', 'email', 'contacto_emergencia',
+            'nombre_completo', 'no_cedulado', 'cedula',
+            'nombre_representante', 'cedula_representante',
+            'fecha_nacimiento', 'telefono', 'email', 'contacto_emergencia',
         ]
         widgets = {
             'fecha_nacimiento': forms.DateInput(attrs={'type': 'date', 'value': ''}, format='%Y-%m-%d'),
@@ -81,14 +124,25 @@ class PacienteDoctoraNuevoForm(forms.ModelForm):
         self.fields['fecha_nacimiento'].required = False
         self.fields['email'].required = False
         self.fields['contacto_emergencia'].required = False
+        self.fields['cedula'].required = False
+        self.fields['cedula_representante'].required = False
+        self.fields['nombre_representante'].required = False
 
         self.helper = FormHelper()
         self.helper.form_tag = False
         self.helper.layout = Layout(
             Row(
                 Column('nombre_completo', css_class='col-12 col-md-8'),
-                Column('cedula', css_class='col-12 col-md-4'),
+                Column('no_cedulado', css_class='col-12 col-md-4 pt-md-4'),
             ),
+            NO_CEDULADO_JS,
+            HTML('<div id="cedula-paciente-row" class="row g-2 mb-2">'),
+            Column('cedula', css_class='col-12'),
+            HTML('</div>'),
+            HTML('<div id="representante-row" class="row g-2 mb-2" style="display:none">'),
+            Column('nombre_representante', css_class='col-12 col-md-6'),
+            Column('cedula_representante', css_class='col-12 col-md-6'),
+            HTML('</div>'),
             Row(
                 Column('fecha_nacimiento', css_class='col-12 col-md-4'),
                 Column('telefono', css_class='col-12 col-md-4'),
@@ -112,7 +166,9 @@ class PacientePersonalForm(forms.ModelForm):
     class Meta:
         model = Paciente
         fields = [
-            'nombre_completo', 'cedula', 'fecha_nacimiento', 'telefono', 'email',
+            'nombre_completo', 'no_cedulado', 'cedula',
+            'nombre_padre', 'nombre_madre', 'nombre_representante', 'cedula_representante',
+            'fecha_nacimiento', 'telefono', 'email',
             'estado_civil', 'nivel_instruccion', 'ocupacion',
             'direccion', 'contacto_emergencia', 'seguro_medico',
         ]
@@ -130,13 +186,31 @@ class PacientePersonalForm(forms.ModelForm):
         self.fields['direccion'].required = False
         self.fields['contacto_emergencia'].required = False
         self.fields['seguro_medico'].required = False
+        self.fields['cedula'].required = False
+        self.fields['cedula_representante'].required = False
+        self.fields['nombre_padre'].required = False
+        self.fields['nombre_madre'].required = False
+        self.fields['nombre_representante'].required = False
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
             seccion('Datos personales'),
             Row(
                 Column('nombre_completo', css_class='col-12 col-md-8'),
-                Column('cedula', css_class='col-12 col-md-4'),
+                Column('no_cedulado', css_class='col-12 col-md-4 pt-md-4'),
+            ),
+            NO_CEDULADO_JS,
+            HTML('<div id="cedula-paciente-row" class="row g-2 mb-2">'),
+            Column('cedula', css_class='col-12 col-md-4'),
+            HTML('</div>'),
+            HTML('<div id="representante-row" class="row g-2 mb-2" style="display:none">'),
+            Column('nombre_representante', css_class='col-12 col-md-6'),
+            Column('cedula_representante', css_class='col-12 col-md-6'),
+            HTML('</div>'),
+            seccion('Datos del representante / padres'),
+            Row(
+                Column('nombre_padre', css_class='col-12 col-md-6'),
+                Column('nombre_madre', css_class='col-12 col-md-6'),
             ),
             Row(
                 Column('fecha_nacimiento', css_class='col-12 col-md-3'),
@@ -195,6 +269,8 @@ class PacienteCompletoForm(forms.ModelForm):
                 self.fields[f].input_formats = ['%Y-%m-%d']
 
         optional = [
+            'cedula', 'nombre_padre', 'nombre_madre',
+            'nombre_representante', 'cedula_representante',
             'fecha_nacimiento',
             'email', 'ocupacion', 'direccion', 'contacto_emergencia', 'seguro_medico',
             'alergias', 'enfermedades_cronicas', 'cirugias_previas', 'medicacion_actual',
@@ -214,7 +290,20 @@ class PacienteCompletoForm(forms.ModelForm):
             seccion('Datos personales'),
             Row(
                 Column('nombre_completo', css_class='col-12 col-md-8'),
-                Column('cedula', css_class='col-12 col-md-4'),
+                Column('no_cedulado', css_class='col-12 col-md-4 pt-md-4'),
+            ),
+            NO_CEDULADO_JS,
+            HTML('<div id="cedula-paciente-row" class="row g-2 mb-2">'),
+            Column('cedula', css_class='col-12 col-md-4'),
+            HTML('</div>'),
+            HTML('<div id="representante-row" class="row g-2 mb-2" style="display:none">'),
+            Column('nombre_representante', css_class='col-12 col-md-6'),
+            Column('cedula_representante', css_class='col-12 col-md-6'),
+            HTML('</div>'),
+            seccion('Datos del representante / padres'),
+            Row(
+                Column('nombre_padre', css_class='col-12 col-md-6'),
+                Column('nombre_madre', css_class='col-12 col-md-6'),
             ),
             Row(
                 Column('fecha_nacimiento', css_class='col-12 col-md-3'),
