@@ -301,7 +301,7 @@
       </div>
       {% endif %}
     </div>
-    <a href="{% url 'pacientes:vacunas' paciente.pk %}" class="btn btn-sm btn-outline-secondary">
+    <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/" class="btn btn-sm btn-outline-secondary">
       Ver esquema <i class="bi bi-arrow-right"></i>
     </a>
   </div>

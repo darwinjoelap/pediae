@@ -6,7 +6,7 @@
 
   {# ── Encabezado ────────────────────────────────────────────────────── #}
   <div class="d-flex align-items-center gap-2 mb-3 pt-2">
-    <a href="{% url 'pacientes:detalle' paciente.pk %}" class="btn btn-sm btn-outline-secondary">
+    <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-arrow-left"></i>
     </a>
     <div>
@@ -113,7 +113,7 @@
                   <i class="bi bi-plus-circle"></i> Registrar
                 </button>
               {% else %}
-                <form method="post" action="{% url 'pacientes:vacuna_eliminar' paciente.pk e.aplicada.pk %}"
+                <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/{{ e.aplicada.pk }}/eliminar/"
                   onsubmit="return confirm('¿Eliminar este registro?');">
                   {% csrf_token %}
                   <button type="submit" class="btn btn-sm btn-outline-danger py-0">
@@ -139,7 +139,7 @@
 <div class="modal fade" id="modalRegistrar" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <form method="post" action="{% url 'pacientes:vacuna_registrar' paciente.pk %}">
+      <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/registrar/">
         {% csrf_token %}
         <input type="hidden" name="vacuna_id" id="inputVacunaId">
         <div class="modal-header">
