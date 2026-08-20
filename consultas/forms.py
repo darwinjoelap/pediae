@@ -9,7 +9,7 @@ def seccion(titulo):
     return HTML(f'''
         <div class="col-12 mt-3 mb-1">
           <h6 class="fw-bold text-uppercase text-muted border-bottom pb-1"
-              style="font-size:0.75rem;letter-spacing:1px;color:#6f42c1!important">
+              style="font-size:0.75rem;letter-spacing:1px;color:#2AACA8!important">
             {titulo}
           </h6>
         </div>
@@ -19,34 +19,37 @@ def seccion(titulo):
 class ConsultaForm(forms.ModelForm):
     class Meta:
         model = Consulta
-        exclude = ['paciente', 'cita', 'creado_en', 'tenant', 'medico', 'pagado', 'notas_pago']
+        exclude = ['paciente', 'cita', 'creado_en', 'tenant', 'medico',
+                   'pagado', 'notas_pago',
+                   'percentil_peso', 'percentil_talla', 'percentil_pc',
+                   'clasificacion_nutricional']
         widgets = {
             'fecha': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
             'proxima_cita': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
-            'fpp': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
             'motivo_consulta': forms.Textarea(attrs={'rows': 2}),
             'sintomas_actuales': forms.Textarea(attrs={'rows': 2}),
             'examen_fisico': forms.Textarea(attrs={'rows': 3}),
-            'ecografia': forms.Textarea(attrs={'rows': 2}),
-            'colposcopia': forms.Textarea(attrs={'rows': 2}),
-            'imagenes': forms.Textarea(attrs={'rows': 3}),
+            'desarrollo_psicomotor': forms.Textarea(attrs={'rows': 2}),
             'diagnostico': forms.Textarea(attrs={'rows': 2}),
             'tratamiento': forms.Textarea(attrs={'rows': 3}),
+            'laboratorio': forms.Textarea(attrs={'rows': 2}),
             'observaciones': forms.Textarea(attrs={'rows': 2}),
         }
 
     def __init__(self, *args, tenant=None, **kwargs):
         super().__init__(*args, **kwargs)
-        for f in ['fecha', 'proxima_cita', 'fpp']:
-            if f in self.fields:
-                self.fields[f].input_formats = ['%Y-%m-%d']
+        if 'fecha' in self.fields:
+            self.fields['fecha'].input_formats = ['%Y-%m-%d']
+        if 'proxima_cita' in self.fields:
+            self.fields['proxima_cita'].input_formats = ['%Y-%m-%d']
 
         optional = [
-            'sintomas_actuales', 'examen_fisico', 'ecografia', 'colposcopia',
-            'imagenes',
-            'proxima_cita', 'observaciones',
-            'peso', 'tension_arterial', 'fpp', 'semanas_gestacion',
-            'altura_uterina', 'fcf', 'presentacion_fetal', 'edemas', 'lugar',
+            'tipo_consulta', 'lugar',
+            'peso', 'talla', 'perimetro_cefalico',
+            'frecuencia_cardiaca', 'frecuencia_respiratoria',
+            'temperatura', 'saturacion_oxigeno', 'tension_arterial',
+            'sintomas_actuales', 'examen_fisico', 'desarrollo_psicomotor',
+            'laboratorio', 'proxima_cita', 'observaciones',
         ]
         for f in optional:
             if f in self.fields:
@@ -67,38 +70,40 @@ class ConsultaForm(forms.ModelForm):
             seccion('Datos de la consulta'),
             Row(
                 Column('fecha', css_class='col-12 col-md-4'),
-                Column('lugar', css_class='col-12 col-md-8'),
+                Column('lugar', css_class='col-12 col-md-5'),
+                Column('tipo_consulta', css_class='col-12 col-md-3'),
             ),
+
+            seccion('Antropometría'),
             Row(
                 Column('peso', css_class='col-6 col-md-3'),
+                Column('talla', css_class='col-6 col-md-3'),
+                Column('perimetro_cefalico', css_class='col-6 col-md-3'),
+            ),
+
+            seccion('Signos vitales'),
+            Row(
+                Column('frecuencia_cardiaca', css_class='col-6 col-md-3'),
+                Column('frecuencia_respiratoria', css_class='col-6 col-md-3'),
+                Column('temperatura', css_class='col-6 col-md-3'),
+                Column('saturacion_oxigeno', css_class='col-6 col-md-3'),
+            ),
+            Row(
                 Column('tension_arterial', css_class='col-6 col-md-3'),
             ),
+
+            seccion('Clínica'),
             'motivo_consulta',
             'sintomas_actuales',
             'examen_fisico',
-            'ecografia',
-            'colposcopia',
-            'imagenes',
+            'desarrollo_psicomotor',
             'diagnostico',
             'tratamiento',
+            'laboratorio',
             Row(
                 Column('proxima_cita', css_class='col-12 col-md-6'),
             ),
             'observaciones',
-
-            seccion('Control prenatal (completar solo si aplica)'),
-            Row(
-                Column('es_prenatal', css_class='col-12 col-md-2 pt-md-4'),
-                Column('semanas_gestacion', css_class='col-6 col-md-2'),
-                Column('fpp', css_class='col-12 col-md-4'),
-                Column('altura_uterina', css_class='col-6 col-md-2'),
-                Column('fcf', css_class='col-6 col-md-2'),
-            ),
-            Row(
-                Column('presentacion_fetal', css_class='col-12 col-md-6'),
-                Column('edemas', css_class='col-12 col-md-3 pt-md-4'),
-                'laboratorio',
-            ),
 
             Submit('submit', 'Guardar consulta', css_class='btn btn-primary btn-touch w-100 mt-4'),
         )
