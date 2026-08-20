@@ -103,9 +103,9 @@ def detalle_paciente(request, pk):
         for p in puntos:
             f = p['fecha'].strftime('%d/%m/%Y')
             fechas.append(f)
-            pesos.append(float(p['peso']) if p['peso'] else None)
-            tallas.append(float(p['talla']) if p['talla'] else None)
-            pcs.append(float(p['perimetro_cefalico']) if p['perimetro_cefalico'] else None)
+            pesos.append(round(float(p['peso']), 2) if p['peso'] is not None else None)
+            tallas.append(round(float(p['talla']), 1) if p['talla'] is not None else None)
+            pcs.append(round(float(p['perimetro_cefalico']), 1) if p['perimetro_cefalico'] is not None else None)
             p_peso.append(p['percentil_peso'])
             p_talla.append(p['percentil_talla'])
             p_pc.append(p['percentil_pc'])
