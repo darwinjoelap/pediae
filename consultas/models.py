@@ -4,6 +4,20 @@ from agenda.models import Cita
 
 
 class Consulta(models.Model):
+    TIPO_CONSULTA_CHOICES = [
+        ('control_sano', 'Control sano'),
+        ('enfermedad', 'Consulta por enfermedad'),
+        ('seguimiento', 'Seguimiento'),
+    ]
+    CLASIFICACION_NUTRICIONAL_CHOICES = [
+        ('desnutricion_severa', 'Desnutrición severa (<p3)'),
+        ('desnutricion', 'Desnutrición (p3-p10)'),
+        ('riesgo_desnutricion', 'Riesgo de desnutrición (p10-p15)'),
+        ('eutrofico', 'Eutrófico (p15-p85)'),
+        ('sobrepeso', 'Sobrepeso (p85-p97)'),
+        ('obesidad', 'Obesidad (>p97)'),
+    ]
+
     tenant = models.ForeignKey(
         'tenant.Tenant',
         on_delete=models.CASCADE,
@@ -33,31 +47,85 @@ class Consulta(models.Model):
         null=True, blank=True,
         related_name='consulta', verbose_name='Cita asociada'
     )
+
     fecha = models.DateField(verbose_name='Fecha de consulta')
-    motivo_consulta = models.TextField(blank=True, verbose_name='Motivo / notas adicionales')
-    sintomas_actuales = models.TextField(verbose_name='Síntomas actuales', blank=True)
-    examen_fisico = models.TextField(verbose_name='Examen físico', blank=True)
-    ecografia = models.TextField(blank=True, verbose_name='Ecografía')
-    colposcopia = models.TextField(blank=True, verbose_name='Colposcopia')
-    imagenes = models.TextField(
-        blank=True,
-        verbose_name='Imágenes',
-        help_text='Mamografía, ecografía, densitometría ósea, etc.',
+    tipo_consulta = models.CharField(
+        max_length=20,
+        choices=TIPO_CONSULTA_CHOICES,
+        default='control_sano',
+        verbose_name='Tipo de consulta',
     )
-    diagnostico = models.TextField(verbose_name='Diagnóstico')
-    tratamiento = models.TextField(verbose_name='Tratamiento')
+
+    # S — Subjetivo
+    motivo_consulta = models.TextField(blank=True, verbose_name='Motivo de consulta')
+    sintomas_actuales = models.TextField(blank=True, verbose_name='Enfermedad actual / síntomas')
+
+    # O — Objetivo: Signos vitales
+    peso = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        null=True, blank=True, verbose_name='Peso (kg)'
+    )
+    talla = models.DecimalField(
+        max_digits=5, decimal_places=1,
+        null=True, blank=True, verbose_name='Talla / Longitud (cm)'
+    )
+    perimetro_cefalico = models.DecimalField(
+        max_digits=4, decimal_places=1,
+        null=True, blank=True, verbose_name='Perímetro cefálico (cm)'
+    )
+    frecuencia_cardiaca = models.IntegerField(
+        null=True, blank=True, verbose_name='Frecuencia cardíaca (lpm)'
+    )
+    frecuencia_respiratoria = models.IntegerField(
+        null=True, blank=True, verbose_name='Frecuencia respiratoria (rpm)'
+    )
+    temperatura = models.DecimalField(
+        max_digits=4, decimal_places=1,
+        null=True, blank=True, verbose_name='Temperatura (°C)'
+    )
+    saturacion_oxigeno = models.IntegerField(
+        null=True, blank=True, verbose_name='Saturación O₂ (%)'
+    )
+    tension_arterial = models.CharField(
+        max_length=20, blank=True, verbose_name='Tensión arterial'
+    )
+
+    # Percentiles OMS (calculados al guardar)
+    percentil_peso = models.DecimalField(
+        max_digits=5, decimal_places=1,
+        null=True, blank=True, verbose_name='Percentil peso/edad (OMS)'
+    )
+    percentil_talla = models.DecimalField(
+        max_digits=5, decimal_places=1,
+        null=True, blank=True, verbose_name='Percentil talla/edad (OMS)'
+    )
+    percentil_pc = models.DecimalField(
+        max_digits=5, decimal_places=1,
+        null=True, blank=True, verbose_name='Percentil PC/edad (OMS)'
+    )
+    clasificacion_nutricional = models.CharField(
+        max_length=30,
+        choices=CLASIFICACION_NUTRICIONAL_CHOICES,
+        blank=True,
+        verbose_name='Clasificación nutricional',
+    )
+
+    # O — Objetivo: Examen físico
+    examen_fisico = models.TextField(
+        blank=True, verbose_name='Examen físico'
+    )
+    desarrollo_psicomotor = models.TextField(
+        blank=True, verbose_name='Desarrollo psicomotor'
+    )
+
+    # A — Análisis
+    diagnostico = models.TextField(verbose_name='Diagnóstico / Impresión diagnóstica')
+
+    # P — Plan
+    tratamiento = models.TextField(verbose_name='Tratamiento / Plan')
+    laboratorio = models.TextField(blank=True, verbose_name='Exámenes paraclínicos solicitados')
     proxima_cita = models.DateField(null=True, blank=True, verbose_name='Próxima cita')
     observaciones = models.TextField(blank=True, verbose_name='Observaciones')
-    peso = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Peso (kg)')
-    tension_arterial = models.CharField(max_length=20, blank=True, verbose_name='Tensión arterial')
-    es_prenatal = models.BooleanField(default=False, verbose_name='Es control prenatal')
-    fpp = models.DateField(null=True, blank=True, verbose_name='FPP (Fecha probable de parto)')
-    semanas_gestacion = models.IntegerField(null=True, blank=True, verbose_name='Semanas de gestación')
-    altura_uterina = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, verbose_name='Altura uterina (cm)')
-    fcf = models.IntegerField(null=True, blank=True, verbose_name='FCF (Frecuencia cardíaca fetal, lpm)')
-    presentacion_fetal = models.CharField(max_length=50, blank=True, verbose_name='Presentación fetal')
-    edemas = models.BooleanField(null=True, blank=True, verbose_name='Edemas')
-    laboratorio = models.TextField(blank=True, verbose_name='Laboratorio')
 
     # Pago
     pagado = models.BooleanField(default=False, verbose_name='Pagado')
@@ -71,8 +139,51 @@ class Consulta(models.Model):
         ordering = ['-fecha', '-creado_en']
 
     def __str__(self):
-        tipo = 'Prenatal' if self.es_prenatal else 'Consulta'
-        return f'{tipo} — {self.paciente.nombre_completo} ({self.fecha})'
+        return f'{self.get_tipo_consulta_display()} — {self.paciente.nombre_completo} ({self.fecha})'
+
+    def calcular_edad_en_meses(self):
+        """Retorna la edad del paciente en meses a la fecha de la consulta."""
+        if not self.paciente.fecha_nacimiento or not self.fecha:
+            return None
+        from dateutil.relativedelta import relativedelta
+        delta = relativedelta(self.fecha, self.paciente.fecha_nacimiento)
+        return delta.years * 12 + delta.months
+
+    def calcular_percentiles(self):
+        """Calcula percentiles OMS para peso, talla y PC según edad y sexo."""
+        from .oms import calcular_percentil_oms
+        edad_meses = self.calcular_edad_en_meses()
+        if edad_meses is None:
+            return
+        sexo = getattr(self.paciente, 'sexo', None)
+        if self.peso:
+            self.percentil_peso = calcular_percentil_oms('peso', edad_meses, float(self.peso), sexo)
+        if self.talla:
+            self.percentil_talla = calcular_percentil_oms('talla', edad_meses, float(self.talla), sexo)
+        if self.perimetro_cefalico and edad_meses <= 36:
+            self.percentil_pc = calcular_percentil_oms('pc', edad_meses, float(self.perimetro_cefalico), sexo)
+        self._set_clasificacion_nutricional()
+
+    def _set_clasificacion_nutricional(self):
+        p = self.percentil_peso
+        if p is None:
+            return
+        if p < 3:
+            self.clasificacion_nutricional = 'desnutricion_severa'
+        elif p < 10:
+            self.clasificacion_nutricional = 'desnutricion'
+        elif p < 15:
+            self.clasificacion_nutricional = 'riesgo_desnutricion'
+        elif p <= 85:
+            self.clasificacion_nutricional = 'eutrofico'
+        elif p <= 97:
+            self.clasificacion_nutricional = 'sobrepeso'
+        else:
+            self.clasificacion_nutricional = 'obesidad'
+
+    def save(self, *args, **kwargs):
+        self.calcular_percentiles()
+        super().save(*args, **kwargs)
 
     @property
     def total_usd(self):
@@ -164,6 +275,7 @@ class ConsultaServicio(models.Model):
         if self.tasa_cambio:
             return round(float(self.precio_usd) * float(self.tasa_cambio), 2)
         return None
+
 
 class Procedimiento(models.Model):
     tenant = models.ForeignKey(

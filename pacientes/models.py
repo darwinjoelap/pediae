@@ -33,6 +33,10 @@ class Paciente(models.Model):
         ('positivo', 'Positivo'),
         ('no_realizado', 'No realizado'),
     ]
+    SEXO_CHOICES = [
+        ('M', 'Masculino'),
+        ('F', 'Femenino'),
+    ]
     GRUPO_SANGUINEO_CHOICES = [
         ('A+', 'A+'), ('A-', 'A-'),
         ('B+', 'B+'), ('B-', 'B-'),
@@ -50,6 +54,9 @@ class Paciente(models.Model):
 
     # Datos personales
     nombre_completo = models.CharField(max_length=200, verbose_name='Nombre completo')
+    sexo = models.CharField(
+        max_length=1, choices=SEXO_CHOICES, blank=True, verbose_name='Sexo biológico'
+    )
     no_cedulado = models.BooleanField(
         default=False,
         verbose_name='Paciente no cedulado',
