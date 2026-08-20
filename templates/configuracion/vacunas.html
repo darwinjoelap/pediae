@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+{% block title %}Catálogo de vacunas{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3 pt-2">
+  <a href="{{ TENANT_PREFIX }}/configuracion/" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <div>
+    <h5 class="mb-0 fw-bold"><i class="bi bi-shield-plus me-1"></i> Catálogo de vacunas</h5>
+    <small class="text-muted">Vacunas PAI Venezuela + vacunas adicionales de este consultorio</small>
+  </div>
+</div>
+
+{% if messages %}
+  {% for msg in messages %}
+    <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show py-2">
+      {{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+{# ── Vacunas PAI (solo lectura) ─────────────────────────────────────────── #}
+<div class="card shadow-sm mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">
+      <span class="badge bg-primary me-1">PAI</span> Esquema nacional Venezuela
+    </span>
+    <small class="text-muted">{{ pai|length }} vacunas — solo lectura</small>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Vacuna</th>
+          <th>Dosis</th>
+          <th>Protege contra</th>
+          <th>Edad rec.</th>
+          <th>Edad máx.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in pai %}
+        <tr>
+          <td class="fw-semibold">{{ v.nombre }}</td>
+          <td><span class="badge bg-light text-dark border">d{{ v.dosis_numero }}</span></td>
+          <td class="text-muted small">{{ v.enfermedad }}</td>
+          <td class="text-nowrap small">{{ v.edad_display }}</td>
+          <td class="small text-muted">
+            {% if v.edad_max_meses %}{{ v.edad_max_meses }}m{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-3">Sin vacunas PAI cargadas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Vacunas del consultorio ─────────────────────────────────────────────── #}
+<div class="card shadow-sm mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">
+      <span class="badge bg-info text-dark me-1">+</span> Vacunas adicionales de este consultorio
+    </span>
+    <button type="button" class="btn btn-sm btn-success"
+      data-bs-toggle="modal" data-bs-target="#modalNueva">
+      <i class="bi bi-plus-circle me-1"></i> Agregar
+    </button>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Vacuna</th>
+          <th>Dosis</th>
+          <th>Protege contra</th>
+          <th>Edad rec.</th>
+          <th>Edad máx.</th>
+          <th>Orden</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in extras %}
+        <tr class="{% if not v.activa %}table-secondary text-muted{% endif %}">
+          <td class="fw-semibold">{{ v.nombre }}</td>
+          <td><span class="badge bg-light text-dark border">d{{ v.dosis_numero }}</span></td>
+          <td class="small text-muted">{{ v.enfermedad|default:"—" }}</td>
+          <td class="text-nowrap small">{{ v.edad_display }}</td>
+          <td class="small text-muted">
+            {% if v.edad_max_meses %}{{ v.edad_max_meses }}m{% else %}—{% endif %}
+          </td>
+          <td class="small">{{ v.orden }}</td>
+          <td>
+            {% if v.activa %}
+              <span class="badge bg-success">Activa</span>
+            {% else %}
+              <span class="badge bg-secondary">Inactiva</span>
+            {% endif %}
+          </td>
+          <td class="text-end text-nowrap">
+            <button type="button" class="btn btn-sm btn-outline-primary py-0"
+              data-bs-toggle="modal" data-bs-target="#modalEditar"
+              data-pk="{{ v.pk }}"
+              data-nombre="{{ v.nombre }}"
+              data-enfermedad="{{ v.enfermedad }}"
+              data-dosis="{{ v.dosis_numero }}"
+              data-edad="{{ v.edad_recomendada_meses }}"
+              data-edadmax="{{ v.edad_max_meses|default:'' }}"
+              data-orden="{{ v.orden }}">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <form method="post"
+              action="{{ TENANT_PREFIX }}/configuracion/vacunas/{{ v.pk }}/toggle/"
+              class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm py-0
+                {% if v.activa %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                title="{% if v.activa %}Desactivar{% else %}Activar{% endif %}">
+                <i class="bi bi-{% if v.activa %}pause-circle{% else %}play-circle{% endif %}"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-3">
+            No hay vacunas adicionales. Usa <strong>Agregar</strong> para añadir las que usa este consultorio.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Modal: nueva vacuna ────────────────────────────────────────────────── #}
+<div class="modal fade" id="modalNueva" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{{ TENANT_PREFIX }}/configuracion/vacunas/nueva/">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold"><i class="bi bi-plus-circle me-1"></i> Nueva vacuna</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body row g-3">
+          <div class="col-8">
+            <label class="form-label fw-semibold">Nombre <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" class="form-control" placeholder="Ej: Meningococo" required>
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-semibold">N° dosis</label>
+            <input type="number" name="dosis_numero" class="form-control" value="1" min="1" max="9">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Protege contra</label>
+            <input type="text" name="enfermedad" class="form-control" placeholder="Ej: Enfermedad meningocócica">
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-semibold">Edad rec. (meses)</label>
+            <input type="number" name="edad_recomendada_meses" class="form-control" value="0" min="0">
+            <div class="form-text">0 = al nacer</div>
+          </div>
+          <div class="col-4">
+            <label class="form-label">Edad máx. (meses)</label>
+            <input type="number" name="edad_max_meses" class="form-control" placeholder="Opcional" min="0">
+          </div>
+          <div class="col-4">
+            <label class="form-label">Orden</label>
+            <input type="number" name="orden" class="form-control" value="50" min="0">
+            <div class="form-text">Menor = primero</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success px-4">
+            <i class="bi bi-check-circle me-1"></i> Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── Modal: editar vacuna ───────────────────────────────────────────────── #}
+<div class="modal fade" id="modalEditar" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" id="formEditar" action="">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold"><i class="bi bi-pencil me-1"></i> Editar vacuna</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body row g-3">
+          <div class="col-8">
+            <label class="form-label fw-semibold">Nombre <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" id="editNombre" class="form-control" required>
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-semibold">N° dosis</label>
+            <input type="number" name="dosis_numero" id="editDosis" class="form-control" min="1" max="9">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Protege contra</label>
+            <input type="text" name="enfermedad" id="editEnfermedad" class="form-control">
+          </div>
+          <div class="col-4">
+            <label class="form-label fw-semibold">Edad rec. (meses)</label>
+            <input type="number" name="edad_recomendada_meses" id="editEdad" class="form-control" min="0">
+          </div>
+          <div class="col-4">
+            <label class="form-label">Edad máx. (meses)</label>
+            <input type="number" name="edad_max_meses" id="editEdadMax" class="form-control" placeholder="Opcional" min="0">
+          </div>
+          <div class="col-4">
+            <label class="form-label">Orden</label>
+            <input type="number" name="orden" id="editOrden" class="form-control" min="0">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary px-4">
+            <i class="bi bi-check-circle me-1"></i> Guardar cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('modalEditar').addEventListener('show.bs.modal', function(e) {
+  var btn = e.relatedTarget;
+  var pk = btn.dataset.pk;
+  document.getElementById('formEditar').action =
+    '{{ TENANT_PREFIX }}/configuracion/vacunas/' + pk + '/editar/';
+  document.getElementById('editNombre').value = btn.dataset.nombre;
+  document.getElementById('editEnfermedad').value = btn.dataset.enfermedad;
+  document.getElementById('editDosis').value = btn.dataset.dosis;
+  document.getElementById('editEdad').value = btn.dataset.edad;
+  document.getElementById('editEdadMax').value = btn.dataset.edadmax;
+  document.getElementById('editOrden').value = btn.dataset.orden;
+});
+</script>
+{% endblock %}
