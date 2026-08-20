@@ -584,7 +584,7 @@ def estadisticas(request):
             'data': list(edades.values()),
         },
         'sexos': {
-            'labels': ['Masculino', 'Femenino', 'Otro'],
+            'labels': ['Masculino', 'Femenino', 'Sin información'],
             'data': [sexos['M'], sexos['F'], sexos['otro']],
         },
         'tipos_consulta': {
