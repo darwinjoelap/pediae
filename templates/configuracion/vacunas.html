@@ -22,11 +22,16 @@
 
 {# ── Vacunas PAI (solo lectura) ─────────────────────────────────────────── #}
 <div class="card shadow-sm mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-1">
     <span class="fw-semibold">
       <span class="badge bg-primary me-1">PAI</span> Esquema nacional Venezuela
     </span>
-    <small class="text-muted">{{ pai|length }} vacunas — solo lectura</small>
+    <span class="text-muted small">
+      {{ pai|length }} vacunas · solo lectura ·
+      <span title="Para actualizar el esquema PAI (ej: si el Ministerio cambia edades), contacta al administrador del sistema que lo actualiza desde el panel de administración y aplica a todos los consultorios.">
+        <i class="bi bi-info-circle"></i> ¿Cambió el esquema PAI?
+      </span>
+    </span>
   </div>
   <div class="table-responsive">
     <table class="table table-sm table-hover mb-0 align-middle">
@@ -121,6 +126,15 @@
                 {% if v.activa %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
                 title="{% if v.activa %}Desactivar{% else %}Activar{% endif %}">
                 <i class="bi bi-{% if v.activa %}pause-circle{% else %}play-circle{% endif %}"></i>
+              </button>
+            </form>
+            <form method="post"
+              action="{{ TENANT_PREFIX }}/configuracion/vacunas/{{ v.pk }}/eliminar/"
+              class="d-inline"
+              onsubmit="return confirm('¿Eliminar esta vacuna del catálogo? Solo es posible si no tiene dosis aplicadas.');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger py-0" title="Eliminar">
+                <i class="bi bi-trash"></i>
               </button>
             </form>
           </td>

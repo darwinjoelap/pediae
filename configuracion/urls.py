@@ -10,4 +10,5 @@ urlpatterns = [
     path('vacunas/nueva/', views.vacuna_nueva, name='vacuna_nueva'),
     path('vacunas/<int:pk>/editar/', views.vacuna_editar, name='vacuna_editar'),
     path('vacunas/<int:pk>/toggle/', views.vacuna_toggle, name='vacuna_toggle'),
+    path('vacunas/<int:pk>/eliminar/', views.vacuna_eliminar, name='vacuna_eliminar'),
 ]

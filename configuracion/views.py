@@ -139,3 +139,20 @@ def vacuna_toggle(request, pk):
         from django.contrib import messages
         messages.success(request, f'Vacuna "{vacuna.nombre}" {estado}.')
     return _r(request, '/configuracion/vacunas/')
+
+
+@login_required
+def vacuna_eliminar(request, pk):
+    if _solo_medico(request):
+        return _r(request, '/configuracion/')
+    from pacientes.models import Vacuna
+    from django.contrib import messages
+    vacuna = get_object_or_404(Vacuna, pk=pk, tenant=request.tenant)
+    if request.method == 'POST':
+        nombre = vacuna.nombre
+        if vacuna.aplicaciones.exists():
+            messages.error(request, f'No se puede eliminar "{nombre}": hay dosis aplicadas a pacientes. Desactívala en su lugar.')
+        else:
+            vacuna.delete()
+            messages.success(request, f'Vacuna "{nombre}" eliminada del catálogo.')
+    return _r(request, '/configuracion/vacunas/')
