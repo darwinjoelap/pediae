@@ -32,11 +32,66 @@ NO_CEDULADO_JS = HTML('''
         if (repRow) repRow.style.display = 'none';
       }
     }
+
+    function syncNombreRepresentante() {
+      var sel = document.getElementById('id_filiacion_representante');
+      var nombreRep = document.getElementById('id_nombre_representante');
+      var nombreMadre = document.getElementById('id_nombre_madre');
+      var nombrePadre = document.getElementById('id_nombre_padre');
+      var parentescoRow = document.getElementById('parentesco-row');
+      if (!sel || !nombreRep) return;
+
+      var val = sel.value;
+
+      // Mostrar/ocultar campo parentesco
+      if (parentescoRow) {
+        parentescoRow.style.display = (val === 'otro') ? '' : 'none';
+      }
+
+      // Al cambiar filiacion, autocompletar nombre madre/padre desde representante
+      nombreRep.addEventListener('input', function() {
+        autofillNombre(sel.value, nombreRep.value, nombreMadre, nombrePadre);
+      });
+    }
+
+    function autofillNombre(filiacion, nombreRep, nombreMadre, nombrePadre) {
+      if (filiacion === 'madre' && nombreMadre && !nombreMadre.value) {
+        nombreMadre.value = nombreRep;
+      } else if (filiacion === 'padre' && nombrePadre && !nombrePadre.value) {
+        nombrePadre.value = nombreRep;
+      }
+    }
+
+    function onFiliacionChange() {
+      var sel = document.getElementById('id_filiacion_representante');
+      var nombreRep = document.getElementById('id_nombre_representante');
+      var nombreMadre = document.getElementById('id_nombre_madre');
+      var nombrePadre = document.getElementById('id_nombre_padre');
+      var parentescoRow = document.getElementById('parentesco-row');
+      if (!sel) return;
+
+      var val = sel.value;
+      if (parentescoRow) {
+        parentescoRow.style.display = (val === 'otro') ? '' : 'none';
+      }
+
+      // Al cambiar la filiacion, copiar nombre si el destino esta vacio
+      if (nombreRep && nombreRep.value) {
+        autofillNombre(val, nombreRep.value, nombreMadre, nombrePadre);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       var chk = document.getElementById('id_no_cedulado');
       if (chk) {
         toggleCedula();
         chk.addEventListener('change', toggleCedula);
+      }
+      syncNombreRepresentante();
+      var sel = document.getElementById('id_filiacion_representante');
+      if (sel) {
+        onFiliacionChange();
+        sel.addEventListener('change', onFiliacionChange);
       }
     });
   })();
@@ -51,7 +106,8 @@ class PacienteAsistenteForm(forms.ModelForm):
         model = Paciente
         fields = [
             'nombre_completo', 'no_cedulado', 'cedula',
-            'nombre_representante', 'cedula_representante',
+            'filiacion_representante', 'nombre_representante', 'cedula_representante',
+            'parentesco_representante',
             'fecha_nacimiento', 'telefono', 'email', 'contacto_emergencia',
         ]
         widgets = {
@@ -67,6 +123,8 @@ class PacienteAsistenteForm(forms.ModelForm):
         self.fields['cedula'].required = False
         self.fields['cedula_representante'].required = False
         self.fields['nombre_representante'].required = False
+        self.fields['filiacion_representante'].required = False
+        self.fields['parentesco_representante'].required = False
         self._set_defaults()
 
         self.helper = FormHelper()
@@ -80,8 +138,12 @@ class PacienteAsistenteForm(forms.ModelForm):
             Column('cedula', css_class='col-12'),
             HTML('</div>'),
             HTML('<div id="representante-row" class="row g-2 mb-2" style="display:none">'),
-            Column('nombre_representante', css_class='col-12 col-md-6'),
-            Column('cedula_representante', css_class='col-12 col-md-6'),
+            Column('filiacion_representante', css_class='col-12 col-md-4'),
+            Column('nombre_representante', css_class='col-12 col-md-4'),
+            Column('cedula_representante', css_class='col-12 col-md-4'),
+            HTML('<div id="parentesco-row" class="col-12" style="display:none">'),
+            Column('parentesco_representante', css_class='col-12 col-md-6'),
+            HTML('</div>'),
             HTML('</div>'),
             Row(
                 Column('fecha_nacimiento', css_class='col-12 col-md-4'),
@@ -111,7 +173,8 @@ class PacienteDoctoraNuevoForm(forms.ModelForm):
         model = Paciente
         fields = [
             'nombre_completo', 'no_cedulado', 'cedula',
-            'nombre_representante', 'cedula_representante',
+            'filiacion_representante', 'nombre_representante', 'cedula_representante',
+            'parentesco_representante',
             'fecha_nacimiento', 'telefono', 'email', 'contacto_emergencia',
         ]
         widgets = {
@@ -127,6 +190,8 @@ class PacienteDoctoraNuevoForm(forms.ModelForm):
         self.fields['cedula'].required = False
         self.fields['cedula_representante'].required = False
         self.fields['nombre_representante'].required = False
+        self.fields['filiacion_representante'].required = False
+        self.fields['parentesco_representante'].required = False
 
         self.helper = FormHelper()
         self.helper.form_tag = False
@@ -140,8 +205,12 @@ class PacienteDoctoraNuevoForm(forms.ModelForm):
             Column('cedula', css_class='col-12'),
             HTML('</div>'),
             HTML('<div id="representante-row" class="row g-2 mb-2" style="display:none">'),
-            Column('nombre_representante', css_class='col-12 col-md-6'),
-            Column('cedula_representante', css_class='col-12 col-md-6'),
+            Column('filiacion_representante', css_class='col-12 col-md-4'),
+            Column('nombre_representante', css_class='col-12 col-md-4'),
+            Column('cedula_representante', css_class='col-12 col-md-4'),
+            HTML('<div id="parentesco-row" class="col-12" style="display:none">'),
+            Column('parentesco_representante', css_class='col-12 col-md-6'),
+            HTML('</div>'),
             HTML('</div>'),
             Row(
                 Column('fecha_nacimiento', css_class='col-12 col-md-4'),
@@ -167,7 +236,9 @@ class PacientePersonalForm(forms.ModelForm):
         model = Paciente
         fields = [
             'nombre_completo', 'no_cedulado', 'cedula',
-            'nombre_padre', 'nombre_madre', 'nombre_representante', 'cedula_representante',
+            'filiacion_representante', 'nombre_representante', 'cedula_representante',
+            'parentesco_representante',
+            'nombre_padre', 'nombre_madre',
             'fecha_nacimiento', 'telefono', 'email',
             'estado_civil', 'nivel_instruccion', 'ocupacion',
             'direccion', 'contacto_emergencia', 'seguro_medico',
@@ -191,6 +262,8 @@ class PacientePersonalForm(forms.ModelForm):
         self.fields['nombre_padre'].required = False
         self.fields['nombre_madre'].required = False
         self.fields['nombre_representante'].required = False
+        self.fields['filiacion_representante'].required = False
+        self.fields['parentesco_representante'].required = False
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
@@ -204,8 +277,12 @@ class PacientePersonalForm(forms.ModelForm):
             Column('cedula', css_class='col-12 col-md-4'),
             HTML('</div>'),
             HTML('<div id="representante-row" class="row g-2 mb-2" style="display:none">'),
-            Column('nombre_representante', css_class='col-12 col-md-6'),
-            Column('cedula_representante', css_class='col-12 col-md-6'),
+            Column('filiacion_representante', css_class='col-12 col-md-3'),
+            Column('nombre_representante', css_class='col-12 col-md-5'),
+            Column('cedula_representante', css_class='col-12 col-md-4'),
+            HTML('<div id="parentesco-row" class="col-12" style="display:none">'),
+            Column('parentesco_representante', css_class='col-12 col-md-6'),
+            HTML('</div>'),
             HTML('</div>'),
             seccion('Datos del representante / padres'),
             Row(
@@ -271,6 +348,7 @@ class PacienteCompletoForm(forms.ModelForm):
         optional = [
             'cedula', 'nombre_padre', 'nombre_madre',
             'nombre_representante', 'cedula_representante',
+            'filiacion_representante', 'parentesco_representante',
             'fecha_nacimiento',
             'email', 'ocupacion', 'direccion', 'contacto_emergencia', 'seguro_medico',
             'alergias', 'enfermedades_cronicas', 'cirugias_previas', 'medicacion_actual',
@@ -297,8 +375,12 @@ class PacienteCompletoForm(forms.ModelForm):
             Column('cedula', css_class='col-12 col-md-4'),
             HTML('</div>'),
             HTML('<div id="representante-row" class="row g-2 mb-2" style="display:none">'),
-            Column('nombre_representante', css_class='col-12 col-md-6'),
-            Column('cedula_representante', css_class='col-12 col-md-6'),
+            Column('filiacion_representante', css_class='col-12 col-md-3'),
+            Column('nombre_representante', css_class='col-12 col-md-5'),
+            Column('cedula_representante', css_class='col-12 col-md-4'),
+            HTML('<div id="parentesco-row" class="col-12" style="display:none">'),
+            Column('parentesco_representante', css_class='col-12 col-md-6'),
+            HTML('</div>'),
             HTML('</div>'),
             seccion('Datos del representante / padres'),
             Row(

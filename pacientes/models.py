@@ -64,9 +64,26 @@ class Paciente(models.Model):
         default='',
     )
     # Datos del representante
+    FILIACION_CHOICES = [
+        ('madre', 'Madre'),
+        ('padre', 'Padre'),
+        ('otro', 'Otro'),
+    ]
     nombre_padre = models.CharField(max_length=200, blank=True, verbose_name='Nombre del padre')
     nombre_madre = models.CharField(max_length=200, blank=True, verbose_name='Nombre de la madre')
     nombre_representante = models.CharField(max_length=200, blank=True, verbose_name='Nombre del representante')
+    filiacion_representante = models.CharField(
+        max_length=10,
+        choices=FILIACION_CHOICES,
+        blank=True,
+        verbose_name='Filiación del representante',
+    )
+    parentesco_representante = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Parentesco (si es otro)',
+        help_text='Ej: abuela, tío, tutor legal',
+    )
     cedula_representante = models.CharField(
         max_length=20,
         blank=True,
