@@ -78,8 +78,8 @@
   </div>
   <div class="col-6 col-md-2">
     <div class="card border-0 shadow-sm text-center py-3">
-      <div class="fs-2 fw-bold text-info">{{ stats_consultas.prenatales }}</div>
-      <div class="text-muted small">Prenatales</div>
+      <div class="fs-2 fw-bold text-info">{{ stats_consultas.total }}</div>
+      <div class="text-muted small">Consultas</div>
     </div>
   </div>
   <div class="col-6 col-md-2">
@@ -138,66 +138,43 @@
     </div>
   </div>
 
+  <!-- Tipos de consulta -->
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="bi bi-pie-chart me-1"></i> Tipos de consulta
+      </div>
+      <div class="card-body"><canvas id="tiposConsulta" height="220"></canvas></div>
+    </div>
+  </div>
+
   <!-- Distribución por edad -->
-  <div class="col-md-6">
+  <div class="col-md-4">
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-transparent fw-semibold">
         <i class="bi bi-people me-1"></i> Distribución por edad
       </div>
-      <div class="card-body"><canvas id="edades" height="200"></canvas></div>
+      <div class="card-body"><canvas id="edades" height="220"></canvas></div>
     </div>
   </div>
 
-  <!-- Días más concurridos -->
+  <!-- Sexo -->
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">
+        <i class="bi bi-gender-ambiguous me-1"></i> Sexo
+      </div>
+      <div class="card-body"><canvas id="sexos" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Estado nutricional -->
   <div class="col-md-6">
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-transparent fw-semibold">
-        <i class="bi bi-clock me-1"></i> Citas por día de la semana
+        <i class="bi bi-activity me-1"></i> Estado nutricional (consultas)
       </div>
-      <div class="card-body"><canvas id="diasSemana" height="200"></canvas></div>
-    </div>
-  </div>
-
-  <!-- VPH -->
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-transparent fw-semibold">
-        <i class="bi bi-shield-check me-1"></i> Vacuna VPH
-      </div>
-      <div class="card-body"><canvas id="vph" height="220"></canvas></div>
-      <div class="card-footer bg-transparent small text-muted">
-        Con diagnóstico VPH: <strong>{{ vph_diagnostico }}</strong>
-      </div>
-    </div>
-  </div>
-
-  <!-- VIH -->
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-transparent fw-semibold">
-        <i class="bi bi-droplet me-1"></i> Resultado VIH
-      </div>
-      <div class="card-body"><canvas id="vih" height="220"></canvas></div>
-    </div>
-  </div>
-
-  <!-- Citología -->
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-transparent fw-semibold">
-        <i class="bi bi-clipboard2-pulse me-1"></i> Citología
-      </div>
-      <div class="card-body"><canvas id="citologia" height="220"></canvas></div>
-    </div>
-  </div>
-
-  <!-- Métodos anticonceptivos -->
-  <div class="col-md-6">
-    <div class="card border-0 shadow-sm">
-      <div class="card-header bg-transparent fw-semibold">
-        <i class="bi bi-heart me-1"></i> Métodos anticonceptivos
-      </div>
-      <div class="card-body"><canvas id="metodos" height="200"></canvas></div>
+      <div class="card-body"><canvas id="nutricion" height="200"></canvas></div>
     </div>
   </div>
 
@@ -211,24 +188,23 @@
     </div>
   </div>
 
-  <!-- Controles prenatales -->
+  <!-- Días más concurridos -->
   <div class="col-md-6">
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-transparent fw-semibold">
-        <i class="bi bi-heart-pulse me-1"></i> Controles prenatales por mes
-        {% if semanas_prom %}<small class="text-muted ms-2">Prom. {{ semanas_prom }} sem.</small>{% endif %}
+        <i class="bi bi-clock me-1"></i> Citas por día de la semana
       </div>
-      <div class="card-body"><canvas id="prenatales" height="200"></canvas></div>
+      <div class="card-body"><canvas id="diasSemana" height="200"></canvas></div>
     </div>
   </div>
 
-  <!-- Pacientes nuevas -->
+  <!-- Pacientes nuevos -->
   <div class="col-md-6">
     <div class="card border-0 shadow-sm">
       <div class="card-header bg-transparent fw-semibold">
-        <i class="bi bi-person-plus me-1"></i> Pacientes nuevas por mes
+        <i class="bi bi-person-plus me-1"></i> Pacientes nuevos por mes
       </div>
-      <div class="card-body"><canvas id="pacientesNuevas" height="200"></canvas></div>
+      <div class="card-body"><canvas id="pacientesNuevos" height="200"></canvas></div>
     </div>
   </div>
 
@@ -268,13 +244,9 @@ function doughnutChart(id, labels, data, colors) {
   });
 }
 
-// Ingresos por mes
 lineChart('ingresosMes', C.ingresos_mes.labels, C.ingresos_mes.data, 'USD');
-
-// Servicios top
 barChart('serviciosTop', C.servicios_top.labels, C.servicios_top.data, 'Solicitudes', 'rgba(99,102,241,0.7)');
 
-// Citas por mes
 new Chart(document.getElementById('citasMes'), {
   type: 'bar',
   data: {
@@ -288,14 +260,18 @@ new Chart(document.getElementById('citasMes'), {
 });
 
 lineChart('consultasMes', C.consultas_meses.labels, C.consultas_meses.data, 'Consultas');
+
+doughnutChart('tiposConsulta', C.tipos_consulta.labels, C.tipos_consulta.data,
+  ['#2AACA8','#6366F1','#F59E0B','#F87171','#94A3B8']);
+
 barChart('edades', C.edades.labels, C.edades.data, 'Pacientes');
-barChart('diasSemana', C.dias_semana.labels, C.dias_semana.data, 'Citas', 'rgba(139,92,246,0.7)');
-doughnutChart('vph', C.vph.labels, C.vph.data, ['#2AACA8', '#94A3B8', '#F87171']);
-doughnutChart('vih', C.vih.labels, C.vih.data, ['#4ADE80', '#F87171', '#94A3B8']);
-doughnutChart('citologia', C.citologia.labels, C.citologia.data, ['#2AACA8', '#E5E7EB']);
-barChart('metodos', C.metodos.labels, C.metodos.data, 'Pacientes', 'rgba(99,102,241,0.7)');
+
+doughnutChart('sexos', C.sexos.labels, C.sexos.data,
+  ['#6366F1','#F472B6','#94A3B8']);
+
+barChart('nutricion', C.nutricion.labels, C.nutricion.data, 'Consultas', 'rgba(251,146,60,0.7)');
 barChart('antecedentes', C.antecedentes.labels, C.antecedentes.data, 'Pacientes', 'rgba(251,146,60,0.7)');
-lineChart('prenatales', C.prenatales_meses.labels, C.prenatales_meses.data, 'Controles');
-lineChart('pacientesNuevas', C.pacientes_nuevas.labels, C.pacientes_nuevas.data, 'Nuevas');
+barChart('diasSemana', C.dias_semana.labels, C.dias_semana.data, 'Citas', 'rgba(139,92,246,0.7)');
+lineChart('pacientesNuevos', C.pacientes_nuevos.labels, C.pacientes_nuevos.data, 'Nuevos');
 </script>
 {% endblock %}
