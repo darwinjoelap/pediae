@@ -11,30 +11,39 @@ class AdjuntoInline(admin.TabularInline):
     def get_url_display(self, obj):
         if obj.pk:
             from django.utils.html import format_html
-            return format_html('<a href="{}" target="_blank">Ver en Drive</a>', obj.get_url())
+            return format_html('<a href="{}" target="_blank">Ver</a>', obj.get_url())
         return '—'
     get_url_display.short_description = 'Enlace'
 
 
 @admin.register(Consulta)
 class ConsultaAdmin(admin.ModelAdmin):
-    list_display = ('paciente', 'fecha', 'motivo_consulta', 'diagnostico', 'es_prenatal', 'creado_en')
-    list_filter = ('es_prenatal', 'fecha')
+    list_display = ('paciente', 'fecha', 'tipo_consulta', 'diagnostico', 'clasificacion_nutricional', 'creado_en')
+    list_filter = ('tipo_consulta', 'clasificacion_nutricional', 'fecha')
     search_fields = ('paciente__nombre_completo', 'paciente__cedula', 'diagnostico')
     date_hierarchy = 'fecha'
-    readonly_fields = ('creado_en',)
+    readonly_fields = ('creado_en', 'percentil_peso', 'percentil_talla', 'percentil_pc', 'clasificacion_nutricional')
     inlines = [AdjuntoInline]
     fieldsets = (
         ('Datos básicos', {
-            'fields': ('paciente', 'cita', 'fecha', 'peso', 'tension_arterial')
+            'fields': ('paciente', 'cita', 'fecha', 'tipo_consulta', 'lugar', 'medico')
+        }),
+        ('Antropometría y signos vitales', {
+            'fields': (
+                'peso', 'talla', 'perimetro_cefalico',
+                'frecuencia_cardiaca', 'frecuencia_respiratoria',
+                'temperatura', 'saturacion_oxigeno', 'tension_arterial',
+                'percentil_peso', 'percentil_talla', 'percentil_pc',
+                'clasificacion_nutricional',
+            )
         }),
         ('Clínica', {
             'fields': ('motivo_consulta', 'sintomas_actuales', 'examen_fisico',
-                       'diagnostico', 'tratamiento', 'proxima_cita', 'observaciones')
+                       'desarrollo_psicomotor', 'diagnostico', 'tratamiento',
+                       'laboratorio', 'proxima_cita', 'observaciones')
         }),
-        ('Control prenatal', {
-            'fields': ('es_prenatal', 'fpp', 'semanas_gestacion',
-                       'altura_uterina', 'fcf', 'presentacion_fetal', 'edemas'),
+        ('Pago', {
+            'fields': ('pagado', 'notas_pago'),
             'classes': ('collapse',),
         }),
         ('Control', {
