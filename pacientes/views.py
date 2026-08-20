@@ -89,7 +89,12 @@ def detalle_paciente(request, pk):
     # Datos de evolución para gráficas (solo si es médico)
     graficas_json = None
     if request.user.es_medico and consultas is not None:
+        from django.core.serializers.json import DjangoJSONEncoder
         import json
+
+        def _f(v, decimals=1):
+            return round(float(v), decimals) if v is not None else None
+
         puntos = (
             paciente.consultas
             .filter(tenant=request.tenant)
@@ -101,14 +106,13 @@ def detalle_paciente(request, pk):
         fechas, pesos, tallas, pcs = [], [], [], []
         p_peso, p_talla, p_pc = [], [], []
         for p in puntos:
-            f = p['fecha'].strftime('%d/%m/%Y')
-            fechas.append(f)
-            pesos.append(round(float(p['peso']), 2) if p['peso'] is not None else None)
-            tallas.append(round(float(p['talla']), 1) if p['talla'] is not None else None)
-            pcs.append(round(float(p['perimetro_cefalico']), 1) if p['perimetro_cefalico'] is not None else None)
-            p_peso.append(p['percentil_peso'])
-            p_talla.append(p['percentil_talla'])
-            p_pc.append(p['percentil_pc'])
+            fechas.append(p['fecha'].strftime('%d/%m/%Y'))
+            pesos.append(_f(p['peso'], 2))
+            tallas.append(_f(p['talla'], 1))
+            pcs.append(_f(p['perimetro_cefalico'], 1))
+            p_peso.append(_f(p['percentil_peso'], 0))
+            p_talla.append(_f(p['percentil_talla'], 0))
+            p_pc.append(_f(p['percentil_pc'], 0))
         graficas_json = json.dumps({
             'fechas': fechas,
             'pesos': pesos,
@@ -117,7 +121,7 @@ def detalle_paciente(request, pk):
             'p_peso': p_peso,
             'p_talla': p_talla,
             'p_pc': p_pc,
-        })
+        }, cls=DjangoJSONEncoder)
 
     return render(request, 'pacientes/detalle.html', {
         'paciente': paciente,
