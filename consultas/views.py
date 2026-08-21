@@ -544,7 +544,7 @@ def nuevo_procedimiento(request, paciente_id):
 
 @login_required
 def recipe_consulta(request, pk):
-    """Genera el récipe médico en PDF horizontal, dividido en dos mitades simétricas:
+    """Genera el récipe médico en PDF horizontal, dos mitades simétricas elegantes.
     Lado izquierdo: Tratamiento | Lado derecho: Indicaciones"""
     if not request.user.es_medico:
         return _r(request, '/agenda/')
@@ -555,15 +555,14 @@ def recipe_consulta(request, pk):
     )
 
     from reportlab.lib.pagesizes import landscape, letter
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import cm
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import cm, mm
     from reportlab.lib import colors
     from reportlab.platypus import (
         SimpleDocTemplate, Paragraph, Spacer, Table,
         TableStyle, HRFlowable, Image
     )
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
-    from datetime import date
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     import io
 
     tenant = request.tenant
@@ -571,11 +570,11 @@ def recipe_consulta(request, pk):
 
     # ── Datos del médico ────────────────────────────────────────────────────────
     medico = consulta.medico or request.user
-    titulo = medico.titulo
-    nombre_medico = f'{titulo} {medico.get_full_name() or medico.username}'
-    especialidad = medico.especialidad or ''
-    credenciales = medico.credenciales or ''
-    numero_mpps = medico.numero_mpps or ''
+    titulo = getattr(medico, 'titulo', '')
+    nombre_medico = f'{titulo} {medico.get_full_name() or medico.username}'.strip()
+    especialidad = getattr(medico, 'especialidad', '') or ''
+    credenciales = getattr(medico, 'credenciales', '') or ''
+    numero_mpps = getattr(medico, 'numero_mpps', '') or ''
 
     try:
         config = tenant.config
@@ -588,38 +587,67 @@ def recipe_consulta(request, pk):
         telefono = email = ''
 
     # ── Datos del paciente ──────────────────────────────────────────────────────
-    edad_str = paciente.get_edad_detallada() if hasattr(paciente, 'get_edad_detallada') and paciente.fecha_nacimiento else (getattr(paciente, 'get_edad', None) or '—')
+    try:
+        edad_str = paciente.get_edad_detallada()
+    except Exception:
+        try:
+            edad_str = paciente.get_edad()
+        except Exception:
+            edad_str = '—'
     if callable(edad_str):
         edad_str = edad_str()
-    peso_str = f'{consulta.peso} kg' if consulta.peso else '—'
-    talla_str = f'{consulta.talla} cm' if consulta.talla else '—'
+    edad_str = str(edad_str) if edad_str else '—'
+
+    peso_str = f'{consulta.peso} kg' if consulta.peso else ''
+    talla_str = f'{consulta.talla} cm' if getattr(consulta, 'talla', None) else ''
+    medidas = ' · '.join(filter(None, [peso_str, talla_str]))
     fecha_str = consulta.fecha.strftime('%d/%m/%Y')
 
-    # ── Estilos ─────────────────────────────────────────────────────────────────
-    styles = getSampleStyleSheet()
-    TEAL = colors.HexColor('#2AACA8')
-    GRIS = colors.HexColor('#6B7280')
-    OSCURO = colors.HexColor('#1F2937')
-    LINEA = colors.HexColor('#D1D5DB')
+    # ── Paleta ──────────────────────────────────────────────────────────────────
+    TEAL       = colors.HexColor('#2AACA8')
+    TEAL_DARK  = colors.HexColor('#1E7D7A')
+    GRIS       = colors.HexColor('#6B7280')
+    GRIS_CLARO = colors.HexColor('#9CA3AF')
+    OSCURO     = colors.HexColor('#111827')
+    LINEA      = colors.HexColor('#E5E7EB')
+    FONDO_PAC  = colors.HexColor('#F0FDFC')
+    BLANCO     = colors.white
 
-    s_nombre = ParagraphStyle('rn', fontName='Helvetica-Bold', fontSize=13,
-        textColor=OSCURO, spaceAfter=2, leading=16)
-    s_sub = ParagraphStyle('rs', fontSize=8.5, textColor=GRIS, spaceAfter=1, leading=11)
-    s_titulo_sec = ParagraphStyle('rt', fontName='Helvetica-Bold', fontSize=10,
-        textColor=TEAL, spaceBefore=6, spaceAfter=5, leading=13)
-    s_body = ParagraphStyle('rb', fontSize=9.5, textColor=OSCURO,
-        spaceAfter=4, leading=14)
-    s_label = ParagraphStyle('rl', fontSize=8, textColor=GRIS, spaceAfter=1)
-    s_firma = ParagraphStyle('rf', fontSize=9, textColor=OSCURO,
-        alignment=TA_CENTER, leading=12)
-    s_pie = ParagraphStyle('rp', fontSize=7.5, textColor=GRIS,
-        alignment=TA_CENTER, spaceBefore=3)
+    _ctr = [0]
+    def _style(**kw):
+        _ctr[0] += 1
+        base = dict(fontName='Helvetica', fontSize=9, textColor=OSCURO,
+                    spaceAfter=0, spaceBefore=0, leading=12)
+        base.update(kw)
+        return ParagraphStyle(f'__s{_ctr[0]}', **base)
 
-    # ── Página landscape ─────────────────────────────────────────────────────────
+    s_medico_nombre = _style(fontName='Helvetica-Bold', fontSize=12, textColor=OSCURO,
+                             leading=15, spaceAfter=1)
+    s_medico_esp    = _style(fontSize=8.5, textColor=TEAL_DARK, leading=11, spaceAfter=1)
+    s_medico_cred   = _style(fontSize=8, textColor=GRIS, leading=10, spaceAfter=0)
+    s_medico_mpps   = _style(fontSize=7.5, textColor=GRIS_CLARO, leading=10)
+    s_pac_nombre    = _style(fontName='Helvetica-Bold', fontSize=9.5, textColor=OSCURO,
+                             leading=12, spaceAfter=1)
+    s_pac_det       = _style(fontSize=8.5, textColor=GRIS, leading=11)
+    s_body          = _style(fontSize=9.5, textColor=OSCURO, leading=14, spaceAfter=3)
+    s_body_item     = _style(fontSize=9.5, textColor=OSCURO, leading=14, spaceAfter=2,
+                             leftIndent=8)
+    s_firma_nombre  = _style(fontName='Helvetica-Bold', fontSize=9, textColor=OSCURO,
+                             alignment=TA_CENTER, leading=12)
+    s_firma_sub     = _style(fontSize=7.5, textColor=GRIS, alignment=TA_CENTER,
+                             leading=10, spaceAfter=1)
+    s_fecha         = _style(fontSize=7.5, textColor=GRIS_CLARO, alignment=TA_RIGHT,
+                             leading=10)
+    s_contacto      = _style(fontSize=7.5, textColor=GRIS, alignment=TA_CENTER, leading=10)
+    s_etiqueta      = _style(fontName='Helvetica-Bold', fontSize=8.5,
+                             textColor=BLANCO, leading=11)
+
+    # ── Dimensiones ─────────────────────────────────────────────────────────────
     buffer = io.BytesIO()
-    PAGE_W, PAGE_H = landscape(letter)   # ~27.9 cm x 21.6 cm
-    MARGIN = 1.2 * cm
-    COL_W = (PAGE_W - 2 * MARGIN - 0.6 * cm) / 2   # mitad menos separador
+    PAGE_W, PAGE_H = landscape(letter)
+    MARGIN = 1.3 * cm
+    SEP    = 0.8 * cm
+    COL_W  = (PAGE_W - 2 * MARGIN - SEP) / 2
 
     doc = SimpleDocTemplate(
         buffer,
@@ -628,123 +656,167 @@ def recipe_consulta(request, pk):
         topMargin=MARGIN, bottomMargin=MARGIN,
     )
 
-    # ── Helper: construir el bloque de un lado ──────────────────────────────────
-    def _bloque_lado(titulo_sec, contenido_texto):
-        """Retorna una lista de flowables para un lado del récipe."""
-        items = []
+    # ── Helper: descargar imagen ────────────────────────────────────────────────
+    def _fetch_image(url, width, height):
+        try:
+            import urllib.request as ur
+            data = ur.urlopen(url, timeout=5).read()
+            return Image(io.BytesIO(data), width=width, height=height)
+        except Exception:
+            return None
 
-        # — Membrete —
+    # ── Helper: membrete ────────────────────────────────────────────────────────
+    def _membrete(col_w):
+        items = []
         if membrete_url:
-            try:
-                import urllib.request as ur
-                data = ur.urlopen(membrete_url).read()
-                img = Image(io.BytesIO(data), width=COL_W, height=2.2 * cm)
+            img = _fetch_image(membrete_url, col_w, 2.0 * cm)
+            if img:
                 img.hAlign = 'CENTER'
                 items.append(img)
-            except Exception:
-                membrete_url_fallback = None
-                _agregar_membrete_texto(items, logo_url, nombre_medico, especialidad)
-        else:
-            _agregar_membrete_texto(items, logo_url, nombre_medico, especialidad)
+                return items
 
-        items.append(HRFlowable(width=COL_W, thickness=1.5, color=TEAL))
-        items.append(Spacer(1, 0.25 * cm))
-
-        # — Datos del paciente —
-        datos_pac = [
-            [Paragraph('<b>Paciente:</b>', s_label), Paragraph(paciente.nombre_completo, s_body)],
-            [Paragraph('<b>Edad:</b>', s_label), Paragraph(str(edad_str), s_body)],
-            [Paragraph('<b>Peso:</b>', s_label), Paragraph(peso_str, s_body)],
-            [Paragraph('<b>Talla:</b>', s_label), Paragraph(talla_str, s_body)],
-            [Paragraph('<b>Fecha:</b>', s_label), Paragraph(fecha_str, s_body)],
-        ]
-        t_pac = Table(datos_pac, colWidths=[2.2 * cm, COL_W - 2.2 * cm])
-        t_pac.setStyle(TableStyle([
-            ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 1),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ]))
-        items.append(t_pac)
-        items.append(HRFlowable(width=COL_W, thickness=0.5, color=LINEA))
-        items.append(Spacer(1, 0.2 * cm))
-
-        # — Contenido principal —
-        items.append(Paragraph(titulo_sec, s_titulo_sec))
-        texto = contenido_texto.strip() if contenido_texto else '—'
-        for linea in texto.split('\n'):
-            linea = linea.strip()
-            if linea:
-                items.append(Paragraph(linea, s_body))
-
-        items.append(Spacer(1, 1.0 * cm))
-
-        # — Firma —
-        items.append(HRFlowable(width=5 * cm, thickness=0.5, color=OSCURO, hAlign='CENTER'))
-        items.append(Spacer(1, 0.15 * cm))
-        items.append(Paragraph(nombre_medico, s_firma))
+        logo_img = _fetch_image(logo_url, 1.6 * cm, 1.6 * cm) if logo_url else None
+        info = []
+        info.append(Paragraph(nombre_medico, s_medico_nombre))
         if especialidad:
-            items.append(Paragraph(especialidad, s_pie))
+            info.append(Paragraph(especialidad, s_medico_esp))
         if credenciales:
-            items.append(Paragraph(credenciales, s_pie))
+            info.append(Paragraph(credenciales, s_medico_cred))
         if numero_mpps:
-            items.append(Paragraph(f'MPPS/CMP: {numero_mpps}', s_pie))
-        contacto = ' · '.join(filter(None, [telefono, email]))
-        if contacto:
-            items.append(Paragraph(contacto, s_pie))
-
-        return items
-
-    def _agregar_membrete_texto(items, logo_url, nombre_medico, especialidad):
-        logo_img = None
-        if logo_url:
-            try:
-                import urllib.request as ur
-                data = ur.urlopen(logo_url).read()
-                logo_img = Image(io.BytesIO(data), width=1.8 * cm, height=1.8 * cm)
-            except Exception:
-                logo_img = None
-
-        info_lines = [Paragraph(nombre_medico, s_nombre)]
-        if especialidad:
-            info_lines.append(Paragraph(especialidad, s_sub))
-        if credenciales:
-            info_lines.append(Paragraph(credenciales, s_sub))
+            info.append(Paragraph(f'MPPS/CMP: {numero_mpps}', s_medico_mpps))
 
         if logo_img:
-            t = Table([[logo_img, info_lines]], colWidths=[2.2 * cm, COL_W - 2.2 * cm])
+            t = Table([[logo_img, info]], colWidths=[2.0 * cm, col_w - 2.0 * cm])
             t.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LEFTPADDING', (0, 0), (0, 0), 0),
-                ('RIGHTPADDING', (0, 0), (0, 0), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING',   (0, 0), (0, 0), 0),
+                ('RIGHTPADDING',  (0, 0), (0, 0), 8),
+                ('LEFTPADDING',   (1, 0), (1, 0), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING',    (0, 0), (-1, -1), 0),
             ]))
             items.append(t)
         else:
-            for l in info_lines:
-                items.append(l)
-        items.append(Spacer(1, 0.2 * cm))
+            for p in info:
+                items.append(p)
+        return items
+
+    # ── Helper: bloque paciente ─────────────────────────────────────────────────
+    def _bloque_paciente(col_w):
+        det_parts = [edad_str]
+        if medidas:
+            det_parts.append(medidas)
+        det_str = ' · '.join(det_parts)
+
+        data = [[Paragraph('Paciente', s_pac_det),
+                 Paragraph(paciente.nombre_completo, s_pac_nombre)]]
+        if det_str:
+            data.append([Paragraph('', s_pac_det), Paragraph(det_str, s_pac_det)])
+        dx = getattr(consulta, 'diagnostico', '') or ''
+        if dx:
+            data.append([Paragraph('Dx', s_pac_det), Paragraph(dx[:120], s_pac_det)])
+
+        t = Table(data, colWidths=[1.6 * cm, col_w - 1.6 * cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, -1), FONDO_PAC),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING',  (0, 0), (-1, -1), 6),
+            ('TOPPADDING',    (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+            ('TEXTCOLOR',     (0, 0), (0, -1), GRIS),
+        ]))
+        return t
+
+    # ── Helper: firma ───────────────────────────────────────────────────────────
+    def _firma():
+        items = []
+        items.append(HRFlowable(width=4.5 * cm, thickness=0.8, color=GRIS_CLARO,
+                                hAlign='CENTER'))
+        items.append(Spacer(1, 1.5 * mm))
+        items.append(Paragraph(nombre_medico, s_firma_nombre))
+        if especialidad:
+            items.append(Paragraph(especialidad, s_firma_sub))
+        if numero_mpps:
+            items.append(Paragraph(f'MPPS/CMP: {numero_mpps}', s_firma_sub))
+        contacto = ' · '.join(filter(None, [telefono, email]))
+        if contacto:
+            items.append(Paragraph(contacto, s_contacto))
+        return items
+
+    # ── Helper: bloque completo de un lado ──────────────────────────────────────
+    def _bloque_lado(etiqueta, contenido_texto, col_w):
+        items = []
+
+        # 1. Membrete
+        items += _membrete(col_w)
+        items.append(Spacer(1, 1.5 * mm))
+
+        # 2. Línea teal decorativa
+        items.append(HRFlowable(width=col_w, thickness=2, color=TEAL, spaceAfter=0))
+        items.append(Spacer(1, 2 * mm))
+
+        # 3. Fecha
+        items.append(Paragraph(f'Fecha: {fecha_str}', s_fecha))
+        items.append(Spacer(1, 2 * mm))
+
+        # 4. Bloque paciente
+        items.append(_bloque_paciente(col_w))
+        items.append(Spacer(1, 3 * mm))
+
+        # 5. Etiqueta de sección con fondo teal
+        lbl_t = Table(
+            [[Paragraph(etiqueta, s_etiqueta)]],
+            colWidths=[col_w]
+        )
+        lbl_t.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, -1), TEAL),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
+            ('TOPPADDING',    (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        items.append(lbl_t)
+        items.append(Spacer(1, 3 * mm))
+
+        # 6. Contenido
+        texto = contenido_texto.strip() if contenido_texto else ''
+        if texto:
+            for linea in texto.split('\n'):
+                linea = linea.strip()
+                if not linea:
+                    items.append(Spacer(1, 2 * mm))
+                    continue
+                if linea[0] in '-·•' or (len(linea) > 2 and linea[1] in '.):' and linea[0].isdigit()):
+                    items.append(Paragraph(linea, s_body_item))
+                else:
+                    items.append(Paragraph(linea, s_body))
+        else:
+            items.append(Paragraph('—', s_body))
+
+        items.append(Spacer(1, 4 * mm))
+
+        # 7. Firma
+        items += _firma()
+        return items
 
     # ── Construir ambos lados ────────────────────────────────────────────────────
-    lado_izq = _bloque_lado('TRATAMIENTO', consulta.tratamiento or '')
-    lado_der = _bloque_lado('INDICACIONES', consulta.indicaciones or '')
+    lado_izq = _bloque_lado('TRATAMIENTO', consulta.tratamiento or '', COL_W)
+    lado_der = _bloque_lado('INDICACIONES', consulta.indicaciones or '', COL_W)
 
-    # ── Ensamblar en tabla de dos columnas ───────────────────────────────────────
-    SEP = 0.6 * cm
+    # ── Ensamblar tabla principal ────────────────────────────────────────────────
     tabla_principal = Table(
         [[lado_izq, '', lado_der]],
         colWidths=[COL_W, SEP, COL_W],
         rowHeights=None,
     )
     tabla_principal.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LINEAFTER', (0, 0), (0, 0), 1, LINEA),
-        ('LEFTPADDING', (0, 0), (0, 0), 0),
-        ('RIGHTPADDING', (0, 0), (0, 0), SEP / 2),
-        ('LEFTPADDING', (2, 0), (2, 0), SEP / 2),
-        ('RIGHTPADDING', (2, 0), (2, 0), 0),
-        ('LEFTPADDING', (1, 0), (1, 0), 0),
-        ('RIGHTPADDING', (1, 0), (1, 0), 0),
+        ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+        ('LINEAFTER',     (0, 0), (0, 0), 1.2, LINEA),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 0),
+        ('TOPPADDING',    (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
 
     doc.build([tabla_principal])
