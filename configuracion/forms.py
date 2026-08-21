@@ -11,7 +11,7 @@ class ConfigConsultorioForm(forms.ModelForm):
     class Meta:
         model = ConfigConsultorio
         fields = [
-            'nombre_consultorio', 'nombre_medico', 'especialidad',
+            'nombre_consultorio',
             'direccion', 'telefono', 'email',
             'whatsapp_numero', 'whatsapp_mensaje',
             'color_primario', 'color_sidebar',

@@ -13,12 +13,6 @@ class ConfigConsultorio(models.Model):
     nombre_consultorio = models.CharField(max_length=200, blank=True,
         verbose_name='Nombre del consultorio',
         help_text='Ej: Consultorio Pediátrico Santa María')
-    nombre_medico = models.CharField(max_length=200, blank=True,
-        verbose_name='Nombre del médico',
-        help_text='Ej: Dr. Carlos Pérez')
-    especialidad = models.CharField(max_length=200, blank=True,
-        verbose_name='Especialidad')
-
     # Logo
     logo_public_id = models.CharField(max_length=500, blank=True,
         verbose_name='Logo (Cloudinary public_id)')
@@ -61,8 +55,8 @@ class ConfigConsultorio(models.Model):
         return f'Config — {self.tenant.nombre}'
 
     def nombre_display(self):
-        """Nombre que se muestra en la app — consultorio si existe, si no el médico."""
-        return self.nombre_consultorio or self.nombre_medico or self.tenant.nombre
+        """Nombre que se muestra en la app — consultorio si existe, si no el tenant."""
+        return self.nombre_consultorio or self.tenant.nombre
 
     def get_logo_url(self):
         if not self.logo_public_id:

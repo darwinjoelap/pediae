@@ -40,14 +40,12 @@
             {{ form.nombre_consultorio }}
             <div class="form-text">{{ form.nombre_consultorio.help_text }}</div>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">{{ form.nombre_medico.label }}</label>
-            {{ form.nombre_medico }}
-            <div class="form-text">{{ form.nombre_medico.help_text }}</div>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">{{ form.especialidad.label }}</label>
-            {{ form.especialidad }}
+          <div class="col-12">
+            <div class="alert alert-info py-2 mb-0 small">
+              <i class="bi bi-person-badge me-1"></i>
+              El nombre del médico, especialidad y credenciales se configuran en el
+              <strong>perfil de usuario</strong> (Admin → Usuarios).
+            </div>
           </div>
           <div class="col-12">
             <label class="form-label">{{ form.logo.label }}</label>
