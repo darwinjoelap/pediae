@@ -32,6 +32,7 @@ class ConsultaForm(forms.ModelForm):
             'desarrollo_psicomotor': forms.Textarea(attrs={'rows': 2}),
             'diagnostico': forms.Textarea(attrs={'rows': 2}),
             'tratamiento': forms.Textarea(attrs={'rows': 3}),
+            'indicaciones': forms.Textarea(attrs={'rows': 3}),
             'laboratorio': forms.Textarea(attrs={'rows': 2}),
             'observaciones': forms.Textarea(attrs={'rows': 2}),
             'notas_alimentacion': forms.Textarea(attrs={'rows': 2}),
@@ -53,6 +54,7 @@ class ConsultaForm(forms.ModelForm):
             'frecuencia_cardiaca', 'frecuencia_respiratoria',
             'temperatura', 'saturacion_oxigeno', 'tension_arterial',
             'sintomas_actuales', 'examen_fisico', 'desarrollo_psicomotor',
+            'tratamiento', 'indicaciones',
             'laboratorio', 'proxima_cita', 'observaciones',
             # hábitos
             'tipo_alimentacion', 'apetito', 'num_comidas', 'notas_alimentacion',
@@ -108,6 +110,7 @@ class ConsultaForm(forms.ModelForm):
             'desarrollo_psicomotor',
             'diagnostico',
             'tratamiento',
+            'indicaciones',
             'laboratorio',
             Row(
                 Column('proxima_cita', css_class='col-12 col-md-6'),
