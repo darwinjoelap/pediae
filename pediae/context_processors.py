@@ -15,7 +15,7 @@ def consultorio_info(request):
         config = tenant.config
         return {
             'CONSULTORIO_NOMBRE': config.nombre_display(),
-            'CONSULTORIO_ESPECIALIDAD': config.especialidad,
+            'CONSULTORIO_ESPECIALIDAD': '',
             'CONSULTORIO_CONFIG': config,
             'TENANT_PREFIX': f'/t/{tenant.slug}',
             'COLOR_PRIMARIO': config.color_primario or '#2AACA8',
