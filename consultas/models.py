@@ -122,7 +122,11 @@ class Consulta(models.Model):
     diagnostico = models.TextField(verbose_name='Diagnóstico / Impresión diagnóstica')
 
     # P — Plan
-    tratamiento = models.TextField(verbose_name='Tratamiento / Plan')
+    tratamiento = models.TextField(blank=True, verbose_name='Tratamiento / Plan')
+    indicaciones = models.TextField(
+        blank=True, verbose_name='Indicaciones',
+        help_text='Instrucciones específicas para el paciente o representante',
+    )
     laboratorio = models.TextField(blank=True, verbose_name='Exámenes paraclínicos solicitados')
     proxima_cita = models.DateField(null=True, blank=True, verbose_name='Próxima cita')
     observaciones = models.TextField(blank=True, verbose_name='Observaciones')
