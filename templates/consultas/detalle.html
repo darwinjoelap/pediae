@@ -127,8 +127,15 @@
     <h6 class="text-muted text-uppercase small">Diagnóstico</h6>
     <p>{{ consulta.diagnostico }}</p>
 
+    {% if consulta.tratamiento %}
     <h6 class="text-muted text-uppercase small">Tratamiento</h6>
     <p>{{ consulta.tratamiento }}</p>
+    {% endif %}
+
+    {% if consulta.indicaciones %}
+    <h6 class="text-muted text-uppercase small">Indicaciones</h6>
+    <p>{{ consulta.indicaciones }}</p>
+    {% endif %}
 
     {% if consulta.laboratorio %}
     <h6 class="text-muted text-uppercase small">Laboratorio / Paraclínicos</h6>
