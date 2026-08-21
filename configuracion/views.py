@@ -39,6 +39,17 @@ def editar_config(request):
                     resource_type='image',
                 )
                 obj.logo_public_id = resultado['public_id']
+            membrete_file = request.FILES.get('membrete')
+            if membrete_file:
+                configurar_cloudinary()
+                resultado = cloudinary.uploader.upload(
+                    membrete_file,
+                    folder=f'ginea/{tenant.slug}/membrete',
+                    public_id='membrete_recipe',
+                    overwrite=True,
+                    resource_type='image',
+                )
+                obj.membrete_public_id = resultado['public_id']
             obj.save()
             messages.success(request, 'Configuración actualizada correctamente.')
             return _r(request, '/configuracion/')

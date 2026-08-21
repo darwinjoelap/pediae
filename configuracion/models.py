@@ -36,6 +36,13 @@ class ConfigConsultorio(models.Model):
         verbose_name='Mensaje por defecto WhatsApp',
         help_text='Texto que se pre-carga al abrir WhatsApp desde la app')
 
+    # Membrete para récipe (imagen banner)
+    membrete_public_id = models.CharField(
+        max_length=500, blank=True,
+        verbose_name='Membrete récipe (Cloudinary public_id)',
+        help_text='Imagen banner horizontal para el récipe médico. Si se carga, reemplaza el membrete generado automáticamente.',
+    )
+
     # Apariencia
     color_primario = models.CharField(max_length=7, default='#2AACA8',
         verbose_name='Color primario',
@@ -63,6 +70,14 @@ class ConfigConsultorio(models.Model):
         import cloudinary
         return cloudinary.CloudinaryResource(self.logo_public_id).build_url(
             width=300, height=300, crop='fit', secure=True
+        )
+
+    def get_membrete_url(self):
+        if not self.membrete_public_id:
+            return None
+        import cloudinary
+        return cloudinary.CloudinaryResource(self.membrete_public_id).build_url(
+            secure=True
         )
 
     def get_whatsapp_url(self, texto_extra=''):

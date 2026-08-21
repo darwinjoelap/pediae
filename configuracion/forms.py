@@ -5,6 +5,8 @@ from .models import ConfigConsultorio
 class ConfigConsultorioForm(forms.ModelForm):
     logo = forms.ImageField(required=False, label='Logo del consultorio',
         help_text='PNG o JPG recomendado. Se guardará en Cloudinary.')
+    membrete = forms.ImageField(required=False, label='Membrete récipe (imagen banner)',
+        help_text='Imagen horizontal (ej: 800×150 px). Si se carga, reemplaza el membrete automático en el récipe PDF.')
 
     class Meta:
         model = ConfigConsultorio

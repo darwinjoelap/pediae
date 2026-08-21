@@ -37,6 +37,23 @@ class Usuario(AbstractUser):
         verbose_name='Consultorio',
     )
 
+    # Credenciales profesionales (solo médicos)
+    especialidad = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Especialidad',
+        help_text='Ej: Pediatría y Puericultura',
+    )
+    credenciales = models.CharField(
+        max_length=300, blank=True,
+        verbose_name='Credenciales / Posgrado',
+        help_text='Ej: Especialista en Pediatría. Universidad Central de Venezuela',
+    )
+    numero_mpps = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='Número MPPS / CMP',
+        help_text='Número de registro médico profesional',
+    )
+
     class Meta:
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
