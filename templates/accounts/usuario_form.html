@@ -49,6 +49,26 @@
           </div>
         </div>
         {% endif %}
+        {# ── Credenciales profesionales ── #}
+        <div class="col-12 mt-2">
+          <hr class="my-1">
+          <p class="text-muted small mb-2"><i class="bi bi-award me-1"></i> Credenciales profesionales (solo médicos)</p>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Especialidad</label>
+          {{ form.especialidad }}
+          <div class="form-text">{{ form.especialidad.help_text }}</div>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Credenciales / Posgrado</label>
+          {{ form.credenciales }}
+          <div class="form-text">{{ form.credenciales.help_text }}</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Número MPPS / CMP</label>
+          {{ form.numero_mpps }}
+          <div class="form-text">{{ form.numero_mpps.help_text }}</div>
+        </div>
         {% if form.password1 %}
         <div class="col-md-6">
           <label class="form-label">Contraseña</label>
