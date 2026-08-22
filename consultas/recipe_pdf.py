@@ -1,16 +1,16 @@
 """
 consultas/recipe_pdf.py
 Récipe médico — landscape letter, dos columnas simétricas.
-Estilo: membrete logo+nombre, watermark centrado, firma al pie.
+Firma fija al pie de página dibujada vía canvas callback.
 """
 import io
 import urllib.request as ur
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import cm, mm
+from reportlab.lib.units import cm, mm, pt
 from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     BaseDocTemplate, Frame, HRFlowable, Image, PageTemplate,
@@ -28,6 +28,9 @@ PAGE_W, PAGE_H = landscape(letter)
 MARGIN = 1.3 * cm
 SEP    = 0.8 * cm
 COL_W  = (PAGE_W - 2 * MARGIN - SEP) / 2
+
+# Altura reservada para la firma al pie (espacio que el contenido no debe pisar)
+FIRMA_H = 2.4 * cm   # HR + nombre + especialidad + mpps + telefono
 
 # ── Estilos ───────────────────────────────────────────────────────────────────
 _ctr = [0]
@@ -50,15 +53,11 @@ S_PAC_DET = _style(fontSize=9, textColor=GRIS, leading=12)
 S_SECCION = _style(fontName='Helvetica-Bold', fontSize=11, textColor=NEGRO, leading=15)
 S_BODY    = _style(fontSize=9.5, textColor=NEGRO, leading=14, spaceAfter=2)
 S_BODY_IT = _style(fontSize=9.5, textColor=NEGRO, leading=14, spaceAfter=2, leftIndent=8)
-S_FIR_NOM = _style(fontName='Helvetica-Bold', fontSize=9, textColor=NEGRO,
-                   alignment=TA_CENTER, leading=12)
-S_FIR_SUB = _style(fontSize=8, textColor=GRIS, alignment=TA_CENTER, leading=11)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _fetch_bytes(url):
-    """Descarga bytes desde URL, devuelve None si falla."""
     try:
         return ur.urlopen(url, timeout=5).read()
     except Exception:
@@ -66,7 +65,7 @@ def _fetch_bytes(url):
 
 
 def _transparent_png(raw_bytes, alpha=0.09):
-    """Devuelve bytes PNG con opacidad reducida para usar como watermark."""
+    """Devuelve bytes PNG con opacidad reducida para watermark."""
     try:
         from PIL import Image as PILImg
         img = PILImg.open(io.BytesIO(raw_bytes)).convert('RGBA')
@@ -81,7 +80,7 @@ def _transparent_png(raw_bytes, alpha=0.09):
 
 
 def _membrete(col_w, nombre_medico, especialidad, direccion, logo_bytes):
-    """Header: logo a la izquierda + nombre grande + especialidad + dirección."""
+    """Header: logo + nombre grande + especialidad + dirección."""
     info = [Paragraph(nombre_medico, S_DR_NOM)]
     if especialidad:
         info.append(Paragraph(especialidad, S_DR_ESP))
@@ -105,9 +104,8 @@ def _membrete(col_w, nombre_medico, especialidad, direccion, logo_bytes):
 
 def _bloque_lado(etiqueta, contenido_texto, *, col_w, nombre_medico,
                  especialidad, direccion, logo_bytes,
-                 paciente, consulta, edad_str, fecha_str,
-                 numero_mpps, telefono):
-    """Construye la lista de flowables de una columna del récipe."""
+                 paciente, consulta, edad_str, fecha_str):
+    """Flowables de una columna (SIN firma — la firma va en el canvas callback)."""
     items = []
 
     # 1. Membrete
@@ -135,7 +133,7 @@ def _bloque_lado(etiqueta, contenido_texto, *, col_w, nombre_medico,
         items.append(Paragraph(' , '.join(det), S_PAC_DET))
     items.append(Spacer(1, 4 * mm))
 
-    # 5. Etiqueta sección ("RP:" / "Indicaciones")
+    # 5. Etiqueta sección
     items.append(Paragraph(etiqueta, S_SECCION))
     items.append(Spacer(1, 3 * mm))
 
@@ -152,21 +150,6 @@ def _bloque_lado(etiqueta, contenido_texto, *, col_w, nombre_medico,
                 items.append(Paragraph(linea, S_BODY_IT))
             else:
                 items.append(Paragraph(linea, S_BODY))
-
-    # 7. Espaciado flexible antes de firma
-    items.append(Spacer(1, 8 * mm))
-
-    # 8. Firma
-    items.append(HRFlowable(width=5 * cm, thickness=0.6, color=GRIS_CLARO,
-                             hAlign='CENTER'))
-    items.append(Spacer(1, 1.5 * mm))
-    items.append(Paragraph(nombre_medico, S_FIR_NOM))
-    if especialidad:
-        items.append(Paragraph(especialidad, S_FIR_SUB))
-    if numero_mpps:
-        items.append(Paragraph(f'MPPS/CMP: {numero_mpps}', S_FIR_SUB))
-    if telefono:
-        items.append(Paragraph(telefono, S_FIR_SUB))
 
     return items
 
@@ -186,7 +169,7 @@ def generar_recipe_pdf(consulta, medico, config):
     paciente = consulta.paciente
 
     # ── Médico ────────────────────────────────────────────────────────────────
-    titulo        = getattr(medico, 'titulo', '')         # Dr. / Dra.
+    titulo        = getattr(medico, 'titulo', '')          # Dr. / Dra.
     nombre_medico = f'{titulo} {medico.get_full_name() or medico.username}'.strip()
     especialidad  = getattr(medico, 'especialidad', '') or ''
     numero_mpps   = getattr(medico, 'numero_mpps',   '') or ''
@@ -202,18 +185,18 @@ def generar_recipe_pdf(consulta, medico, config):
 
     telefono = telefono_med or telefono_cf
 
-    # ── Dirección del lugar donde se realizó la consulta ─────────────────────
+    # ── Dirección del lugar de la consulta ────────────────────────────────────
     lugar = getattr(consulta, 'lugar', None)
     direccion = ''
     if lugar:
         direccion = (getattr(lugar, 'direccion', '') or
                      getattr(lugar, 'nombre',    '') or '')
 
-    # ── Logo (bytes reutilizados en header y watermark) ───────────────────────
+    # ── Logo ──────────────────────────────────────────────────────────────────
     logo_bytes = _fetch_bytes(logo_url) if logo_url else None
     wm_bytes   = _transparent_png(logo_bytes, alpha=0.09) if logo_bytes else None
 
-    # ── Edad ──────────────────────────────────────────────────────────────────
+    # ── Edad / fecha ──────────────────────────────────────────────────────────
     try:
         edad_str = paciente.get_edad_detallada()
     except Exception:
@@ -223,11 +206,10 @@ def generar_recipe_pdf(consulta, medico, config):
             edad_str = '—'
     if callable(edad_str):
         edad_str = edad_str()
-    edad_str = str(edad_str) if edad_str else '—'
-
+    edad_str  = str(edad_str) if edad_str else '—'
     fecha_str = consulta.fecha.strftime('%d/%m/%Y')
 
-    # ── Columnas ──────────────────────────────────────────────────────────────
+    # ── Columnas de contenido ─────────────────────────────────────────────────
     kw = dict(
         col_w=COL_W,
         nombre_medico=nombre_medico,
@@ -238,40 +220,82 @@ def generar_recipe_pdf(consulta, medico, config):
         consulta=consulta,
         edad_str=edad_str,
         fecha_str=fecha_str,
-        numero_mpps=numero_mpps,
-        telefono=telefono,
     )
 
     lado_izq = _bloque_lado('RP:',          consulta.tratamiento  or '', **kw)
     lado_der = _bloque_lado('Indicaciones', consulta.indicaciones or '', **kw)
 
-    # ── Watermark: logo centrado y transparente en cada columna ──────────────
+    # ── Canvas callback: watermark + firma fija al pie ────────────────────────
     def _on_page(canvas, doc):
-        if not wm_bytes:
-            return
         canvas.saveState()
-        wm_size = 5.5 * cm
+
+        # — Watermark: logo transparente centrado en cada columna —
+        if wm_bytes:
+            wm_size = 5.5 * cm
+            col1_cx = MARGIN + COL_W / 2
+            col2_cx = MARGIN + COL_W + SEP + COL_W / 2
+            wm_y    = MARGIN + FIRMA_H + (PAGE_H - MARGIN * 2 - FIRMA_H) * 0.30
+            for cx in (col1_cx, col2_cx):
+                reader = ImageReader(io.BytesIO(wm_bytes))
+                canvas.drawImage(
+                    reader,
+                    cx - wm_size / 2, wm_y,
+                    width=wm_size, height=wm_size,
+                    mask='auto', preserveAspectRatio=True,
+                )
+
+        # — Firma fija al pie: centrada en cada columna —
         col1_cx = MARGIN + COL_W / 2
         col2_cx = MARGIN + COL_W + SEP + COL_W / 2
-        wm_y    = PAGE_H * 0.27   # zona central-baja del área de contenido
+        LINE_W  = 5 * cm
+
+        # Líneas de texto desde abajo hacia arriba
+        lines = []                         # (texto, fontName, fontSize, color)
+        if telefono:
+            lines.append((telefono,              'Helvetica', 8, GRIS))
+        if numero_mpps:
+            lines.append((f'MPPS/CMP: {numero_mpps}', 'Helvetica', 8, GRIS))
+        if especialidad:
+            lines.append((especialidad,          'Helvetica', 8, GRIS))
+        lines.append((nombre_medico,             'Helvetica-Bold', 9, NEGRO))
+
+        LINE_LEADING = 11  # puntos entre líneas de la firma
+        GAP_BELOW_HR = 3   # espacio entre HR y primera línea de texto
+
+        # Y base (borde inferior del área de la firma)
+        y = MARGIN
+
+        # Dibuja líneas de abajo hacia arriba
+        for text, font, size, clr in lines:
+            canvas.setFont(font, size)
+            canvas.setFillColor(clr)
+            canvas.drawCentredString(col1_cx, y, text)
+            canvas.drawCentredString(col2_cx, y, text)
+            y += LINE_LEADING
+
+        y += GAP_BELOW_HR  # espacio antes de la raya
+
+        # Raya de firma
+        canvas.setStrokeColor(GRIS_CLARO)
+        canvas.setLineWidth(0.6)
         for cx in (col1_cx, col2_cx):
-            reader = ImageReader(io.BytesIO(wm_bytes))
-            canvas.drawImage(
-                reader,
-                cx - wm_size / 2, wm_y,
-                width=wm_size, height=wm_size,
-                mask='auto', preserveAspectRatio=True,
-            )
+            canvas.line(cx - LINE_W / 2, y, cx + LINE_W / 2, y)
+
+        # Línea divisoria vertical entre columnas (misma que la tabla)
+        div_x = MARGIN + COL_W + SEP / 2
+        canvas.setStrokeColor(LINEA)
+        canvas.setLineWidth(0.5)
+        canvas.line(div_x, MARGIN, div_x, y + 4)
+
         canvas.restoreState()
 
-    # ── Tabla principal ───────────────────────────────────────────────────────
+    # ── Tabla principal (contenido, sin firma) ────────────────────────────────
     tabla = Table(
         [[lado_izq, '', lado_der]],
         colWidths=[COL_W, SEP, COL_W],
     )
     tabla.setStyle(TableStyle([
         ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
-        ('LINEAFTER',     (0, 0), (0, 0),   0.5, LINEA),
         ('LEFTPADDING',   (0, 0), (-1, -1), 0),
         ('RIGHTPADDING',  (0, 0), (-1, -1), 0),
         ('TOPPADDING',    (0, 0), (-1, -1), 0),
@@ -280,20 +304,23 @@ def generar_recipe_pdf(consulta, medico, config):
         ('LEFTPADDING',   (2, 0), (2, 0),   8),
     ]))
 
-    # ── Documento con callback de página para el watermark ───────────────────
+    # Frame de contenido: deja FIRMA_H libre en la parte inferior
     buffer = io.BytesIO()
     frame = Frame(
-        MARGIN, MARGIN,
-        PAGE_W - 2 * MARGIN, PAGE_H - 2 * MARGIN,
-        leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0,
-        id='main',
+        MARGIN,
+        MARGIN + FIRMA_H,                          # empieza sobre la firma
+        PAGE_W - 2 * MARGIN,
+        PAGE_H - 2 * MARGIN - FIRMA_H,            # altura disponible para contenido
+        leftPadding=0, rightPadding=0,
+        topPadding=0, bottomPadding=0,
+        id='content',
     )
     page_tpl = PageTemplate(id='recipe', frames=[frame], onPage=_on_page)
     doc = BaseDocTemplate(
         buffer,
         pagesize=landscape(letter),
         rightMargin=MARGIN, leftMargin=MARGIN,
-        topMargin=MARGIN, bottomMargin=MARGIN,
+        topMargin=MARGIN, bottomMargin=MARGIN + FIRMA_H,
         pageTemplates=[page_tpl],
     )
     doc.build([tabla])
