@@ -64,11 +64,13 @@ def _fetch_bytes(url):
         return None
 
 
-def _transparent_png(raw_bytes, alpha=0.09):
-    """Devuelve bytes PNG con opacidad reducida para watermark."""
+def _transparent_png(raw_bytes, alpha=0.09, max_px=300):
+    """Devuelve bytes PNG redimensionado y con opacidad reducida para watermark."""
     try:
         from PIL import Image as PILImg
         img = PILImg.open(io.BytesIO(raw_bytes)).convert('RGBA')
+        # Limita a max_px para que el watermark no pese más de lo necesario
+        img.thumbnail((max_px, max_px), PILImg.LANCZOS)
         r, g, b, a = img.split()
         a = a.point(lambda v: int(v * alpha))
         out = io.BytesIO()
