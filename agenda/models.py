@@ -106,59 +106,70 @@ class Cita(models.Model):
             tenant = self.tenant or (self.creado_por.tenant if self.creado_por else None)
             if tenant:
                 config = tenant.config
-                return config.nombre_medico or tenant.nombre, config.telefono or tenant.telefono
-            return 'Consultorio Ginea', ''
+                nombre = getattr(config, 'nombre_consultorio', '') or tenant.nombre
+                return nombre, config.telefono or tenant.telefono
+            return 'nuestro consultorio', ''
         except Exception:
-            return 'Consultorio Ginea', ''
+            return 'nuestro consultorio', ''
+
+    def _destinatario_whatsapp(self):
+        """
+        Determina a quién va dirigido el recordatorio: si el paciente tiene
+        representante registrado (caso pediátrico), el mensaje se dirige a
+        él/ella y se envía a su teléfono; si no, se dirige al propio paciente.
+        Devuelve (nombre_saludo, telefono_destino, representante_o_None).
+        """
+        paciente = self.paciente
+        representante = (getattr(paciente, 'nombre_representante', '') or '').strip()
+        if representante:
+            telefono = (getattr(paciente, 'telefono_representante', '') or '').strip() or paciente.telefono
+            return representante.split()[0], telefono, representante
+        return paciente.nombre_completo.split()[0], paciente.telefono, None
 
     def get_whatsapp_url(self, tenant=None):
+        import urllib.parse
         tenant = tenant or self.tenant
-        try:
-            if tenant:
-                config = tenant.config
-                nombre_consultorio = config.nombre_medico or tenant.nombre
-                if config.whatsapp_mensaje:
-                    import urllib.parse
-                    telefono = self.paciente.telefono
-                    telefono_limpio = telefono.replace('-', '').replace(' ', '').replace('(', '').replace(')', '')
-                    if telefono_limpio.startswith('0'):
-                        telefono_limpio = '+58' + telefono_limpio[1:]
-                    elif not telefono_limpio.startswith('+'):
-                        telefono_limpio = '+58' + telefono_limpio
-                    nombre = self.paciente.nombre_completo.split()[0]
-                    if self.lugar:
-                        lugar_str = f' en {self.lugar.nombre}'
-                        if self.lugar.direccion:
-                            lugar_str += f' ({self.lugar.direccion})'
-                    else:
-                        lugar_str = ''
-                    extra = f'\nCita: {self.fecha.strftime("%d/%m/%Y")} a las {self.hora_inicio.strftime("%H:%M")}{lugar_str}'
-                    mensaje = f'{config.whatsapp_mensaje}\n\nHola {nombre},{extra}'
-                    return f'https://wa.me/{telefono_limpio}?text={urllib.parse.quote(mensaje)}'
-            else:
-                nombre_consultorio, _ = self._get_consultorio_info()
-        except Exception:
-            nombre_consultorio, _ = self._get_consultorio_info()
+        nombre_saludo, telefono, representante = self._destinatario_whatsapp()
 
-        telefono = self.paciente.telefono
         telefono_limpio = telefono.replace('-', '').replace(' ', '').replace('(', '').replace(')', '')
         if telefono_limpio.startswith('0'):
             telefono_limpio = '+58' + telefono_limpio[1:]
         elif not telefono_limpio.startswith('+'):
             telefono_limpio = '+58' + telefono_limpio
+
         if self.lugar:
             lugar_str = f' en {self.lugar.nombre}'
             if self.lugar.direccion:
                 lugar_str += f' ({self.lugar.direccion})'
         else:
             lugar_str = ''
-        nombre = self.paciente.nombre_completo.split()[0]
-        mensaje = (
-            f'Hola {nombre}, le recordamos su cita con {nombre_consultorio} '
-            f'el {self.fecha.strftime("%d/%m/%Y")} a las {self.hora_inicio.strftime("%H:%M")}'
-            f'{lugar_str}. Por favor confirme su asistencia. Gracias.'
+
+        try:
+            config = tenant.config if tenant else None
+        except Exception:
+            config = None
+        nombre_consultorio = (
+            (getattr(config, 'nombre_consultorio', '') if config else '')
+            or (tenant.nombre if tenant else '')
+            or 'nuestro consultorio'
         )
-        import urllib.parse
+
+        if config and config.whatsapp_mensaje:
+            extra = f'\nCita: {self.fecha.strftime("%d/%m/%Y")} a las {self.hora_inicio.strftime("%H:%M")}{lugar_str}'
+            mensaje = f'{config.whatsapp_mensaje}\n\nHola {nombre_saludo},{extra}'
+            return f'https://wa.me/{telefono_limpio}?text={urllib.parse.quote(mensaje)}'
+
+        if representante:
+            cuerpo = (
+                f'le recordamos la cita de {self.paciente.nombre_completo} con {nombre_consultorio} '
+                f'el {self.fecha.strftime("%d/%m/%Y")} a las {self.hora_inicio.strftime("%H:%M")}{lugar_str}.'
+            )
+        else:
+            cuerpo = (
+                f'le recordamos su cita con {nombre_consultorio} '
+                f'el {self.fecha.strftime("%d/%m/%Y")} a las {self.hora_inicio.strftime("%H:%M")}{lugar_str}.'
+            )
+        mensaje = f'Hola {nombre_saludo}, {cuerpo} Por favor confirme su asistencia. Gracias.'
         return f'https://wa.me/{telefono_limpio}?text={urllib.parse.quote(mensaje)}'
 
     def get_email_asunto(self):
