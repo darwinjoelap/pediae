@@ -10,7 +10,7 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import cm, mm, pt
+from reportlab.lib.units import cm, mm
 from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     BaseDocTemplate, Frame, HRFlowable, Image, PageTemplate,
