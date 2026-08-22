@@ -53,6 +53,11 @@ class Usuario(AbstractUser):
         verbose_name='Número MPPS / CMP',
         help_text='Número de registro médico profesional',
     )
+    telefono = models.CharField(
+        max_length=30, blank=True,
+        verbose_name='Teléfono',
+        help_text='Teléfono de contacto del médico',
+    )
 
     class Meta:
         verbose_name = 'Usuario'
