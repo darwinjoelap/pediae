@@ -104,7 +104,7 @@ def _membrete(col_w, nombre_medico, especialidad, direccion, logo_bytes):
 
 def _bloque_lado(etiqueta, contenido_texto, *, col_w, nombre_medico,
                  especialidad, direccion, logo_bytes,
-                 paciente, consulta, edad_str, fecha_str):
+                 paciente, consulta, edad_str, fecha_str, estudios=''):
     """Flowables de una columna (SIN firma — la firma va en el canvas callback)."""
     items = []
 
@@ -141,6 +141,23 @@ def _bloque_lado(etiqueta, contenido_texto, *, col_w, nombre_medico,
     texto = (contenido_texto or '').strip()
     if texto:
         for linea in texto.split('\n'):
+            linea = linea.strip()
+            if not linea:
+                items.append(Spacer(1, 2 * mm))
+                continue
+            if linea[0] in '-·•' or (
+                    len(linea) > 2 and linea[1] in '.):' and linea[0].isdigit()):
+                items.append(Paragraph(linea, S_BODY_IT))
+            else:
+                items.append(Paragraph(linea, S_BODY))
+
+    # 7. Estudios solicitados (solo si hay contenido)
+    estudios_txt = (estudios or '').strip()
+    if estudios_txt:
+        items.append(Spacer(1, 4 * mm))
+        items.append(Paragraph('Estudios solicitados:', S_SECCION))
+        items.append(Spacer(1, 3 * mm))
+        for linea in estudios_txt.split('\n'):
             linea = linea.strip()
             if not linea:
                 items.append(Spacer(1, 2 * mm))
@@ -222,8 +239,9 @@ def generar_recipe_pdf(consulta, medico, config):
         fecha_str=fecha_str,
     )
 
-    lado_izq = _bloque_lado('RP:',          consulta.tratamiento  or '', **kw)
-    lado_der = _bloque_lado('Indicaciones', consulta.indicaciones or '', **kw)
+    lado_izq = _bloque_lado('RP:',          consulta.tratamiento  or '', estudios='', **kw)
+    lado_der = _bloque_lado('Indicaciones', consulta.indicaciones or '',
+                            estudios=consulta.laboratorio or '', **kw)
 
     # ── Canvas callback: watermark + firma fija al pie ────────────────────────
     def _on_page(canvas, doc):
