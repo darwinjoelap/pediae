@@ -1,163 +1,301 @@
 """
-Generador de PDF para curvas de crecimiento OMS.
-Recibe imagen PNG en base64 (del canvas Chart.js) y datos del paciente/médico.
+pacientes/curvas_pdf.py
+PDF de curvas de crecimiento OMS.
+Membrete idéntico al récipe: logo + nombre médico + especialidad + watermark + firma al pie.
 """
-import base64
 import io
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import cm
+import base64
+import urllib.request as ur
+from datetime import date
+
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.units import cm, mm
+from reportlab.lib.utils import ImageReader
+from reportlab.platypus import (
+    BaseDocTemplate, Frame, HRFlowable, Image, PageTemplate,
+    Paragraph, Spacer, Table, TableStyle,
+)
 
-COLOR_TEAL = colors.HexColor('#2AACA8')
-COLOR_GRAY = colors.HexColor('#6b7280')
-COLOR_LIGHT = colors.HexColor('#f3f4f6')
+# ── Paleta (igual que recipe_pdf) ────────────────────────────────────────────
+NEGRO      = colors.HexColor('#111827')
+GRIS       = colors.HexColor('#6B7280')
+GRIS_CLARO = colors.HexColor('#9CA3AF')
+TEAL       = colors.HexColor('#2AACA8')
+LINEA      = colors.HexColor('#D1D5DB')
+FONDO      = colors.HexColor('#F9FAFB')
+
+MARGIN  = 1.5 * cm
+FIRMA_H = 2.6 * cm   # espacio reservado para la firma al pie
+
+# ── Estilos ───────────────────────────────────────────────────────────────────
+_ctr = [0]
+def _sty(**kw):
+    _ctr[0] += 1
+    base = dict(fontName='Helvetica', fontSize=9, textColor=NEGRO,
+                spaceAfter=0, spaceBefore=0, leading=12)
+    base.update(kw)
+    return ParagraphStyle(f'cp_{_ctr[0]}', **base)
+
+S_DR_NOM  = _sty(fontName='Helvetica-Bold', fontSize=15, textColor=NEGRO, leading=18, spaceAfter=1)
+S_DR_ESP  = _sty(fontSize=9, textColor=GRIS, leading=12)
+S_DR_DIR  = _sty(fontSize=8, textColor=GRIS, leading=11)
+S_TITULO  = _sty(fontName='Helvetica-Bold', fontSize=11, textColor=TEAL, leading=14, spaceAfter=2)
+S_LABEL   = _sty(fontName='Helvetica-Bold', fontSize=8, textColor=GRIS, leading=11)
+S_VALOR   = _sty(fontSize=8, textColor=NEGRO, leading=11)
+S_NOTA    = _sty(fontSize=7.5, textColor=GRIS, leading=10)
+S_FECHA_R = _sty(fontSize=8, textColor=GRIS, leading=11, alignment=TA_RIGHT)
 
 
-def generar_pdf_curvas(
-    paciente,
-    medico,
-    consultorio_nombre: str,
-    consultorio_especialidad: str,
-    grafica_b64: str,
-    indicador: str,
-    meses_grafica: int = 60,
-) -> bytes:
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _fetch_bytes(url):
+    try:
+        return ur.urlopen(url, timeout=5).read()
+    except Exception:
+        return None
+
+
+def _transparent_png(raw_bytes, alpha=0.07, max_px=300):
+    try:
+        from PIL import Image as PILImg
+        img = PILImg.open(io.BytesIO(raw_bytes)).convert('RGBA')
+        img.thumbnail((max_px, max_px), PILImg.LANCZOS)
+        r, g, b, a = img.split()
+        a = a.point(lambda v: int(v * alpha))
+        out = io.BytesIO()
+        PILImg.merge('RGBA', (r, g, b, a)).save(out, 'PNG')
+        out.seek(0)
+        return out.read()
+    except Exception:
+        return None
+
+
+def _membrete(page_w, margin, nombre_medico, especialidad, direccion, logo_bytes):
+    """Header: logo a la izquierda + nombre grande + especialidad."""
+    ancho = page_w - 2 * margin
+    info = [Paragraph(nombre_medico, S_DR_NOM)]
+    if especialidad:
+        info.append(Paragraph(especialidad, S_DR_ESP))
+    if direccion:
+        info.append(Paragraph(direccion, S_DR_DIR))
+
+    if logo_bytes:
+        logo = Image(io.BytesIO(logo_bytes), width=2.0 * cm, height=2.0 * cm)
+        t = Table([[logo, info]], colWidths=[2.5 * cm, ancho - 2.5 * cm])
+        t.setStyle(TableStyle([
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING',  (0, 0), (0, 0), 10),
+            ('RIGHTPADDING',  (1, 0), (1, 0), 0),
+            ('TOPPADDING',    (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        return [t]
+    return list(info)
+
+
+# ── Función pública ───────────────────────────────────────────────────────────
+
+def generar_pdf_curvas(paciente, medico, config, grafica_b64: str, indicador: str) -> bytes:
     """
-    Genera un PDF con la curva de crecimiento.
+    Genera PDF con curvas OMS.
 
-    Args:
-        paciente: instancia de Paciente
-        medico: instancia de Usuario (doctora)
-        consultorio_nombre: str
-        consultorio_especialidad: str
-        grafica_b64: imagen PNG en base64 (sin prefijo data:...)
-        indicador: 'peso', 'talla' o 'pc'
-        meses_grafica: meses máximos graficados
-
-    Returns:
-        bytes del PDF generado
+    Parameters
+    ----------
+    paciente     : Paciente
+    medico       : Usuario (doctora)
+    config       : ConfigConsultorio | None — para logo, teléfono, nombre consultorio
+    grafica_b64  : imagen PNG en base64 (con o sin prefijo data:...)
+    indicador    : 'peso' | 'talla' | 'pc'
     """
+    PAGE_W, PAGE_H = letter
+    ancho_util = PAGE_W - 2 * MARGIN
+
+    # ── Datos del médico ──────────────────────────────────────────────────────
+    titulo        = getattr(medico, 'titulo', '') or ''
+    nombre_medico = f'{titulo} {medico.get_full_name() or medico.username}'.strip()
+    especialidad  = getattr(medico, 'especialidad', '') or ''
+    numero_mpps   = getattr(medico, 'numero_mpps',  '') or ''
+    telefono_med  = getattr(medico, 'telefono',     '') or ''
+
+    # ── Config del consultorio ────────────────────────────────────────────────
+    logo_url     = None
+    telefono_cf  = ''
+    consultorio  = ''
+    direccion    = ''
+
+    if config:
+        try:
+            logo_url    = config.get_logo_url()
+            telefono_cf = config.telefono or ''
+            consultorio = getattr(config, 'nombre', '') or ''
+            direccion   = getattr(config, 'direccion', '') or ''
+        except Exception:
+            pass
+
+    telefono = telefono_med or telefono_cf
+
+    # ── Logo ──────────────────────────────────────────────────────────────────
+    logo_bytes = _fetch_bytes(logo_url) if logo_url else None
+    wm_bytes   = _transparent_png(logo_bytes, alpha=0.07) if logo_bytes else None
+
+    # ── Imagen del gráfico ────────────────────────────────────────────────────
+    if ',' in grafica_b64:
+        grafica_b64 = grafica_b64.split(',', 1)[1]
+
+    try:
+        grafica_img_data = base64.b64decode(grafica_b64)
+        grafica_stream   = io.BytesIO(grafica_img_data)
+        # Ajustamos al ancho útil con proporción 16:9
+        graf_w = ancho_util
+        graf_h = graf_w * (9 / 16)
+        grafica_img = Image(grafica_stream, width=graf_w, height=graf_h)
+    except Exception:
+        grafica_img = None
+
+    # ── Título del indicador ──────────────────────────────────────────────────
+    titulo_ind = {
+        'peso':  'Peso para la Edad',
+        'talla': 'Talla para la Edad',
+        'pc':    'Perímetro Cefálico para la Edad',
+    }.get(indicador, indicador.capitalize())
+
+    # ── Edad del paciente ─────────────────────────────────────────────────────
+    try:
+        edad_str = str(paciente.get_edad_detallada())
+    except Exception:
+        edad_str = '—'
+
+    # ── Flowables ─────────────────────────────────────────────────────────────
+    items = []
+
+    # 1. Membrete
+    items += _membrete(PAGE_W, MARGIN, nombre_medico, especialidad or consultorio, direccion, logo_bytes)
+    items.append(Spacer(1, 3 * mm))
+    items.append(HRFlowable(width=ancho_util, thickness=0.8, color=TEAL, spaceAfter=0))
+    items.append(Spacer(1, 4 * mm))
+
+    # 2. Título del reporte
+    items.append(Paragraph(f'Curva de Crecimiento OMS — {titulo_ind}', S_TITULO))
+    items.append(Spacer(1, 3 * mm))
+
+    # 3. Datos del paciente (tabla 2 columnas)
+    sexo_str = paciente.get_sexo_display() if (hasattr(paciente, 'get_sexo_display') and paciente.sexo) else '—'
+    fnac_str = paciente.fecha_nacimiento.strftime('%d/%m/%Y') if paciente.fecha_nacimiento else '—'
+    cedula_str = getattr(paciente, 'cedula', '—') or '—'
+    grupo_str  = getattr(paciente, 'grupo_sanguineo', '—') or '—'
+
+    pac_data = [
+        [Paragraph('Paciente:', S_LABEL), Paragraph(paciente.nombre_completo, S_VALOR),
+         Paragraph('Sexo:', S_LABEL),     Paragraph(sexo_str, S_VALOR)],
+        [Paragraph('Cédula:', S_LABEL),   Paragraph(cedula_str, S_VALOR),
+         Paragraph('Edad:', S_LABEL),     Paragraph(edad_str, S_VALOR)],
+        [Paragraph('Fecha nac.:', S_LABEL), Paragraph(fnac_str, S_VALOR),
+         Paragraph('Grupo sg.:', S_LABEL),  Paragraph(grupo_str, S_VALOR)],
+    ]
+    pac_t = Table(pac_data, colWidths=[2.8*cm, 6.2*cm, 2.8*cm, 6.2*cm])
+    pac_t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), FONDO),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [FONDO, colors.white]),
+        ('TOPPADDING',    (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
+        ('FONTSIZE',      (0, 0), (-1, -1), 8),
+    ]))
+    items.append(pac_t)
+    items.append(Spacer(1, 4 * mm))
+
+    # 4. Gráfica
+    if grafica_img:
+        items.append(grafica_img)
+    else:
+        items.append(Paragraph('[Imagen del gráfico no disponible]', S_NOTA))
+    items.append(Spacer(1, 3 * mm))
+
+    # 5. Nota OMS
+    items.append(HRFlowable(width=ancho_util, thickness=0.4, color=LINEA))
+    items.append(Spacer(1, 2 * mm))
+    items.append(Paragraph(
+        'Referencias: Estándares de Crecimiento Infantil OMS (2006). '
+        'Líneas de percentiles: P3, P15, P50 (mediana, teal), P85 y P97. '
+        'La zona sombreada indica el rango normal P15–P85.',
+        S_NOTA
+    ))
+
+    # ── Canvas callback: watermark + firma al pie ─────────────────────────────
+    def _on_page(canvas, doc):
+        canvas.saveState()
+
+        # Watermark centrado en la página
+        if wm_bytes:
+            wm_sz = 7 * cm
+            cx = PAGE_W / 2
+            cy = MARGIN + FIRMA_H + (PAGE_H - MARGIN * 2 - FIRMA_H) * 0.40
+            reader = ImageReader(io.BytesIO(wm_bytes))
+            canvas.drawImage(
+                reader,
+                cx - wm_sz / 2, cy - wm_sz / 2,
+                width=wm_sz, height=wm_sz,
+                mask='auto', preserveAspectRatio=True,
+            )
+
+        # Firma centrada al pie
+        cx = PAGE_W / 2
+        LINE_W = 6 * cm
+        lines = []   # (texto, font, size, color)
+        if telefono:
+            lines.append((telefono, 'Helvetica', 8, GRIS))
+        if numero_mpps:
+            lines.append((f'MPPS/CMP: {numero_mpps}', 'Helvetica', 8, GRIS))
+        if especialidad:
+            lines.append((especialidad, 'Helvetica', 8, GRIS))
+        lines.append((nombre_medico, 'Helvetica-Bold', 9, NEGRO))
+
+        LINE_LEAD = 11
+        GAP = 3
+        y = MARGIN
+
+        for text, font, size, clr in lines:
+            canvas.setFont(font, size)
+            canvas.setFillColor(clr)
+            canvas.drawCentredString(cx, y, text)
+            y += LINE_LEAD
+
+        y += GAP
+        canvas.setStrokeColor(GRIS_CLARO)
+        canvas.setLineWidth(0.6)
+        canvas.line(cx - LINE_W / 2, y, cx + LINE_W / 2, y)
+
+        # Fecha generación (esquina inferior derecha)
+        canvas.setFont('Helvetica', 7)
+        canvas.setFillColor(GRIS_CLARO)
+        canvas.drawRightString(PAGE_W - MARGIN, MARGIN - 4, f'Generado: {date.today().strftime("%d/%m/%Y")}')
+
+        canvas.restoreState()
+
+    # ── Construir PDF ─────────────────────────────────────────────────────────
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
+    frame = Frame(
+        MARGIN,
+        MARGIN + FIRMA_H,
+        ancho_util,
+        PAGE_H - 2 * MARGIN - FIRMA_H,
+        leftPadding=0, rightPadding=0,
+        topPadding=0, bottomPadding=0,
+        id='content',
+    )
+    page_tpl = PageTemplate(id='curvas', frames=[frame], onPage=_on_page)
+    doc = BaseDocTemplate(
         buffer,
         pagesize=letter,
-        leftMargin=2 * cm,
-        rightMargin=2 * cm,
-        topMargin=2 * cm,
-        bottomMargin=2 * cm,
+        rightMargin=MARGIN, leftMargin=MARGIN,
+        topMargin=MARGIN, bottomMargin=MARGIN + FIRMA_H,
+        pageTemplates=[page_tpl],
     )
-
-    styles = getSampleStyleSheet()
-    story = []
-
-    # ── Encabezado ──────────────────────────────────────────────────────────
-    header_style = ParagraphStyle(
-        'header',
-        parent=styles['Normal'],
-        fontSize=14,
-        fontName='Helvetica-Bold',
-        textColor=COLOR_TEAL,
-        spaceAfter=2,
-    )
-    sub_style = ParagraphStyle(
-        'sub',
-        parent=styles['Normal'],
-        fontSize=10,
-        textColor=COLOR_GRAY,
-        spaceAfter=4,
-    )
-    story.append(Paragraph(consultorio_nombre, header_style))
-    story.append(Paragraph(consultorio_especialidad, sub_style))
-
-    titulo_indicador = {'peso': 'Peso para la Edad', 'talla': 'Talla para la Edad', 'pc': 'Perímetro Cefálico para la Edad'}.get(indicador, indicador)
-    story.append(Paragraph(f'<b>Curva de Crecimiento OMS — {titulo_indicador}</b>', sub_style))
-
-    # línea separadora
-    story.append(Spacer(1, 0.3 * cm))
-    story.append(Table([['']], colWidths=[17 * cm],
-                        style=TableStyle([('LINEABOVE', (0, 0), (-1, 0), 1, COLOR_TEAL)])))
-    story.append(Spacer(1, 0.3 * cm))
-
-    # ── Datos del paciente ───────────────────────────────────────────────────
-    label_style = ParagraphStyle('lbl', parent=styles['Normal'], fontSize=9,
-                                  fontName='Helvetica-Bold', textColor=COLOR_GRAY)
-    val_style = ParagraphStyle('val', parent=styles['Normal'], fontSize=9)
-
-    edad_str = paciente.get_edad_detallada() if hasattr(paciente, 'get_edad_detallada') else ''
-    sexo_str = paciente.get_sexo_display() if hasattr(paciente, 'get_sexo_display') and paciente.sexo else ''
-
-    datos_paciente = [
-        ['Paciente:', paciente.nombre_completo, 'Sexo:', sexo_str],
-        ['Cédula:', getattr(paciente, 'cedula', '—'), 'Edad:', edad_str],
-        ['Fecha nac.:', str(paciente.fecha_nacimiento) if paciente.fecha_nacimiento else '—',
-         'Grupo:', getattr(paciente, 'grupo_sanguineo', '—') or '—'],
-    ]
-
-    pac_table = Table(datos_paciente, colWidths=[3 * cm, 5.5 * cm, 3 * cm, 5.5 * cm])
-    pac_table.setStyle(TableStyle([
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('TEXTCOLOR', (0, 0), (0, -1), COLOR_GRAY),
-        ('TEXTCOLOR', (2, 0), (2, -1), COLOR_GRAY),
-        ('BACKGROUND', (0, 0), (-1, -1), COLOR_LIGHT),
-        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [COLOR_LIGHT, colors.white]),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    story.append(pac_table)
-    story.append(Spacer(1, 0.4 * cm))
-
-    # ── Gráfica ──────────────────────────────────────────────────────────────
-    try:
-        img_data = base64.b64decode(grafica_b64)
-        img_stream = io.BytesIO(img_data)
-        img = Image(img_stream, width=17 * cm, height=10 * cm)
-        story.append(img)
-    except Exception:
-        story.append(Paragraph('[Imagen no disponible]', sub_style))
-
-    story.append(Spacer(1, 0.4 * cm))
-
-    # ── Nota percentiles ────────────────────────────────────────────────────
-    nota_style = ParagraphStyle('nota', parent=styles['Normal'], fontSize=8,
-                                 textColor=COLOR_GRAY, spaceAfter=4)
-    story.append(Paragraph(
-        'Las líneas de referencia corresponden a los Estándares de Crecimiento Infantil de la OMS (2006): '
-        'P3, P15, P50, P85 y P97. La línea teal (P50) representa la mediana poblacional.',
-        nota_style
-    ))
-
-    # ── Pie médico ───────────────────────────────────────────────────────────
-    story.append(Spacer(1, 0.5 * cm))
-    story.append(Table([['']], colWidths=[17 * cm],
-                        style=TableStyle([('LINEABOVE', (0, 0), (-1, 0), 0.5, COLOR_GRAY)])))
-    story.append(Spacer(1, 0.3 * cm))
-
-    medico_nombre = medico.get_full_name() if medico else ''
-    titulo_med = getattr(medico, 'titulo', '') or ''
-
-    pie_data = [
-        [Paragraph(f'<b>{titulo_med} {medico_nombre}</b>', val_style),
-         Paragraph(consultorio_especialidad, sub_style)],
-    ]
-    pie_table = Table(pie_data, colWidths=[9 * cm, 8 * cm])
-    pie_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    story.append(pie_table)
-
-    from datetime import date
-    story.append(Paragraph(
-        f'Generado el {date.today().strftime("%d/%m/%Y")}',
-        ParagraphStyle('fecha', parent=styles['Normal'], fontSize=8,
-                        textColor=COLOR_GRAY, alignment=TA_RIGHT)
-    ))
-
-    doc.build(story)
+    doc.build(items)
+    buffer.seek(0)
     return buffer.getvalue()

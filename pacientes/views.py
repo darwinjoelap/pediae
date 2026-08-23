@@ -257,11 +257,16 @@ def curvas_crecimiento_pdf(request, pk):
     from .curvas_pdf import generar_pdf_curvas
     from django.http import HttpResponse
 
+    # Obtener config del consultorio (logo, teléfono, etc.)
+    try:
+        config = request.tenant.config
+    except Exception:
+        config = None
+
     pdf_bytes = generar_pdf_curvas(
         paciente=paciente,
         medico=request.user,
-        consultorio_nombre=request.tenant.nombre if request.tenant else '',
-        consultorio_especialidad=getattr(request.tenant, 'especialidad', '') or '',
+        config=config,
         grafica_b64=grafica_b64,
         indicador=indicador,
     )
