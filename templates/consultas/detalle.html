@@ -205,6 +205,10 @@
 <div class="d-flex justify-content-between align-items-center mb-2">
   <h6 class="fw-bold mb-0">Archivos adjuntos</h6>
   <div class="d-flex gap-2">
+    <a href="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/editar/"
+       class="btn btn-sm btn-outline-secondary" title="Editar consulta">
+      <i class="bi bi-pencil me-1"></i> Editar
+    </a>
     <a href="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/imprimir/"
        target="_blank" class="btn btn-sm btn-outline-danger">
       <i class="bi bi-printer me-1"></i> Imprimir
