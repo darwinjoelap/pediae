@@ -31,6 +31,7 @@ def nueva_consulta(request, paciente_id):
             paciente=paciente,
             tenant=request.tenant,
             fecha=_date.today(),
+            estado__in=['programada', 'confirmada'],
             consulta__isnull=True,
         ).order_by('-hora_inicio').first()
 
