@@ -216,10 +216,12 @@
 
       <!-- OMS legend -->
       <div class="d-flex flex-wrap gap-3 px-1 mb-1" style="font-size:0.72rem;color:#6b7280">
-        <span><span style="display:inline-block;width:20px;height:2px;background:#9ca3af;vertical-align:middle;margin-right:3px;border-top:1px dashed #9ca3af"></span>P3/P97</span>
-        <span><span style="display:inline-block;width:20px;height:2px;background:#9ca3af;vertical-align:middle;margin-right:3px"></span>P15/P85</span>
-        <span><span style="display:inline-block;width:20px;height:2px;background:#2AACA8;vertical-align:middle;margin-right:3px"></span>P50 (mediana)</span>
-        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2AACA8;vertical-align:middle;margin-right:3px"></span>Paciente</span>
+        <span><span style="display:inline-block;width:22px;height:0;border-top:1px dashed #9ca3af;vertical-align:middle;margin-right:3px"></span>P3 / P97</span>
+        <span><span style="display:inline-block;width:22px;height:0;border-top:1px dotted #9ca3af;vertical-align:middle;margin-right:3px"></span>P15 / P85</span>
+        <span><span style="display:inline-block;width:22px;height:2px;background:#2AACA8;vertical-align:middle;margin-right:3px;border-radius:1px"></span>P50 mediana</span>
+        <span style="background:rgba(42,172,168,0.1);padding:1px 5px;border-radius:3px">Zona P15–P85 = normal</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2AACA8;vertical-align:middle;margin-right:3px"></span>Último dato</span>
+        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9ca3af;vertical-align:middle;margin-right:3px"></span>Consultas anteriores</span>
       </div>
 
       <div style="position:relative;height:270px">
@@ -272,22 +274,31 @@
     var eje = oms.eje;
     var omsData = oms.datasets[omsKey];
     var sets = [];
+    // Estilos visuales por percentil
+    var estilos = {
+      P3:  { color: 'rgba(156,163,175,0.8)', width: 1,   dash: [4,3], fill: false },
+      P15: { color: 'rgba(156,163,175,0.9)', width: 1,   dash: [2,2], fill: '+1' },  // relleno hasta P50
+      P50: { color: 'rgba(42,172,168,1)',     width: 2,   dash: [],    fill: false },
+      P85: { color: 'rgba(156,163,175,0.9)', width: 1,   dash: [2,2], fill: false },
+      P97: { color: 'rgba(156,163,175,0.8)', width: 1,   dash: [4,3], fill: false },
+    };
     var percentiles = ['P3','P15','P50','P85','P97'];
     percentiles.forEach(function(p) {
       var info = omsData[p];
-      var pts = eje.map(function(m, i) {
-        return { x: m, y: info.valores[i] };
-      });
+      var est  = estilos[p];
+      var pts  = eje.map(function(m, i) { return { x: m, y: info.valores[i] }; });
       sets.push({
         label: p,
         data: pts,
-        borderColor: info.color,
-        borderWidth: p === 'P50' ? 1.8 : 1,
-        borderDash: info.dash,
+        borderColor: est.color,
+        borderWidth: est.width,
+        borderDash: est.dash,
+        backgroundColor: p === 'P15' ? 'rgba(42,172,168,0.08)' : 'transparent',
+        fill: est.fill,
         pointRadius: 0,
-        fill: false,
         tension: 0.4,
         spanGaps: true,
+        showLine: true,
         order: 1,
       });
     });
