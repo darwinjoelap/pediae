@@ -136,6 +136,71 @@ def detalle_consulta(request, pk):
 
 
 @login_required
+def editar_consulta(request, pk):
+    """Edita una consulta existente. Nunca crea duplicados."""
+    if not request.user.es_medico:
+        messages.error(request, 'No tienes permiso para editar consultas.')
+        return _r(request, '/agenda/')
+
+    consulta = get_object_or_404(
+        Consulta.objects.select_related('paciente', 'cita', 'lugar'),
+        pk=pk, tenant=request.tenant
+    )
+    paciente = consulta.paciente
+
+    from servicios.models import Servicio
+    servicios_disponibles = Servicio.objects.filter(
+        tenant=request.tenant, activo=True
+    )
+    servicios_preseleccionados = list(
+        consulta.servicios_usados.values_list('servicio_id', flat=True)
+    )
+
+    if request.method == 'POST':
+        form = ConsultaForm(request.POST, instance=consulta, tenant=request.tenant)
+        if form.is_valid():
+            consulta = form.save(commit=False)
+            consulta.pagado = 'pagado' in request.POST
+            consulta.notas_pago = request.POST.get('notas_pago', '')
+            consulta.save()
+
+            # Reemplaza los servicios: borra los anteriores y guarda los nuevos
+            consulta.servicios_usados.all().delete()
+            servicios_ids = request.POST.getlist('servicios')
+            if servicios_ids:
+                try:
+                    tasa = request.tenant.tasa_cambio.tasa
+                except Exception:
+                    tasa = None
+                for sid in servicios_ids:
+                    try:
+                        srv = Servicio.objects.get(pk=sid, tenant=request.tenant, activo=True)
+                        ConsultaServicio.objects.create(
+                            consulta=consulta,
+                            servicio=srv,
+                            precio_usd=srv.precio_usd,
+                            tasa_cambio=tasa,
+                        )
+                    except Servicio.DoesNotExist:
+                        pass
+
+            messages.success(request, 'Consulta actualizada correctamente.')
+            return _r(request, f'/consultas/{consulta.pk}/')
+    else:
+        form = ConsultaForm(instance=consulta, tenant=request.tenant)
+
+    return render(request, 'consultas/form.html', {
+        'form': form,
+        'paciente': paciente,
+        'cita': consulta.cita,
+        'titulo': 'Editar consulta',
+        'consulta': consulta,
+        'servicios_disponibles': servicios_disponibles,
+        'servicios_seleccionados': servicios_preseleccionados,
+    })
+
+
+@login_required
 def adjuntar_archivo(request, pk):
     if not request.user.es_medico:
         messages.error(request, 'No tienes permiso para adjuntar archivos.')
