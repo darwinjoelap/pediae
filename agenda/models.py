@@ -12,6 +12,7 @@ class LugarConsulta(models.Model):
         verbose_name='Consultorio',
     )
     nombre = models.CharField(max_length=100, verbose_name='Nombre del lugar')
+    ciudad = models.CharField(max_length=100, blank=True, verbose_name='Ciudad')
     direccion = models.CharField(max_length=200, blank=True, verbose_name='Dirección')
     telefono = models.CharField(max_length=20, blank=True, verbose_name='Teléfono del lugar')
     activo = models.BooleanField(default=True, verbose_name='Activo')

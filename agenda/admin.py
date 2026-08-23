@@ -4,7 +4,7 @@ from .models import LugarConsulta, Cita
 
 @admin.register(LugarConsulta)
 class LugarConsultaAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'direccion', 'telefono', 'activo', 'orden')
+    list_display = ('nombre', 'ciudad', 'direccion', 'telefono', 'activo', 'orden')
     list_editable = ('activo', 'orden')
     search_fields = ('nombre',)
 
