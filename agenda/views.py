@@ -228,6 +228,7 @@ def nuevo_lugar(request):
             LugarConsulta.objects.create(
                 tenant=request.tenant,
                 nombre=nombre,
+                ciudad=request.POST.get('ciudad', '').strip(),
                 direccion=request.POST.get('direccion', '').strip(),
                 telefono=request.POST.get('telefono', '').strip(),
                 orden=int(request.POST.get('orden', 0)),
@@ -248,6 +249,7 @@ def editar_lugar(request, pk):
         nombre = request.POST.get('nombre', '').strip()
         if nombre:
             lugar.nombre = nombre
+            lugar.ciudad = request.POST.get('ciudad', '').strip()
             lugar.direccion = request.POST.get('direccion', '').strip()
             lugar.telefono = request.POST.get('telefono', '').strip()
             lugar.orden = int(request.POST.get('orden', 0))

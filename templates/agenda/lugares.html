@@ -21,8 +21,8 @@
           <span class="badge bg-secondary">Inactivo</span>
           {% endif %}
         </div>
-        {% if lugar.direccion %}
-        <div class="text-muted small"><i class="bi bi-pin-map me-1"></i>{{ lugar.direccion }}</div>
+        {% if lugar.ciudad or lugar.direccion %}
+        <div class="text-muted small"><i class="bi bi-pin-map me-1"></i>{% if lugar.ciudad %}{{ lugar.ciudad }}{% if lugar.direccion %} — {% endif %}{% endif %}{{ lugar.direccion }}</div>
         {% endif %}
         {% if lugar.telefono %}
         <div class="text-muted small"><i class="bi bi-telephone me-1"></i>{{ lugar.telefono }}</div>
@@ -65,6 +65,10 @@
             <div class="mb-3">
               <label class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
               <input type="text" name="nombre" class="form-control" value="{{ lugar.nombre }}" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Ciudad</label>
+              <input type="text" name="ciudad" class="form-control" value="{{ lugar.ciudad }}">
             </div>
             <div class="mb-3">
               <label class="form-label">Dirección</label>
@@ -112,6 +116,10 @@
           <div class="mb-3">
             <label class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
             <input type="text" name="nombre" class="form-control btn-touch" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Ciudad</label>
+            <input type="text" name="ciudad" class="form-control btn-touch">
           </div>
           <div class="mb-3">
             <label class="form-label">Dirección</label>
