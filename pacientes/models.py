@@ -151,6 +151,16 @@ class Paciente(models.Model):
     antec_geneticas = models.TextField(blank=True, verbose_name='Antec. familiar enfermedades genéticas')
     antec_otros = models.TextField(blank=True, verbose_name='Otros antecedentes familiares')
 
+    # ── Antecedentes de alimentación y desarrollo ───────────────────────────
+    antec_alimentacion = models.TextField(
+        blank=True, verbose_name='Antecedentes de alimentación',
+        help_text='Lactancia materna/fórmula, ablactación, dieta actual, alergias alimentarias'
+    )
+    antec_desarrollo = models.TextField(
+        blank=True, verbose_name='Desarrollo psicomotor',
+        help_text='Hitos del desarrollo: sostén cefálico, sedestación, marcha, lenguaje, control de esfínteres'
+    )
+
     # ── Observaciones ───────────────────────────────────────────────────────
     observaciones = models.TextField(blank=True, verbose_name='Observaciones generales')
 

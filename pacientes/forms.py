@@ -263,6 +263,8 @@ class PacienteCompletoForm(forms.ModelForm):
             'antec_embarazo': forms.Textarea(attrs={'rows': 3}),
             'antec_parto': forms.Textarea(attrs={'rows': 3}),
             'antec_neonatal': forms.Textarea(attrs={'rows': 3}),
+            'antec_alimentacion': forms.Textarea(attrs={'rows': 3}),
+            'antec_desarrollo': forms.Textarea(attrs={'rows': 3}),
             'antec_autoinmunes': forms.Textarea(attrs={'rows': 2}),
             'antec_geneticas': forms.Textarea(attrs={'rows': 2}),
             'antec_otros': forms.Textarea(attrs={'rows': 2}),
@@ -284,6 +286,7 @@ class PacienteCompletoForm(forms.ModelForm):
             'medicacion_actual', 'grupo_sanguineo',
             'antec_embarazo', 'peso_nacer', 'talla_nacer',
             'antec_parto', 'antec_neonatal',
+            'antec_alimentacion', 'antec_desarrollo',
             'antec_autoinmunes', 'antec_geneticas', 'antec_otros',
             'observaciones',
         ]
@@ -336,6 +339,9 @@ class PacienteCompletoForm(forms.ModelForm):
             ),
             'antec_parto',
             'antec_neonatal',
+            seccion('Alimentación y desarrollo psicomotor'),
+            'antec_alimentacion',
+            'antec_desarrollo',
             seccion('Antecedentes familiares'),
             Row(
                 Column('antec_diabetes', css_class='col-6 col-md-2'),
