@@ -88,36 +88,51 @@ def detalle_paciente(request, pk):
     # Vacunas: resumen para el perfil (atrasadas + próximas pendientes)
     vacunas_resumen = _vacunas_resumen(paciente, request.tenant)
 
-    # Datos de evolución para gráficas (solo si es médico)
+    # Datos de evolución para gráficas + OMS (solo si es médico)
     graficas_json = None
+    oms_json = None
+
     if request.user.es_medico and consultas is not None:
         from django.core.serializers.json import DjangoJSONEncoder
         import json
+        from .oms_data import get_curvas, get_eje_meses, PERCENTILES, COLORES_PERCENTIL, DASH_PERCENTIL
 
         def _f(v, decimals=1):
             return round(float(v), decimals) if v is not None else None
+
+        def _meses(consulta_fecha, nac_fecha):
+            """Edad en meses completos en la fecha de consulta."""
+            if not nac_fecha or not consulta_fecha:
+                return None
+            delta = consulta_fecha - nac_fecha
+            return max(0, int(delta.days / 30.44))
 
         puntos = (
             paciente.consultas
             .filter(tenant=request.tenant)
             .exclude(peso__isnull=True, talla__isnull=True, perimetro_cefalico__isnull=True)
             .order_by('fecha')
-            .values('fecha', 'peso', 'talla', 'perimetro_cefalico',
+            .values('pk', 'fecha', 'motivo_consulta', 'peso', 'talla', 'perimetro_cefalico',
                     'percentil_peso', 'percentil_talla', 'percentil_pc')
         )
         fechas, pesos, tallas, pcs = [], [], [], []
         p_peso, p_talla, p_pc = [], [], []
+        meses_list = []      # edad en meses en cada consulta
+        consulta_ids = []
+        consulta_labels = []
 
         # Punto de nacimiento (si está registrado en la ficha)
         if paciente.fecha_nacimiento and (paciente.peso_nacer or paciente.talla_nacer):
             fechas.append(paciente.fecha_nacimiento.strftime('%d/%m/%Y') + ' (nacer)')
-            # peso_nacer en gramos → convertir a kg para la gráfica
             pesos.append(round(float(paciente.peso_nacer) / 1000, 3) if paciente.peso_nacer else None)
             tallas.append(_f(paciente.talla_nacer, 1) if paciente.talla_nacer else None)
             pcs.append(None)
             p_peso.append(None)
             p_talla.append(None)
             p_pc.append(None)
+            meses_list.append(0)
+            consulta_ids.append(None)
+            consulta_labels.append('Nacimiento')
 
         for p in puntos:
             fechas.append(p['fecha'].strftime('%d/%m/%Y'))
@@ -127,7 +142,39 @@ def detalle_paciente(request, pk):
             p_peso.append(_f(p['percentil_peso'], 0))
             p_talla.append(_f(p['percentil_talla'], 0))
             p_pc.append(_f(p['percentil_pc'], 0))
+            m = _meses(p['fecha'], paciente.fecha_nacimiento)
+            meses_list.append(m)
+            consulta_ids.append(p['pk'])
+            motivo = (p.get('motivo_consulta') or '')[:30]
+            label = f"{p['fecha'].strftime('%d/%m/%Y')} — {m}m"
+            if motivo:
+                label += f' ({motivo})'
+            consulta_labels.append(label)
+
         if fechas:
+            # Calcular rango de meses para las curvas OMS
+            meses_validos = [m for m in meses_list if m is not None]
+            max_m = min(max(meses_validos) + 6, 60) if meses_validos else 60
+            eje = get_eje_meses(max_m)
+
+            # Obtener curvas OMS según sexo del paciente
+            sexo = getattr(paciente, 'sexo', '') or 'M'
+            if sexo not in ('M', 'F'):
+                sexo = 'M'
+
+            curvas_peso = get_curvas(sexo, 'peso')
+            curvas_talla = get_curvas(sexo, 'talla')
+            curvas_pc = get_curvas(sexo, 'pc')
+
+            oms_datasets = {}
+            for ind, curvas in [('peso', curvas_peso), ('talla', curvas_talla), ('pc', curvas_pc)]:
+                oms_datasets[ind] = {
+                    p: {'valores': curvas[p][:max_m + 1],
+                        'color': COLORES_PERCENTIL[p],
+                        'dash': DASH_PERCENTIL[p]}
+                    for p in PERCENTILES
+                }
+
             graficas_json = json.dumps({
                 'fechas': fechas,
                 'pesos': pesos,
@@ -136,6 +183,15 @@ def detalle_paciente(request, pk):
                 'p_peso': p_peso,
                 'p_talla': p_talla,
                 'p_pc': p_pc,
+                'meses': meses_list,
+                'consulta_ids': consulta_ids,
+                'consulta_labels': consulta_labels,
+            }, cls=DjangoJSONEncoder)
+
+            oms_json = json.dumps({
+                'eje': eje,
+                'sexo': sexo,
+                'datasets': oms_datasets,
             }, cls=DjangoJSONEncoder)
 
     return render(request, 'pacientes/detalle.html', {
@@ -146,6 +202,7 @@ def detalle_paciente(request, pk):
         'servicios_disponibles': servicios_disponibles,
         'procedimientos': procedimientos,
         'graficas_json': graficas_json,
+        'oms_json': oms_json,
         'vacunas_resumen': vacunas_resumen,
     })
 
@@ -171,6 +228,48 @@ def editar_paciente(request, pk):
         'paciente': paciente,
         'titulo': 'Editar ficha',
     })
+
+
+# ── Curvas OMS — PDF ──────────────────────────────────────────────────────────
+
+@login_required
+def curvas_crecimiento_pdf(request, pk):
+    """
+    POST: recibe imagen base64 del canvas Chart.js y genera PDF con curvas OMS.
+    """
+    if not request.user.es_medico:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+
+    grafica_b64 = request.POST.get('grafica_b64', '')
+    indicador = request.POST.get('indicador', 'peso')
+
+    # Limpiar prefijo data URI si viene incluido
+    if ',' in grafica_b64:
+        grafica_b64 = grafica_b64.split(',', 1)[1]
+
+    from .curvas_pdf import generar_pdf_curvas
+    from django.http import HttpResponse
+
+    pdf_bytes = generar_pdf_curvas(
+        paciente=paciente,
+        medico=request.user,
+        consultorio_nombre=request.tenant.nombre if request.tenant else '',
+        consultorio_especialidad=getattr(request.tenant, 'especialidad', '') or '',
+        grafica_b64=grafica_b64,
+        indicador=indicador,
+    )
+
+    nombre_pdf = f'curvas_{paciente.cedula or paciente.pk}_{indicador}.pdf'
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{nombre_pdf}"'
+    return response
 
 
 # ── Vacunas ────────────────────────────────────────────────────────────────────

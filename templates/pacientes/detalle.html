@@ -187,21 +187,56 @@
        data-bs-toggle="collapse" data-bs-target="#graficas-collapse"
        style="cursor:pointer">
     <span class="fw-bold small text-uppercase text-muted" style="letter-spacing:1px">
-      <i class="bi bi-graph-up me-1"></i> Curvas de crecimiento
+      <i class="bi bi-graph-up me-1"></i> Curvas de crecimiento OMS
     </span>
     <i class="bi bi-chevron-down"></i>
   </div>
   <div id="graficas-collapse" class="collapse show">
     <div class="card-body p-2">
+
       <!-- Selector de métrica -->
-      <div class="d-flex gap-2 mb-2 px-1">
-        <button class="btn btn-sm btn-primary" onclick="mostrarGrafica('peso')" id="btn-peso">Peso (kg)</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="mostrarGrafica('talla')" id="btn-talla">Talla (cm)</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="mostrarGrafica('pc')" id="btn-pc">Per. cefálico (cm)</button>
+      <div class="d-flex flex-wrap gap-2 mb-2 px-1 align-items-center">
+        <div class="btn-group btn-group-sm" role="group">
+          <button class="btn btn-primary" onclick="mostrarGrafica('peso')" id="btn-peso">Peso</button>
+          <button class="btn btn-outline-secondary" onclick="mostrarGrafica('talla')" id="btn-talla">Talla</button>
+          <button class="btn btn-outline-secondary" onclick="mostrarGrafica('pc')" id="btn-pc">P.C.</button>
+        </div>
+
+        <!-- Selector de consulta -->
+        <select id="selectConsulta" class="form-select form-select-sm" style="max-width:220px"
+                onchange="seleccionarConsulta(this.value)">
+          <option value="">— Todas las consultas —</option>
+        </select>
+
+        <!-- Botón imprimir PDF -->
+        <button onclick="imprimirCurvas()" class="btn btn-sm btn-outline-danger ms-auto">
+          <i class="bi bi-file-pdf me-1"></i>PDF
+        </button>
       </div>
-      <div style="position:relative;height:240px">
+
+      <!-- OMS legend -->
+      <div class="d-flex flex-wrap gap-3 px-1 mb-1" style="font-size:0.72rem;color:#6b7280">
+        <span><span style="display:inline-block;width:20px;height:2px;background:#9ca3af;vertical-align:middle;margin-right:3px;border-top:1px dashed #9ca3af"></span>P3/P97</span>
+        <span><span style="display:inline-block;width:20px;height:2px;background:#9ca3af;vertical-align:middle;margin-right:3px"></span>P15/P85</span>
+        <span><span style="display:inline-block;width:20px;height:2px;background:#2AACA8;vertical-align:middle;margin-right:3px"></span>P50 (mediana)</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2AACA8;vertical-align:middle;margin-right:3px"></span>Paciente</span>
+      </div>
+
+      <div style="position:relative;height:270px">
         <canvas id="graficaEvolucion"></canvas>
       </div>
+      <div class="text-muted px-1 mt-1" style="font-size:0.7rem">
+        Eje X: meses de edad. Estándares OMS 2006. Percentiles P3, P15, P50, P85, P97.
+      </div>
+
+      <!-- Formulario oculto para PDF -->
+      <form id="formCurvasPdf" method="post"
+            action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/curvas-pdf/"
+            style="display:none">
+        {% csrf_token %}
+        <input type="hidden" name="grafica_b64" id="graficaB64">
+        <input type="hidden" name="indicador" id="indicadorPdf">
+      </form>
     </div>
   </div>
 </div>
@@ -210,79 +245,197 @@
 <script>
 (function() {
   var datos = {{ graficas_json|safe }};
+  var oms   = {{ oms_json|safe }};
   var chart = null;
   var metricaActual = 'peso';
+  var consultaSeleccionada = null;
 
   var configs = {
-    peso:  { label: 'Peso (kg)',            data: datos.pesos,  percentil: datos.p_peso,  color: '#2AACA8' },
-    talla: { label: 'Talla (cm)',           data: datos.tallas, percentil: datos.p_talla, color: '#6366f1' },
-    pc:    { label: 'Perímetro cefálico (cm)', data: datos.pcs, percentil: datos.p_pc,    color: '#f59e0b' },
+    peso:  { label: 'Peso (kg)',               key: 'pesos',  pKey: 'p_peso',  omsKey: 'peso'  },
+    talla: { label: 'Talla (cm)',              key: 'tallas', pKey: 'p_talla', omsKey: 'talla' },
+    pc:    { label: 'Perímetro cefálico (cm)', key: 'pcs',    pKey: 'p_pc',    omsKey: 'pc'    },
   };
 
+  // ── Poblar selector de consultas ─────────────────────────────────────────
+  var sel = document.getElementById('selectConsulta');
+  datos.consulta_labels.forEach(function(label, i) {
+    if (datos.consulta_ids[i] !== null) {  // excluir "nacimiento"
+      var opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = label;
+      sel.appendChild(opt);
+    }
+  });
+
+  // ── Construir datasets OMS ────────────────────────────────────────────────
+  function buildOmsDatasets(omsKey) {
+    var eje = oms.eje;
+    var omsData = oms.datasets[omsKey];
+    var sets = [];
+    var percentiles = ['P3','P15','P50','P85','P97'];
+    percentiles.forEach(function(p) {
+      var info = omsData[p];
+      var pts = eje.map(function(m, i) {
+        return { x: m, y: info.valores[i] };
+      });
+      sets.push({
+        label: p,
+        data: pts,
+        borderColor: info.color,
+        borderWidth: p === 'P50' ? 1.8 : 1,
+        borderDash: info.dash,
+        pointRadius: 0,
+        fill: false,
+        tension: 0.4,
+        spanGaps: true,
+        order: 1,
+      });
+    });
+    return sets;
+  }
+
+  // ── Construir dataset de paciente ─────────────────────────────────────────
+  function buildPacienteDataset(cfg) {
+    var values = datos[cfg.key];
+    var meses  = datos.meses;
+    var pKeys  = datos[cfg.pKey];
+    var n = meses.length;
+
+    // Puntos con valor válido
+    var pts = [];
+    for (var i = 0; i < n; i++) {
+      if (values[i] !== null && meses[i] !== null) {
+        pts.push({
+          x: meses[i],
+          y: values[i],
+          idx: i,
+          percentil: pKeys[i],
+          fecha: datos.fechas[i],
+          label: datos.consulta_labels[i],
+        });
+      }
+    }
+
+    // Colores por punto: último = teal, seleccionado = naranja, resto = gris
+    var puntosConDato = pts.map(function(p) { return p.idx; });
+    var lastIdx = puntosConDato.length > 0 ? puntosConDato[puntosConDato.length - 1] : -1;
+
+    var bgColors = pts.map(function(p) {
+      if (consultaSeleccionada !== null && p.idx === parseInt(consultaSeleccionada))
+        return '#f59e0b';  // naranja = seleccionado
+      if (p.idx === lastIdx)
+        return '#2AACA8';  // teal = último
+      return '#9ca3af';    // gris = anteriores
+    });
+    var radii = pts.map(function(p) {
+      if (consultaSeleccionada !== null && p.idx === parseInt(consultaSeleccionada))
+        return 9;
+      if (p.idx === lastIdx) return 8;
+      return 5;
+    });
+
+    return [{
+      label: 'Paciente',
+      data: pts.map(function(p) { return { x: p.x, y: p.y, _meta: p }; }),
+      borderColor: '#2AACA8',
+      backgroundColor: bgColors,
+      pointRadius: radii,
+      pointHoverRadius: 10,
+      showLine: true,
+      tension: 0.3,
+      fill: false,
+      spanGaps: true,
+      order: 0,
+      segment: {
+        borderColor: function(ctx) {
+          return '#9ca3af';
+        }
+      },
+    }];
+  }
+
+  // ── Renderizar ────────────────────────────────────────────────────────────
   function renderChart(metrica) {
     var cfg = configs[metrica];
     var ctx = document.getElementById('graficaEvolucion').getContext('2d');
     if (chart) chart.destroy();
 
-    // Construir tooltips con percentil
-    var tooltipPlugin = {
-      callbacks: {
-        afterLabel: function(ctx) {
-          var p = cfg.percentil[ctx.dataIndex];
-          return p != null ? 'Percentil: P' + p : '';
-        }
-      }
-    };
+    var datasets = buildOmsDatasets(cfg.omsKey).concat(buildPacienteDataset(cfg));
 
     chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: datos.fechas,
-        datasets: [{
-          label: cfg.label,
-          data: cfg.data,
-          borderColor: cfg.color,
-          backgroundColor: cfg.color + '22',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          spanGaps: true,
-        }]
-      },
+      type: 'scatter',
+      data: { datasets: datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           legend: { display: false },
-          tooltip: tooltipPlugin,
+          tooltip: {
+            filter: function(item) {
+              return item.dataset.label === 'Paciente';
+            },
+            callbacks: {
+              title: function(items) {
+                var raw = items[0].raw;
+                return raw._meta ? raw._meta.fecha : '';
+              },
+              label: function(item) {
+                var raw = item.raw;
+                var lines = [cfg.label + ': ' + raw.y];
+                if (raw._meta && raw._meta.percentil != null)
+                  lines.push('Percentil: P' + raw._meta.percentil);
+                if (raw._meta && raw._meta.label)
+                  lines.push(raw._meta.label);
+                return lines;
+              }
+            }
+          }
         },
         scales: {
-          x: { ticks: { font: { size: 11 } } },
+          x: {
+            type: 'linear',
+            title: { display: true, text: 'Meses de edad', font: { size: 10 }, color: '#9ca3af' },
+            ticks: { font: { size: 10 }, stepSize: 6 },
+            grid: { color: 'rgba(0,0,0,0.05)' },
+          },
           y: {
-            ticks: { font: { size: 11 } },
+            title: { display: true, text: cfg.label, font: { size: 10 }, color: '#9ca3af' },
+            ticks: { font: { size: 10 } },
             beginAtZero: false,
+            grid: { color: 'rgba(0,0,0,0.05)' },
           }
         }
       }
     });
   }
 
+  // ── API pública ───────────────────────────────────────────────────────────
   window.mostrarGrafica = function(metrica) {
     metricaActual = metrica;
     ['peso','talla','pc'].forEach(function(m) {
-      var btn = document.getElementById('btn-' + m);
-      btn.className = m === metrica
-        ? 'btn btn-sm btn-primary'
-        : 'btn btn-sm btn-outline-secondary';
+      document.getElementById('btn-' + m).className =
+        m === metrica ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline-secondary';
     });
     renderChart(metrica);
   };
 
+  window.seleccionarConsulta = function(idx) {
+    consultaSeleccionada = idx !== '' ? parseInt(idx) : null;
+    renderChart(metricaActual);
+  };
+
+  window.imprimirCurvas = function() {
+    if (!chart) return;
+    var b64 = chart.toBase64Image('image/png', 1.0).split(',')[1];
+    document.getElementById('graficaB64').value = b64;
+    document.getElementById('indicadorPdf').value = metricaActual;
+    document.getElementById('formCurvasPdf').submit();
+  };
+
   document.addEventListener('DOMContentLoaded', function() {
-    // Solo renderizar si hay datos
-    var tieneDatos = datos.fechas && datos.fechas.length > 0;
-    if (tieneDatos) renderChart('peso');
+    if (datos.fechas && datos.fechas.length > 0) {
+      renderChart('peso');
+    }
   });
 })();
 </script>
