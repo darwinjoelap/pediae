@@ -239,9 +239,17 @@ class Paciente(models.Model):
                 if qs.exists():
                     raise ValidationError({'cedula': 'Ya existe un paciente registrado con esta cédula en este consultorio.'})
 
+    @staticmethod
+    def _limpiar_telefono(valor):
+        """Elimina todo carácter no numérico excepto + (quita invisibles Unicode, espacios, guiones, etc.)."""
+        import re
+        return re.sub(r'[^\d+]', '', valor or '')
+
     def save(self, *args, **kwargs):
         if not self.tenant_id:
             raise ValueError('Un paciente no puede guardarse sin tenant.')
+        self.telefono = self._limpiar_telefono(self.telefono)
+        self.telefono_representante = self._limpiar_telefono(self.telefono_representante)
         super().save(*args, **kwargs)
 
 

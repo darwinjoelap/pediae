@@ -1,7 +1,22 @@
+import re
 from django import forms
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, Submit, HTML
 from .models import Paciente
+
+
+def _limpiar_tel(valor):
+    """Quita todo lo que no sea dígito o '+' — elimina invisibles Unicode, guiones, espacios, etc."""
+    return re.sub(r'[^\d+]', '', valor or '')
+
+
+class TelefonoCleanMixin:
+    """Mixin que limpia los campos de teléfono antes de validar."""
+    def clean_telefono(self):
+        return _limpiar_tel(self.cleaned_data.get('telefono', ''))
+
+    def clean_telefono_representante(self):
+        return _limpiar_tel(self.cleaned_data.get('telefono_representante', ''))
 
 
 def seccion(titulo):
@@ -90,7 +105,7 @@ REPRESENTANTE_BLOCK = [
 ]
 
 
-class PacienteAsistenteForm(forms.ModelForm):
+class PacienteAsistenteForm(TelefonoCleanMixin, forms.ModelForm):
     """Formulario reducido para asistente — datos mínimos para agendar."""
     class Meta:
         model = Paciente
@@ -138,7 +153,7 @@ class PacienteAsistenteForm(forms.ModelForm):
         return instance
 
 
-class PacienteDoctoraNuevoForm(forms.ModelForm):
+class PacienteDoctoraNuevoForm(TelefonoCleanMixin, forms.ModelForm):
     class Meta:
         model = Paciente
         fields = [
@@ -185,7 +200,7 @@ class PacienteDoctoraNuevoForm(forms.ModelForm):
         return instance
 
 
-class PacientePersonalForm(forms.ModelForm):
+class PacientePersonalForm(TelefonoCleanMixin, forms.ModelForm):
     class Meta:
         model = Paciente
         fields = [
@@ -249,7 +264,7 @@ class PacientePersonalForm(forms.ModelForm):
         )
 
 
-class PacienteCompletoForm(forms.ModelForm):
+class PacienteCompletoForm(TelefonoCleanMixin, forms.ModelForm):
     class Meta:
         model = Paciente
         exclude = ['creado_en', 'actualizado_en', 'tenant']
