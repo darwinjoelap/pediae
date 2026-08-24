@@ -64,7 +64,7 @@
       <div class="d-flex justify-content-between align-items-start">
         <div class="flex-grow-1">
           <div class="text-muted small mb-1">
-            <i class="bi bi-clock me-1"></i>{{ cita.hora_inicio|time:"H:i" }} — {{ cita.hora_fin|time:"H:i" }}
+            <i class="bi bi-clock me-1"></i>{{ cita.hora_inicio|time:"H:i" }}{% if cita.hora_termina %} — {{ cita.hora_termina|time:"H:i" }}{% if not cita.hora_fin %}<span class="ms-1 text-muted" style="font-size:0.7rem" title="Hora de la siguiente cita">↓</span>{% endif %}{% endif %}
             {% if cita.lugar %}
             <span class="ms-2"><i class="bi bi-geo-alt me-1"></i>{{ cita.lugar.nombre }}</span>
             {% endif %}

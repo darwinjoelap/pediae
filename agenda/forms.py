@@ -20,6 +20,7 @@ class CitaForm(forms.ModelForm):
         self.fields['fecha'].input_formats = ['%Y-%m-%d']
         self.fields['hora_inicio'].input_formats = ['%H:%M']
         self.fields['hora_fin'].input_formats = ['%H:%M']
+        self.fields['hora_fin'].required = False
         self.fields['motivo'].required = False
         self.fields['notas'].required = False
 

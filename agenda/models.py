@@ -61,7 +61,7 @@ class Cita(models.Model):
     )
     fecha = models.DateField(verbose_name='Fecha')
     hora_inicio = models.TimeField(verbose_name='Hora de inicio')
-    hora_fin = models.TimeField(verbose_name='Hora de fin')
+    hora_fin = models.TimeField(null=True, blank=True, verbose_name='Hora de fin')
     motivo = models.CharField(max_length=200, blank=True, verbose_name='Motivo de la cita')
     estado = models.CharField(
         max_length=20, choices=ESTADO_CHOICES,

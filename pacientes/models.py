@@ -228,16 +228,16 @@ class Paciente(models.Model):
             if qs.exists():
                 raise ValidationError({'cedula_representante': 'Ya existe un paciente registrado con esta cédula de representante en este consultorio.'})
         else:
-            if not self.cedula:
-                raise ValidationError({'cedula': 'La cédula es obligatoria para pacientes cedulados.'})
-            qs = Paciente.objects.filter(
-                tenant=self.tenant,
-                cedula=self.cedula,
-            )
-            if self.pk:
-                qs = qs.exclude(pk=self.pk)
-            if qs.exists():
-                raise ValidationError({'cedula': 'Ya existe un paciente registrado con esta cédula en este consultorio.'})
+            # Cédula es opcional — solo validar unicidad si se proporcionó
+            if self.cedula:
+                qs = Paciente.objects.filter(
+                    tenant=self.tenant,
+                    cedula=self.cedula,
+                )
+                if self.pk:
+                    qs = qs.exclude(pk=self.pk)
+                if qs.exists():
+                    raise ValidationError({'cedula': 'Ya existe un paciente registrado con esta cédula en este consultorio.'})
 
     def save(self, *args, **kwargs):
         if not self.tenant_id:

@@ -47,7 +47,17 @@ def agenda_dia(request, fecha):
     from consultas.models import Consulta, Procedimiento
     from servicios.models import Servicio
 
-    for cita in citas:
+    # Anotar hora_termina: hora_fin propia o inicio de la siguiente cita
+    citas_list = list(citas)
+    for i, cita in enumerate(citas_list):
+        if cita.hora_fin:
+            cita.hora_termina = cita.hora_fin
+        elif i + 1 < len(citas_list):
+            cita.hora_termina = citas_list[i + 1].hora_inicio
+        else:
+            cita.hora_termina = None
+
+    for cita in citas_list:
         cita.whatsapp_url = cita.get_whatsapp_url(tenant=tenant)
         cita.consulta_registrada = None
         cita.procedimiento_registrado = None
@@ -79,7 +89,7 @@ def agenda_dia(request, fecha):
 
     return render(request, 'agenda/dia.html', {
         'fecha': fecha_obj,
-        'citas': citas,
+        'citas': citas_list,
         'dia_anterior': dia_anterior,
         'dia_siguiente': dia_siguiente,
         'es_hoy': fecha_obj == date.today(),
