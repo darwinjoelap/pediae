@@ -194,6 +194,11 @@ def detalle_paciente(request, pk):
                 'datasets': oms_datasets,
             }, cls=DjangoJSONEncoder)
 
+    from agenda.models import LugarConsulta
+    lugares = LugarConsulta.objects.filter(
+        Q(tenant=request.tenant) | Q(tenant__isnull=True)
+    ).order_by('nombre')
+
     return render(request, 'pacientes/detalle.html', {
         'paciente': paciente,
         'consultas': consultas,
@@ -204,6 +209,7 @@ def detalle_paciente(request, pk):
         'graficas_json': graficas_json,
         'oms_json': oms_json,
         'vacunas_resumen': vacunas_resumen,
+        'lugares': lugares,
     })
 
 
@@ -274,6 +280,87 @@ def curvas_crecimiento_pdf(request, pk):
     nombre_pdf = f'curvas_{paciente.cedula or paciente.pk}_{indicador}.pdf'
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="{nombre_pdf}"'
+    return response
+
+
+# ── Constancias PDF ────────────────────────────────────────────────────────────
+
+@login_required
+def constancia_pdf(request, pk, tipo):
+    """
+    POST → genera un PDF de constancia y lo devuelve como descarga.
+    tipo: 'nino_sano' | 'reposo' | 'lactancia'
+    """
+    from django.http import HttpResponse, HttpResponseForbidden, HttpResponseBadRequest
+
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+
+    try:
+        config = request.tenant.config
+    except Exception:
+        config = None
+
+    from .constancias_pdf import (
+        generar_constancia_nino_sano,
+        generar_constancia_reposo,
+        generar_certificado_lactancia,
+    )
+
+    ciudad = request.POST.get('ciudad', '').strip()
+
+    if tipo == 'nino_sano':
+        datos = {
+            'ciudad': ciudad,
+            'vacunas_ok': request.POST.get('vacunas_ok') == 'on',
+            'incluir_vacunas': request.POST.get('incluir_vacunas') == 'on',
+        }
+        pdf_bytes = generar_constancia_nino_sano(paciente, request.user, config, datos)
+        nombre = f'constancia_nino_sano_{paciente.pk}.pdf'
+
+    elif tipo == 'reposo':
+        try:
+            dias = int(request.POST.get('dias', 1))
+        except ValueError:
+            dias = 1
+        from datetime import date as _date
+        fecha_str = request.POST.get('fecha_inicio', '')
+        try:
+            from datetime import datetime
+            fecha_inicio = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        except Exception:
+            fecha_inicio = _date.today()
+        datos = {
+            'ciudad': ciudad,
+            'dias': dias,
+            'motivo': request.POST.get('motivo', '').strip(),
+            'fecha_inicio': fecha_inicio,
+        }
+        pdf_bytes = generar_constancia_reposo(paciente, request.user, config, datos)
+        nombre = f'reposo_{paciente.pk}.pdf'
+
+    elif tipo == 'lactancia':
+        try:
+            duracion_meses = int(request.POST.get('duracion_meses', 6))
+        except ValueError:
+            duracion_meses = 6
+        datos = {
+            'ciudad': ciudad,
+            'duracion_meses': duracion_meses,
+        }
+        pdf_bytes = generar_certificado_lactancia(paciente, request.user, config, datos)
+        nombre = f'certificado_lactancia_{paciente.pk}.pdf'
+
+    else:
+        return HttpResponseBadRequest('Tipo de constancia no válido.')
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{nombre}"'
     return response
 
 

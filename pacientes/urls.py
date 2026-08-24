@@ -14,4 +14,6 @@ urlpatterns = [
     path('<int:pk>/vacunas/<int:va_pk>/eliminar/', views.eliminar_vacuna_aplicada, name='vacuna_eliminar'),
     # Curvas OMS — PDF
     path('<int:pk>/curvas-pdf/', views.curvas_crecimiento_pdf, name='curvas_pdf'),
+    # Constancias PDF
+    path('<int:pk>/constancia/<str:tipo>/', views.constancia_pdf, name='constancia_pdf'),
 ]

@@ -666,6 +666,28 @@
 </div>
 {% endif %}
 
+<!-- Constancias -->
+{% if user.es_medico %}
+<h6 class="fw-bold text-uppercase text-muted mb-2 mt-4"
+    style="font-size:0.75rem;letter-spacing:1px">
+  <i class="bi bi-file-earmark-text me-1"></i> Constancias y Certificados
+</h6>
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <button type="button" class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal" data-bs-target="#modalNinoSano">
+    <i class="bi bi-emoji-smile me-1"></i> Niño Sano
+  </button>
+  <button type="button" class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal" data-bs-target="#modalReposo">
+    <i class="bi bi-house-heart me-1"></i> Reposo
+  </button>
+  <button type="button" class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal" data-bs-target="#modalLactancia">
+    <i class="bi bi-award me-1"></i> Lactancia Materna
+  </button>
+</div>
+{% endif %}
+
 <!-- Modal procedimiento rápido -->
 {% if user.es_medico %}
 <div class="modal fade" id="modalProcedimiento" tabindex="-1">
@@ -712,6 +734,121 @@
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-check-lg me-1"></i> Registrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Modal Niño Sano -->
+{% if user.es_medico %}
+<div class="modal fade" id="modalNinoSano" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-emoji-smile me-1"></i> Constancia de Niño Sano</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/constancia/nino_sano/" target="_blank">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Ciudad</label>
+            <input type="text" name="ciudad" class="form-control"
+              value="{% if lugares %}{{ lugares.0.ciudad }}{% endif %}"
+              placeholder="Ej: Caracas">
+          </div>
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" name="vacunas_ok" id="vacunas_ok_check" checked>
+            <label class="form-check-label" for="vacunas_ok_check">Vacunas al día</label>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="incluir_vacunas" id="incluir_vacunas_check">
+            <label class="form-check-label" for="incluir_vacunas_check">Incluir detalle de vacunas</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-file-pdf me-1"></i> Generar PDF
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Reposo -->
+<div class="modal fade" id="modalReposo" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-house-heart me-1"></i> Constancia de Reposo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/constancia/reposo/" target="_blank">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Ciudad</label>
+            <input type="text" name="ciudad" class="form-control"
+              value="{% if lugares %}{{ lugares.0.ciudad }}{% endif %}"
+              placeholder="Ej: Caracas">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Fecha de inicio <span class="text-danger">*</span></label>
+            <input type="date" name="fecha_inicio" class="form-control" required
+              value="{% now 'Y-m-d' %}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Días de reposo <span class="text-danger">*</span></label>
+            <input type="number" name="dias" class="form-control" min="1" value="3" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Motivo / Diagnóstico</label>
+            <input type="text" name="motivo" class="form-control"
+              placeholder="Ej: síndrome gripal, fiebre">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-file-pdf me-1"></i> Generar PDF
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Lactancia Materna -->
+<div class="modal fade" id="modalLactancia" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-award me-1"></i> Certificado de Lactancia Materna</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/constancia/lactancia/" target="_blank">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Ciudad</label>
+            <input type="text" name="ciudad" class="form-control"
+              value="{% if lugares %}{{ lugares.0.ciudad }}{% endif %}"
+              placeholder="Ej: Caracas">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Duración de lactancia exclusiva (meses) <span class="text-danger">*</span></label>
+            <input type="number" name="duracion_meses" class="form-control" min="1" max="24" value="6" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-file-pdf me-1"></i> Generar Certificado
           </button>
         </div>
       </form>
