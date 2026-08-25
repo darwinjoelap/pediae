@@ -64,7 +64,7 @@ def _fetch_bytes(url):
         return None
 
 
-def _transparent_png(raw_bytes, alpha=0.09, max_px=300):
+def _transparent_png(raw_bytes, alpha=0.10, max_px=300):
     """Devuelve bytes PNG redimensionado y con opacidad reducida para watermark."""
     try:
         from PIL import Image as PILImg
@@ -213,7 +213,7 @@ def generar_recipe_pdf(consulta, medico, config):
 
     # ── Logo ──────────────────────────────────────────────────────────────────
     logo_bytes = _fetch_bytes(logo_url) if logo_url else None
-    wm_bytes   = _transparent_png(logo_bytes, alpha=0.09) if logo_bytes else None
+    wm_bytes   = _transparent_png(logo_bytes, alpha=0.10) if logo_bytes else None
 
     # ── Edad / fecha ──────────────────────────────────────────────────────────
     try:

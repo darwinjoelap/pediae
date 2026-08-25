@@ -57,7 +57,7 @@ def _fetch_bytes(url):
         return None
 
 
-def _transparent_png(raw_bytes, alpha=0.07, max_px=300):
+def _transparent_png(raw_bytes, alpha=0.08, max_px=300):
     try:
         from PIL import Image as PILImg
         img = PILImg.open(io.BytesIO(raw_bytes)).convert('RGBA')
@@ -225,7 +225,7 @@ def _contexto_medico(medico, config):
 
     telefono   = telefono_med or telefono_cf
     logo_bytes = _fetch_bytes(logo_url) if logo_url else None
-    wm_bytes   = _transparent_png(logo_bytes, alpha=0.07) if logo_bytes else None
+    wm_bytes   = _transparent_png(logo_bytes, alpha=0.08) if logo_bytes else None
 
     return dict(
         nombre_medico=nombre_medico,
@@ -403,11 +403,12 @@ def generar_constancia_reposo(paciente, medico, config, datos: dict) -> bytes:
     items.append(Paragraph('CONSTANCIA DE REPOSO MÉDICO', S_TITULO))
     items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.4,
                              color=LINEA, spaceAfter=0))
-    items.append(Spacer(1, 5 * mm))
+    items.append(Spacer(1, 14 * mm))   # +3 espacios bajo el título
 
     motivo_txt = f', por presentar: <b>{motivo}</b>' if motivo else ''
     fecha_ini_str = fecha_ini.strftime('%d/%m/%Y') if hasattr(fecha_ini, 'strftime') else str(fecha_ini)
 
+    items.append(Spacer(1, 9 * mm))    # +3 espacios antes del desarrollo
     items.append(Paragraph(
         f'Por medio de la presente se hace constar que el/la paciente '
         f'<b>{paciente.nombre_completo}</b>{cedula_txt}, fue evaluado/a '

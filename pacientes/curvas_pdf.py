@@ -58,7 +58,7 @@ def _fetch_bytes(url):
         return None
 
 
-def _transparent_png(raw_bytes, alpha=0.07, max_px=300):
+def _transparent_png(raw_bytes, alpha=0.08, max_px=300):
     try:
         from PIL import Image as PILImg
         img = PILImg.open(io.BytesIO(raw_bytes)).convert('RGBA')
@@ -140,7 +140,7 @@ def generar_pdf_curvas(paciente, medico, config, grafica_b64: str, indicador: st
 
     # ── Logo ──────────────────────────────────────────────────────────────────
     logo_bytes = _fetch_bytes(logo_url) if logo_url else None
-    wm_bytes   = _transparent_png(logo_bytes, alpha=0.07) if logo_bytes else None
+    wm_bytes   = _transparent_png(logo_bytes, alpha=0.08) if logo_bytes else None
 
     # ── Imagen del gráfico ────────────────────────────────────────────────────
     if ',' in grafica_b64:
