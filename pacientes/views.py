@@ -154,8 +154,7 @@ def detalle_paciente(request, pk):
         if fechas:
             # Calcular rango de meses para las curvas OMS
             meses_validos = [m for m in meses_list if m is not None]
-            max_m = min(max(meses_validos) + 6, 60) if meses_validos else 60
-            eje = get_eje_meses(max_m)
+            max_m = (max(meses_validos) + 6) if meses_validos else 60
 
             # Obtener curvas OMS según sexo del paciente
             sexo = getattr(paciente, 'sexo', '') or 'M'
@@ -166,10 +165,25 @@ def detalle_paciente(request, pk):
             curvas_talla = get_curvas(sexo, 'talla')
             curvas_pc = get_curvas(sexo, 'pc')
 
+            # Respetar el límite real de los arrays OMS (evitar índices fuera de rango)
+            def _limite(curvas, hasta):
+                n = len(next(iter(curvas.values())))
+                return min(hasta, n - 1)
+
+            lim_peso  = _limite(curvas_peso,  max_m)
+            lim_talla = _limite(curvas_talla, max_m)
+            lim_pc    = _limite(curvas_pc,    min(max_m, 36))
+
+            eje = get_eje_meses(lim_peso)
+
             oms_datasets = {}
-            for ind, curvas in [('peso', curvas_peso), ('talla', curvas_talla), ('pc', curvas_pc)]:
+            for ind, curvas, lim in [
+                ('peso',  curvas_peso,  lim_peso),
+                ('talla', curvas_talla, lim_talla),
+                ('pc',    curvas_pc,    lim_pc),
+            ]:
                 oms_datasets[ind] = {
-                    p: {'valores': curvas[p][:max_m + 1],
+                    p: {'valores': curvas[p][:lim + 1],
                         'color': COLORES_PERCENTIL[p],
                         'dash': DASH_PERCENTIL[p]}
                     for p in PERCENTILES
