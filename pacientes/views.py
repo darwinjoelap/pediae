@@ -279,7 +279,7 @@ def curvas_crecimiento_pdf(request, pk):
 
     nombre_pdf = f'curvas_{paciente.cedula or paciente.pk}_{indicador}.pdf'
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{nombre_pdf}"'
+    response['Content-Disposition'] = f'inline; filename="{nombre_pdf}"'
     return response
 
 
@@ -360,7 +360,7 @@ def constancia_pdf(request, pk, tipo):
         return HttpResponseBadRequest('Tipo de constancia no válido.')
 
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{nombre}"'
+    response['Content-Disposition'] = f'inline; filename="{nombre}"'
     return response
 
 

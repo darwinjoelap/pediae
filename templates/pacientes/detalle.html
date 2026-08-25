@@ -234,7 +234,7 @@
       <!-- Formulario oculto para PDF -->
       <form id="formCurvasPdf" method="post"
             action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/curvas-pdf/"
-            style="display:none">
+            target="_blank" style="display:none">
         {% csrf_token %}
         <input type="hidden" name="grafica_b64" id="graficaB64">
         <input type="hidden" name="indicador" id="indicadorPdf">
