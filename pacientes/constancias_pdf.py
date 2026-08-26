@@ -262,22 +262,28 @@ def _contexto_medico(medico, config):
 
     # Firma y sello digitalizados del médico
     firma_bytes = None
-    if getattr(medico, 'firma', None):
+    firma_field = getattr(medico, 'firma', None)
+    if firma_field and getattr(firma_field, 'name', None):
         try:
-            medico.firma.open('rb')
-            firma_bytes = medico.firma.read()
-            medico.firma.close()
+            firma_bytes = firma_field.read()
         except Exception:
-            firma_bytes = None
+            try:
+                with open(firma_field.path, 'rb') as fh:
+                    firma_bytes = fh.read()
+            except Exception:
+                firma_bytes = None
 
     sello_bytes = None
-    if getattr(medico, 'sello', None):
+    sello_field = getattr(medico, 'sello', None)
+    if sello_field and getattr(sello_field, 'name', None):
         try:
-            medico.sello.open('rb')
-            sello_bytes = medico.sello.read()
-            medico.sello.close()
+            sello_bytes = sello_field.read()
         except Exception:
-            sello_bytes = None
+            try:
+                with open(sello_field.path, 'rb') as fh:
+                    sello_bytes = fh.read()
+            except Exception:
+                sello_bytes = None
 
     return dict(
         nombre_medico=nombre_medico,
