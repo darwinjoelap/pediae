@@ -26,7 +26,7 @@ TEAL       = colors.HexColor('#2AACA8')
 LINEA      = colors.HexColor('#D1D5DB')
 
 MARGIN  = 1.5 * cm
-FIRMA_H = 3.8 * cm   # ampliado para acomodar imagen de firma encima de la línea
+FIRMA_H = 4.5 * cm   # ampliado para acomodar imagen de firma sobre la línea
 
 # ── Estilos ───────────────────────────────────────────────────────────────────
 _ctr = [0]
@@ -169,15 +169,15 @@ def _canvas_cb(nombre_medico, especialidad, numero_mpps, telefono, wm_bytes,
         canvas.line(cx - LINE_W / 2, y, cx + LINE_W / 2, y)
         y_linea = y
 
-        # Firma: imagen PNG centrada encima de la línea
+        # Firma: imagen PNG centrada, base apoyada sobre la línea
         if firma_bytes:
-            FIRMA_IMG_W = 5.5 * cm
-            FIRMA_IMG_H = 1.5 * cm
+            FIRMA_IMG_W = 7.5 * cm
+            FIRMA_IMG_H = 2.2 * cm
             try:
                 reader = ImageReader(io.BytesIO(firma_bytes))
                 canvas.drawImage(
                     reader,
-                    cx - FIRMA_IMG_W / 2, y_linea + 4,
+                    cx - FIRMA_IMG_W / 2, y_linea - FIRMA_IMG_H,
                     width=FIRMA_IMG_W, height=FIRMA_IMG_H,
                     mask='auto', preserveAspectRatio=True,
                 )
@@ -186,7 +186,7 @@ def _canvas_cb(nombre_medico, especialidad, numero_mpps, telefono, wm_bytes,
 
         # Sello: imagen circular / cuadrada a la derecha de la línea de firma
         if sello_bytes:
-            SELLO_SZ = 2.2 * cm
+            SELLO_SZ = 3.0 * cm
             try:
                 reader = ImageReader(io.BytesIO(sello_bytes))
                 sx = cx + LINE_W / 2 + 5
