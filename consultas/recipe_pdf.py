@@ -216,33 +216,11 @@ def generar_recipe_pdf(consulta, medico, config):
     wm_bytes   = _transparent_png(logo_bytes, alpha=0.10) if logo_bytes else None
 
     # ── Firma y sello del médico ──────────────────────────────────────────────
-    firma_bytes = None
-    firma_field = getattr(medico, 'firma', None)
-    if firma_field and getattr(firma_field, 'name', None):
-        try:
-            firma_field.open('rb')
-            firma_bytes = firma_field.read()
-            firma_field.close()
-        except Exception:
-            try:
-                with open(firma_field.path, 'rb') as fh:
-                    firma_bytes = fh.read()
-            except Exception:
-                firma_bytes = None
+    firma_url = medico.get_firma_url() if hasattr(medico, 'get_firma_url') else None
+    firma_bytes = _fetch_bytes(firma_url) if firma_url else None
 
-    sello_bytes = None
-    sello_field = getattr(medico, 'sello', None)
-    if sello_field and getattr(sello_field, 'name', None):
-        try:
-            sello_field.open('rb')
-            sello_bytes = sello_field.read()
-            sello_field.close()
-        except Exception:
-            try:
-                with open(sello_field.path, 'rb') as fh:
-                    sello_bytes = fh.read()
-            except Exception:
-                sello_bytes = None
+    sello_url = medico.get_sello_url() if hasattr(medico, 'get_sello_url') else None
+    sello_bytes = _fetch_bytes(sello_url) if sello_url else None
 
     # ── Edad / fecha ──────────────────────────────────────────────────────────
     try:

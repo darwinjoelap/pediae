@@ -59,17 +59,15 @@ class Usuario(AbstractUser):
         help_text='Teléfono de contacto del médico',
     )
 
-    # Imágenes para documentos PDF
-    firma = models.ImageField(
-        upload_to='firmas/',
-        null=True, blank=True,
-        verbose_name='Firma digital',
+    # Imágenes para documentos PDF — almacenadas en Cloudinary
+    firma_public_id = models.CharField(
+        max_length=500, blank=True,
+        verbose_name='Firma digital (Cloudinary public_id)',
         help_text='PNG con fondo transparente recomendado. Aparece encima de la línea de firma en los PDFs.',
     )
-    sello = models.ImageField(
-        upload_to='sellos/',
-        null=True, blank=True,
-        verbose_name='Sello / Timbre',
+    sello_public_id = models.CharField(
+        max_length=500, blank=True,
+        verbose_name='Sello / Timbre (Cloudinary public_id)',
         help_text='PNG con fondo transparente recomendado. Aparece al lado de la firma en los PDFs.',
     )
 
@@ -103,3 +101,15 @@ class Usuario(AbstractUser):
     @property
     def es_asistente(self):
         return self.rol == self.ROL_ASISTENTE
+
+    def get_firma_url(self):
+        if not self.firma_public_id:
+            return None
+        import cloudinary
+        return cloudinary.CloudinaryResource(self.firma_public_id).build_url(secure=True)
+
+    def get_sello_url(self):
+        if not self.sello_public_id:
+            return None
+        import cloudinary
+        return cloudinary.CloudinaryResource(self.sello_public_id).build_url(secure=True)
