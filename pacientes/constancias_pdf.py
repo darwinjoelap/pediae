@@ -505,3 +505,96 @@ def generar_certificado_lactancia(paciente, medico, config, datos: dict) -> byte
     on_page = _canvas_cb(ctx['nombre_medico'], ctx['especialidad'],
                          ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'])
     return _build_pdf(items, on_page)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 4. CONSTANCIA DE LACTANCIA MATERNA (para lugar de trabajo)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def generar_constancia_lactancia_trabajo(paciente, medico, config, datos: dict) -> bytes:
+    """
+    datos keys:
+      ciudad        str
+      nombre_madre  str   — nombre completo de la madre
+      cedula_madre  str   — cédula de la madre
+    """
+    PAGE_W, _ = letter
+    ctx = _contexto_medico(medico, config)
+
+    ciudad       = datos.get('ciudad', '')
+    nombre_madre = datos.get('nombre_madre', '').strip()
+    cedula_madre = datos.get('cedula_madre', '').strip()
+    hoy          = date.today()
+    fecha_letras = _fecha_letras(hoy)
+
+    # Datos antropométricos del paciente
+    try:
+        edad_str = str(paciente.get_edad_detallada())
+    except Exception:
+        edad_str = ''
+
+    ultima    = paciente.consultas.filter(peso__isnull=False).order_by('-fecha').first()
+    peso_str  = f'{ultima.peso} kg'  if ultima and ultima.peso                    else '—'
+    talla_str = f'{ultima.talla} cm' if ultima and getattr(ultima, 'talla', None) else '—'
+
+    # Texto de cierre con datos de la madre
+    if nombre_madre and cedula_madre:
+        ciudad_txt = f', {ciudad}' if ciudad else ''
+        peticion_txt = (
+            f'Constancia que se expide a petición de su madre '
+            f'<b>{nombre_madre}</b>, C.I. <b>{cedula_madre}</b>'
+            f'{ciudad_txt}, {fecha_letras}.'
+        )
+    elif nombre_madre:
+        ciudad_txt = f', {ciudad}' if ciudad else ''
+        peticion_txt = (
+            f'Constancia que se expide a petición de su madre '
+            f'<b>{nombre_madre}</b>{ciudad_txt}, {fecha_letras}.'
+        )
+    else:
+        ciudad_txt2 = f'en la ciudad de {ciudad}, ' if ciudad else ''
+        peticion_txt = (
+            f'Se expide la presente constancia a petición de la parte interesada, '
+            f'{ciudad_txt2}{fecha_letras}.'
+        )
+
+    items = []
+    items += _membrete(PAGE_W, MARGIN,
+                       ctx['nombre_medico'], ctx['especialidad'],
+                       ctx['direccion'], ctx['logo_bytes'])
+    items.append(Spacer(1, 3 * mm))
+    items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
+                             color=TEAL, spaceAfter=0))
+    items.append(Spacer(1, 6 * mm))
+
+    items.append(Paragraph('CONSTANCIA DE LACTANCIA MATERNA', S_TITULO))
+    items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.4,
+                             color=LINEA, spaceAfter=0))
+    items.append(Spacer(1, 14 * mm))   # igual que reposo
+
+    # Datos del paciente
+    items.append(Paragraph(
+        f'<b>Paciente:</b> {paciente.nombre_completo}'
+        f'{", " + edad_str if edad_str else ""}',
+        S_BODY,
+    ))
+    items.append(Paragraph(
+        f'<b>Peso:</b> {peso_str} &nbsp;&nbsp;&nbsp; <b>Talla:</b> {talla_str}',
+        S_BODY,
+    ))
+    items.append(Spacer(1, 9 * mm))   # igual que reposo
+
+    items.append(Paragraph(
+        'Paciente quien actualmente recibe <b>lactancia materna</b> + '
+        '<b>alimentación complementaria</b>, por lo que se indica dar '
+        'continuidad a la misma, agradeciendo de antemano la colaboración '
+        'para el cumplimiento de la misma.',
+        S_BODY,
+    ))
+    items.append(Spacer(1, 5 * mm))
+
+    items.append(Paragraph(peticion_txt, S_BODY))
+
+    on_page = _canvas_cb(ctx['nombre_medico'], ctx['especialidad'],
+                         ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'])
+    return _build_pdf(items, on_page)

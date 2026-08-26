@@ -685,6 +685,10 @@
     data-bs-toggle="modal" data-bs-target="#modalLactancia">
     <i class="bi bi-award me-1"></i> Lactancia Materna
   </button>
+  <button type="button" class="btn btn-outline-secondary btn-sm"
+    data-bs-toggle="modal" data-bs-target="#modalConstanciaTrabajo">
+    <i class="bi bi-briefcase me-1"></i> Constancia Lactancia (Trabajo)
+  </button>
 </div>
 {% endif %}
 
@@ -849,6 +853,42 @@
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-file-pdf me-1"></i> Generar Certificado
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- Modal Constancia Lactancia Materna (Trabajo) -->
+<div class="modal fade" id="modalConstanciaTrabajo" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-briefcase me-1"></i> Constancia de Lactancia Materna</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/constancia/constancia_trabajo/" target="_blank">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Nombre de la madre <span class="text-danger">*</span></label>
+            <input type="text" name="nombre_madre" class="form-control" placeholder="Nombre completo" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Cédula de la madre <span class="text-danger">*</span></label>
+            <input type="text" name="cedula_madre" class="form-control" placeholder="Ej: V-12345678" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Ciudad</label>
+            <input type="text" name="ciudad" class="form-control"
+              value="{% if lugares %}{{ lugares.0.ciudad }}{% endif %}"
+              placeholder="Ej: Caracas">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-file-pdf me-1"></i> Generar Constancia
           </button>
         </div>
       </form>

@@ -324,6 +324,7 @@ def constancia_pdf(request, pk, tipo):
         generar_constancia_nino_sano,
         generar_constancia_reposo,
         generar_certificado_lactancia,
+        generar_constancia_lactancia_trabajo,
     )
 
     ciudad = request.POST.get('ciudad', '').strip()
@@ -369,6 +370,15 @@ def constancia_pdf(request, pk, tipo):
         }
         pdf_bytes = generar_certificado_lactancia(paciente, request.user, config, datos)
         nombre = f'certificado_lactancia_{paciente.pk}.pdf'
+
+    elif tipo == 'constancia_trabajo':
+        datos = {
+            'ciudad': ciudad,
+            'nombre_madre': request.POST.get('nombre_madre', '').strip(),
+            'cedula_madre': request.POST.get('cedula_madre', '').strip(),
+        }
+        pdf_bytes = generar_constancia_lactancia_trabajo(paciente, request.user, config, datos)
+        nombre = f'constancia_lactancia_trabajo_{paciente.pk}.pdf'
 
     else:
         return HttpResponseBadRequest('Tipo de constancia no válido.')
