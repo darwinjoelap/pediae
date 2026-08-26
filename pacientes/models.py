@@ -43,6 +43,53 @@ class Paciente(models.Model):
         ('padre', 'Padre'),
         ('otro', 'Otro'),
     ]
+    VIA_PARTO_CHOICES = [
+        ('vaginal', 'Vaginal'),
+        ('cesarea', 'Cesárea'),
+    ]
+    ONFALORREXIS_CHOICES = [
+        ('normal', 'Normal / Sin complicaciones'),
+        ('complicada', 'Alterada / Complicada'),
+    ]
+    PRUEBA_TALON_CHOICES = [
+        ('normal', 'Sin alteraciones (Normal)'),
+        ('alterada', 'Alterada / En estudio'),
+    ]
+    CAUSA_FORMULA_CHOICES = [
+        ('evacuaciones', 'Dificultad en evacuaciones'),
+        ('estimulacion', 'Necesidad de estimulación'),
+        ('alergia', 'Alergia'),
+        ('otra', 'Otra'),
+    ]
+    ALIMENTACION_ACTUAL_CHOICES = [
+        ('completa', 'Dieta completa y variada acorde a la edad'),
+        ('selectiva', 'Dieta selectiva / Restringida'),
+    ]
+    ANTEC_ONCOLOGICO_RAMA_CHOICES = [
+        ('materna', 'Materna'),
+        ('paterna', 'Paterna'),
+        ('ambas', 'Ambas'),
+    ]
+    PATRON_SUENO_CHOICES = [
+        ('tranquilo', 'Tranquilo, reparador y conservado'),
+        ('alterado', 'Alterado / Trastorno del sueño'),
+    ]
+    PATRON_EVACUACION_CHOICES = [
+        ('normal', 'Normal / Continente'),
+        ('estrenimiento', 'Estreñimiento'),
+        ('encopresis', 'Encopresis (incontinencia fecal)'),
+    ]
+    PATRON_MICCION_CHOICES = [
+        ('normal', 'Normal / Continente'),
+        ('enuresis_diurna', 'Enuresis diurna'),
+        ('enuresis_nocturna', 'Enuresis nocturna'),
+    ]
+    AGUA_CONSUMO_CHOICES = [
+        ('hervida', 'Hervida'),
+        ('filtrada', 'Filtrada'),
+        ('embotellada', 'Embotellada'),
+        ('tuberia', 'Directa de tubería'),
+    ]
 
     tenant = models.ForeignKey(
         'tenant.Tenant',
@@ -104,6 +151,19 @@ class Paciente(models.Model):
     contacto_emergencia = models.CharField(
         max_length=200, blank=True, verbose_name='Contacto de emergencia'
     )
+    # Datos adicionales de los padres
+    edad_madre = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Edad de la madre (años)'
+    )
+    ocupacion_madre = models.CharField(
+        max_length=100, blank=True, verbose_name='Ocupación de la madre'
+    )
+    edad_padre = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Edad del padre (años)'
+    )
+    ocupacion_padre = models.CharField(
+        max_length=100, blank=True, verbose_name='Ocupación del padre'
+    )
 
     # ── Antecedentes personales ─────────────────────────────────────────────
     alergias = models.TextField(blank=True, verbose_name='Alergias')
@@ -115,7 +175,7 @@ class Paciente(models.Model):
         blank=True, verbose_name='Grupo sanguíneo'
     )
 
-    # ── Antecedentes perinatales (texto libre) ──────────────────────────────
+    # ── Antecedentes perinatales (texto libre legacy) ──────────────────────
     antec_embarazo = models.TextField(
         blank=True, verbose_name='Antecedentes del embarazo',
         help_text='Patologías maternas, control prenatal, exposición a riesgos'
@@ -141,6 +201,65 @@ class Paciente(models.Model):
         help_text='Estadía en retén, ictericia, lactancia, tamiz neonatal'
     )
 
+    # ── Antecedentes perinatales (estructurado) ─────────────────────────────
+    edad_materna_embarazo = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Edad materna al embarazo (años)'
+    )
+    numero_gestacion = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='N° de gestación',
+        help_text='Ej: 1 = primera gestación'
+    )
+    control_prenatal = models.BooleanField(
+        null=True, blank=True, verbose_name='Control prenatal'
+    )
+    num_consultas_prenatales = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='N° de consultas prenatales'
+    )
+    complicacion_oligoamnios = models.BooleanField(
+        default=False, verbose_name='Oligoamnios'
+    )
+    complicacion_preeclampsia = models.BooleanField(
+        default=False, verbose_name='Preeclampsia'
+    )
+    complicacion_infecciones = models.BooleanField(
+        default=False, verbose_name='Infecciones durante embarazo'
+    )
+    complicacion_embarazo_otra = models.CharField(
+        max_length=200, blank=True, verbose_name='Otra complicación en el embarazo'
+    )
+    semanas_gestacion = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Semanas de gestación al nacer'
+    )
+    via_parto = models.CharField(
+        max_length=10, choices=VIA_PARTO_CHOICES,
+        blank=True, verbose_name='Vía de resolución del parto'
+    )
+    indicacion_cesarea = models.CharField(
+        max_length=200, blank=True, verbose_name='Indicación de cesárea'
+    )
+    complicaciones_neonatales = models.BooleanField(
+        null=True, blank=True, verbose_name='Presentó complicaciones neonatales'
+    )
+    neonatal_ictericia = models.BooleanField(default=False, verbose_name='Ictericia neonatal')
+    neonatal_sepsis = models.BooleanField(default=False, verbose_name='Sepsis neonatal')
+    neonatal_dificultad_respiratoria = models.BooleanField(
+        default=False, verbose_name='Dificultad respiratoria neonatal'
+    )
+    neonatal_otra_complicacion = models.CharField(
+        max_length=200, blank=True, verbose_name='Otra complicación neonatal'
+    )
+    onfalorrexis = models.CharField(
+        max_length=12, choices=ONFALORREXIS_CHOICES,
+        blank=True, verbose_name='Onfalorrexis (caída del cordón umbilical)'
+    )
+    prueba_talon = models.CharField(
+        max_length=10, choices=PRUEBA_TALON_CHOICES,
+        blank=True, verbose_name='Prueba del talón'
+    )
+    prueba_talon_detalle = models.CharField(
+        max_length=300, blank=True, verbose_name='Detalle prueba del talón alterada'
+    )
+
     # ── Antecedentes familiares ─────────────────────────────────────────────
     antec_diabetes = models.BooleanField(default=False, verbose_name='Antec. familiar diabetes')
     antec_hipertension = models.BooleanField(default=False, verbose_name='Antec. familiar hipertensión')
@@ -159,6 +278,107 @@ class Paciente(models.Model):
     antec_desarrollo = models.TextField(
         blank=True, verbose_name='Desarrollo psicomotor',
         help_text='Hitos del desarrollo: sostén cefálico, sedestación, marcha, lenguaje, control de esfínteres'
+    )
+
+    # ── Alimentación (estructurado) ─────────────────────────────────────────
+    lme = models.BooleanField(
+        null=True, blank=True, verbose_name='Lactancia materna exclusiva (LME)'
+    )
+    lme_meses = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='LME hasta (meses)'
+    )
+    uso_formula = models.BooleanField(
+        null=True, blank=True, verbose_name='Uso de fórmulas o leches especiales'
+    )
+    nombre_formula = models.CharField(
+        max_length=100, blank=True, verbose_name='Nombre de fórmula empleada'
+    )
+    causa_formula = models.CharField(
+        max_length=15, choices=CAUSA_FORMULA_CHOICES,
+        blank=True, verbose_name='Causa del uso de fórmula'
+    )
+    alimentacion_actual = models.CharField(
+        max_length=10, choices=ALIMENTACION_ACTUAL_CHOICES,
+        blank=True, verbose_name='Alimentación actual'
+    )
+    alimentacion_actual_detalle = models.CharField(
+        max_length=300, blank=True,
+        verbose_name='Detalle dieta selectiva/restringida'
+    )
+
+    # ── Desarrollo psicomotor (estructurado) ────────────────────────────────
+    desarrollo_psicomotor_adecuado = models.BooleanField(
+        null=True, blank=True,
+        verbose_name='Desarrollo neuromotor acorde a la edad'
+    )
+    desarrollo_area_afectada = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Área de desarrollo afectada',
+        help_text='Ej: Motor grueso, Motor fino, Lenguaje, Social-afectivo'
+    )
+    esfinter_vesical_logrado = models.BooleanField(
+        null=True, blank=True, verbose_name='Control esfínter vesical (micción) logrado'
+    )
+    esfinter_vesical_edad = models.CharField(
+        max_length=30, blank=True, verbose_name='Edad logro control vesical'
+    )
+    esfinter_anal_logrado = models.BooleanField(
+        null=True, blank=True, verbose_name='Control esfínter anal (evacuación) logrado'
+    )
+    esfinter_anal_edad = models.CharField(
+        max_length=30, blank=True, verbose_name='Edad logro control anal'
+    )
+
+    # ── Antecedentes patológicos (estructurado adicional) ───────────────────
+    traumatismos = models.BooleanField(
+        null=True, blank=True, verbose_name='Traumatismos / Accidentes'
+    )
+    traumatismos_detalle = models.CharField(
+        max_length=300, blank=True, verbose_name='Detalle de traumatismos'
+    )
+    enfermedades_exantematicas = models.BooleanField(
+        null=True, blank=True, verbose_name='Enfermedades exantemáticas'
+    )
+    exantematicas_detalle = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Detalle enfermedades exantemáticas',
+        help_text='Varicela, Sarampión, Rubéola, etc.'
+    )
+
+    # ── Antecedentes familiares (adicional) ─────────────────────────────────
+    antec_oncologico = models.BooleanField(
+        default=False, verbose_name='Antec. familiar patología oncológica'
+    )
+    antec_oncologico_rama = models.CharField(
+        max_length=8, choices=ANTEC_ONCOLOGICO_RAMA_CHOICES,
+        blank=True, verbose_name='Rama familiar oncológica'
+    )
+
+    # ── Hábitos psicobiológicos y entorno ───────────────────────────────────
+    patron_sueno = models.CharField(
+        max_length=10, choices=PATRON_SUENO_CHOICES,
+        blank=True, verbose_name='Patrón de sueño'
+    )
+    patron_evacuacion = models.CharField(
+        max_length=15, choices=PATRON_EVACUACION_CHOICES,
+        blank=True, verbose_name='Patrón de evacuación'
+    )
+    patron_miccion = models.CharField(
+        max_length=18, choices=PATRON_MICCION_CHOICES,
+        blank=True, verbose_name='Patrón de micción'
+    )
+    tabaquismo_pasivo = models.BooleanField(
+        null=True, blank=True, verbose_name='Exposición a humo de tabaco (tabaquismo pasivo)'
+    )
+    agua_consumo = models.CharField(
+        max_length=12, choices=AGUA_CONSUMO_CHOICES,
+        blank=True, verbose_name='Tratamiento del agua de consumo'
+    )
+    mascotas = models.BooleanField(
+        null=True, blank=True, verbose_name='Mascotas en el hogar'
+    )
+    mascotas_tipo = models.CharField(
+        max_length=100, blank=True, verbose_name='Tipo de mascotas'
     )
 
     # ── Observaciones ───────────────────────────────────────────────────────

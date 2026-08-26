@@ -275,15 +275,27 @@ class PacienteCompletoForm(TelefonoCleanMixin, forms.ModelForm):
             'enfermedades_cronicas': forms.Textarea(attrs={'rows': 2}),
             'cirugias_previas': forms.Textarea(attrs={'rows': 2}),
             'medicacion_actual': forms.Textarea(attrs={'rows': 2}),
-            'antec_embarazo': forms.Textarea(attrs={'rows': 3}),
-            'antec_parto': forms.Textarea(attrs={'rows': 3}),
-            'antec_neonatal': forms.Textarea(attrs={'rows': 3}),
-            'antec_alimentacion': forms.Textarea(attrs={'rows': 3}),
-            'antec_desarrollo': forms.Textarea(attrs={'rows': 3}),
+            'antec_embarazo': forms.Textarea(attrs={'rows': 2}),
+            'antec_parto': forms.Textarea(attrs={'rows': 2}),
+            'antec_neonatal': forms.Textarea(attrs={'rows': 2}),
+            'antec_alimentacion': forms.Textarea(attrs={'rows': 2}),
+            'antec_desarrollo': forms.Textarea(attrs={'rows': 2}),
             'antec_autoinmunes': forms.Textarea(attrs={'rows': 2}),
             'antec_geneticas': forms.Textarea(attrs={'rows': 2}),
             'antec_otros': forms.Textarea(attrs={'rows': 2}),
             'observaciones': forms.Textarea(attrs={'rows': 3}),
+            'complicacion_embarazo_otra': forms.TextInput(),
+            'indicacion_cesarea': forms.TextInput(),
+            'neonatal_otra_complicacion': forms.TextInput(),
+            'prueba_talon_detalle': forms.TextInput(),
+            'nombre_formula': forms.TextInput(),
+            'alimentacion_actual_detalle': forms.TextInput(),
+            'desarrollo_area_afectada': forms.TextInput(),
+            'esfinter_vesical_edad': forms.TextInput(),
+            'esfinter_anal_edad': forms.TextInput(),
+            'traumatismos_detalle': forms.TextInput(),
+            'exantematicas_detalle': forms.TextInput(),
+            'mascotas_tipo': forms.TextInput(),
         }
 
     def __init__(self, *args, **kwargs):
@@ -297,6 +309,7 @@ class PacienteCompletoForm(TelefonoCleanMixin, forms.ModelForm):
             'nombre_padre', 'nombre_madre', 'nombre_representante',
             'filiacion_representante', 'parentesco_representante',
             'cedula_representante', 'telefono_representante', 'ocupacion_representante',
+            'edad_madre', 'ocupacion_madre', 'edad_padre', 'ocupacion_padre',
             'alergias', 'enfermedades_cronicas', 'cirugias_previas',
             'medicacion_actual', 'grupo_sanguineo',
             'antec_embarazo', 'peso_nacer', 'talla_nacer',
@@ -304,6 +317,27 @@ class PacienteCompletoForm(TelefonoCleanMixin, forms.ModelForm):
             'antec_alimentacion', 'antec_desarrollo',
             'antec_autoinmunes', 'antec_geneticas', 'antec_otros',
             'observaciones',
+            # Sección 2 estructurado
+            'edad_materna_embarazo', 'numero_gestacion', 'control_prenatal',
+            'num_consultas_prenatales', 'complicacion_embarazo_otra',
+            'semanas_gestacion', 'via_parto', 'indicacion_cesarea',
+            'complicaciones_neonatales', 'neonatal_otra_complicacion',
+            'onfalorrexis', 'prueba_talon', 'prueba_talon_detalle',
+            # Sección 3 estructurado
+            'lme', 'lme_meses', 'uso_formula', 'nombre_formula',
+            'causa_formula', 'alimentacion_actual', 'alimentacion_actual_detalle',
+            # Sección 4 estructurado
+            'desarrollo_psicomotor_adecuado', 'desarrollo_area_afectada',
+            'esfinter_vesical_logrado', 'esfinter_vesical_edad',
+            'esfinter_anal_logrado', 'esfinter_anal_edad',
+            # Sección 6 estructurado
+            'traumatismos', 'traumatismos_detalle',
+            'enfermedades_exantematicas', 'exantematicas_detalle',
+            # Sección 7 estructurado
+            'antec_oncologico_rama',
+            # Sección 8
+            'patron_sueno', 'patron_evacuacion', 'patron_miccion',
+            'tabaquismo_pasivo', 'agua_consumo', 'mascotas', 'mascotas_tipo',
         ]
         for f in optional:
             if f in self.fields:
@@ -311,7 +345,8 @@ class PacienteCompletoForm(TelefonoCleanMixin, forms.ModelForm):
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
-            seccion('Datos del paciente'),
+            # ── 1. Ficha de identificación ────────────────────────────────────
+            seccion('1. Ficha de identificación'),
             Row(
                 Column('nombre_completo', css_class='col-12 col-md-7'),
                 Column('sexo', css_class='col-6 col-md-2'),
@@ -329,35 +364,115 @@ class PacienteCompletoForm(TelefonoCleanMixin, forms.ModelForm):
                 Column('contacto_emergencia', css_class='col-12 col-md-6'),
                 Column('seguro_medico', css_class='col-12 col-md-6'),
             ),
-            seccion('Padres / Representante'),
             Row(
-                Column('nombre_padre', css_class='col-12 col-md-6'),
-                Column('nombre_madre', css_class='col-12 col-md-6'),
+                Column('grupo_sanguineo', css_class='col-6 col-md-3'),
+            ),
+            # ── Padres ────────────────────────────────────────────────────────
+            seccion('Padres'),
+            Row(
+                Column('nombre_padre', css_class='col-12 col-md-5'),
+                Column('edad_padre', css_class='col-6 col-md-2'),
+                Column('ocupacion_padre', css_class='col-6 col-md-5'),
+            ),
+            Row(
+                Column('nombre_madre', css_class='col-12 col-md-5'),
+                Column('edad_madre', css_class='col-6 col-md-2'),
+                Column('ocupacion_madre', css_class='col-6 col-md-5'),
             ),
             Row(
                 Column('telefono_representante', css_class='col-12 col-md-6'),
                 Column('ocupacion_representante', css_class='col-12 col-md-6'),
             ),
-            seccion('Antecedentes personales'),
-            'alergias',
-            'enfermedades_cronicas',
-            'cirugias_previas',
-            'medicacion_actual',
+            # ── 2. Antecedentes prenatales / perinatales / neonatales ─────────
+            seccion('2. Antecedentes prenatales – perinatales – neonatales'),
             Row(
-                Column('grupo_sanguineo', css_class='col-6 col-md-3'),
+                Column('edad_materna_embarazo', css_class='col-6 col-md-3'),
+                Column('numero_gestacion', css_class='col-6 col-md-3'),
+                Column('semanas_gestacion', css_class='col-6 col-md-3'),
             ),
-            seccion('Antecedentes perinatales'),
-            'antec_embarazo',
+            Row(
+                Column('control_prenatal', css_class='col-6 col-md-3'),
+                Column('num_consultas_prenatales', css_class='col-6 col-md-3'),
+            ),
+            HTML('<div class="col-12 mt-2 mb-1"><small class="text-muted fw-semibold">Complicaciones en el embarazo</small></div>'),
+            Row(
+                Column('complicacion_oligoamnios', css_class='col-6 col-md-2'),
+                Column('complicacion_preeclampsia', css_class='col-6 col-md-2'),
+                Column('complicacion_infecciones', css_class='col-6 col-md-3'),
+                Column('complicacion_embarazo_otra', css_class='col-12 col-md-5'),
+            ),
+            Row(
+                Column('via_parto', css_class='col-6 col-md-4'),
+                Column('indicacion_cesarea', css_class='col-12 col-md-8'),
+            ),
             Row(
                 Column('peso_nacer', css_class='col-6 col-md-3'),
                 Column('talla_nacer', css_class='col-6 col-md-3'),
             ),
-            'antec_parto',
-            'antec_neonatal',
-            seccion('Alimentación y desarrollo psicomotor'),
+            HTML('<div class="col-12 mt-2 mb-1"><small class="text-muted fw-semibold">Período neonatal (primeros 28 días)</small></div>'),
+            Row(
+                Column('complicaciones_neonatales', css_class='col-12 col-md-3'),
+                Column('neonatal_ictericia', css_class='col-6 col-md-2'),
+                Column('neonatal_sepsis', css_class='col-6 col-md-2'),
+                Column('neonatal_dificultad_respiratoria', css_class='col-6 col-md-2'),
+                Column('neonatal_otra_complicacion', css_class='col-12 col-md-3'),
+            ),
+            Row(
+                Column('onfalorrexis', css_class='col-12 col-md-4'),
+                Column('prueba_talon', css_class='col-12 col-md-4'),
+                Column('prueba_talon_detalle', css_class='col-12 col-md-4'),
+            ),
+            HTML('<div class="col-12 mt-2 mb-1"><small class="text-muted fw-semibold">Notas adicionales (campo libre)</small></div>'),
+            Row(
+                Column('antec_embarazo', css_class='col-12 col-md-4'),
+                Column('antec_parto', css_class='col-12 col-md-4'),
+                Column('antec_neonatal', css_class='col-12 col-md-4'),
+            ),
+            # ── 3. Alimentación ───────────────────────────────────────────────
+            seccion('3. Alimentación y nutrición'),
+            Row(
+                Column('lme', css_class='col-6 col-md-3'),
+                Column('lme_meses', css_class='col-6 col-md-3'),
+            ),
+            Row(
+                Column('uso_formula', css_class='col-6 col-md-3'),
+                Column('nombre_formula', css_class='col-12 col-md-5'),
+                Column('causa_formula', css_class='col-12 col-md-4'),
+            ),
+            Row(
+                Column('alimentacion_actual', css_class='col-12 col-md-5'),
+                Column('alimentacion_actual_detalle', css_class='col-12 col-md-7'),
+            ),
             'antec_alimentacion',
+            # ── 4. Desarrollo psicomotor ──────────────────────────────────────
+            seccion('4. Desarrollo psicomotor e hitos madurativos'),
+            Row(
+                Column('desarrollo_psicomotor_adecuado', css_class='col-12 col-md-4'),
+                Column('desarrollo_area_afectada', css_class='col-12 col-md-8'),
+            ),
+            Row(
+                Column('esfinter_vesical_logrado', css_class='col-6 col-md-3'),
+                Column('esfinter_vesical_edad', css_class='col-6 col-md-3'),
+                Column('esfinter_anal_logrado', css_class='col-6 col-md-3'),
+                Column('esfinter_anal_edad', css_class='col-6 col-md-3'),
+            ),
             'antec_desarrollo',
-            seccion('Antecedentes familiares'),
+            # ── 6. Antecedentes patológicos personales ────────────────────────
+            seccion('6. Antecedentes patológicos personales'),
+            'cirugias_previas',
+            'alergias',
+            Row(
+                Column('traumatismos', css_class='col-6 col-md-3'),
+                Column('traumatismos_detalle', css_class='col-12 col-md-9'),
+            ),
+            Row(
+                Column('enfermedades_exantematicas', css_class='col-6 col-md-3'),
+                Column('exantematicas_detalle', css_class='col-12 col-md-9'),
+            ),
+            'enfermedades_cronicas',
+            'medicacion_actual',
+            # ── 7. Antecedentes familiares ────────────────────────────────────
+            seccion('7. Antecedentes familiares'),
             Row(
                 Column('antec_diabetes', css_class='col-6 col-md-2'),
                 Column('antec_hipertension', css_class='col-6 col-md-2'),
@@ -366,10 +481,28 @@ class PacienteCompletoForm(TelefonoCleanMixin, forms.ModelForm):
                 Column('antec_asma_atopia', css_class='col-6 col-md-3'),
             ),
             Row(
+                Column('antec_oncologico', css_class='col-6 col-md-3'),
+                Column('antec_oncologico_rama', css_class='col-6 col-md-3'),
+            ),
+            Row(
                 Column('antec_autoinmunes', css_class='col-12 col-md-6'),
                 Column('antec_geneticas', css_class='col-12 col-md-6'),
             ),
             'antec_otros',
+            # ── 8. Hábitos psicobiológicos y entorno ──────────────────────────
+            seccion('8. Hábitos psicobiológicos y entorno socio-ambiental'),
+            Row(
+                Column('patron_sueno', css_class='col-12 col-md-4'),
+                Column('patron_evacuacion', css_class='col-12 col-md-4'),
+                Column('patron_miccion', css_class='col-12 col-md-4'),
+            ),
+            Row(
+                Column('tabaquismo_pasivo', css_class='col-6 col-md-3'),
+                Column('agua_consumo', css_class='col-12 col-md-4'),
+                Column('mascotas', css_class='col-6 col-md-2'),
+                Column('mascotas_tipo', css_class='col-12 col-md-3'),
+            ),
+            # ── Observaciones ─────────────────────────────────────────────────
             seccion('Observaciones'),
             'observaciones',
             Submit('submit', 'Guardar ficha', css_class='btn btn-primary btn-touch w-100 mt-4'),
