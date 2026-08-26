@@ -177,7 +177,7 @@ def _canvas_cb(nombre_medico, especialidad, numero_mpps, telefono, wm_bytes,
                 reader = ImageReader(io.BytesIO(firma_bytes))
                 canvas.drawImage(
                     reader,
-                    cx - FIRMA_IMG_W / 2, y_linea - FIRMA_IMG_H,
+                    cx - FIRMA_IMG_W / 2, y_linea + 2,
                     width=FIRMA_IMG_W, height=FIRMA_IMG_H,
                     mask='auto', preserveAspectRatio=True,
                 )
