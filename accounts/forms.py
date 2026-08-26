@@ -32,11 +32,18 @@ class UsuarioEditarForm(forms.ModelForm):
     class Meta:
         model = Usuario
         fields = ['first_name', 'last_name', 'email', 'rol', 'sexo', 'is_active',
-                  'especialidad', 'credenciales', 'numero_mpps', 'telefono']
+                  'especialidad', 'credenciales', 'numero_mpps', 'telefono',
+                  'firma', 'sello']
+        widgets = {
+            'firma': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+            'sello': forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['is_active'].label = 'Usuario activo'
+        self.fields['firma'].required = False
+        self.fields['sello'].required = False
 
 
 class CambiarPasswordForm(forms.Form):

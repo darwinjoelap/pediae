@@ -59,6 +59,20 @@ class Usuario(AbstractUser):
         help_text='Teléfono de contacto del médico',
     )
 
+    # Imágenes para documentos PDF
+    firma = models.ImageField(
+        upload_to='firmas/',
+        null=True, blank=True,
+        verbose_name='Firma digital',
+        help_text='PNG con fondo transparente recomendado. Aparece encima de la línea de firma en los PDFs.',
+    )
+    sello = models.ImageField(
+        upload_to='sellos/',
+        null=True, blank=True,
+        verbose_name='Sello / Timbre',
+        help_text='PNG con fondo transparente recomendado. Aparece al lado de la firma en los PDFs.',
+    )
+
     class Meta:
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'

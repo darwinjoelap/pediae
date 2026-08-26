@@ -95,7 +95,11 @@ def editar_usuario(request, pk):
     usuario = get_object_or_404(Usuario, pk=pk, tenant=tenant)
 
     from .forms import UsuarioEditarForm, CambiarPasswordForm
-    form = UsuarioEditarForm(request.POST or None, instance=usuario)
+    form = UsuarioEditarForm(
+        request.POST or None,
+        request.FILES or None,
+        instance=usuario,
+    )
     pass_form = CambiarPasswordForm(request.POST or None)
 
     if request.method == 'POST':

@@ -14,7 +14,7 @@
     <i class="bi bi-person-badge me-1"></i> Datos del usuario
   </div>
   <div class="card-body">
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
       <div class="row g-3">
         <div class="col-md-6">
@@ -75,6 +75,37 @@
               <div class="form-text">{{ form.telefono.help_text }}</div>
             </div>
           </div>
+          {# ── Firma y Sello ── #}
+          {% if form.firma %}
+          <hr class="my-3">
+          <p class="text-muted small mb-2"><i class="bi bi-pen me-1"></i> Firma y Sello (aparecen en los PDFs)</p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Firma digital</label>
+              {% if usuario.firma %}
+              <div class="mb-2">
+                <img src="{{ usuario.firma.url }}" alt="Firma actual"
+                     style="max-height:60px; max-width:100%; border:1px solid #dee2e6; border-radius:4px; padding:4px; background:#fff;">
+                <div class="form-text">Imagen actual</div>
+              </div>
+              {% endif %}
+              {{ form.firma }}
+              <div class="form-text">{{ form.firma.help_text }}</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Sello / Timbre</label>
+              {% if usuario.sello %}
+              <div class="mb-2">
+                <img src="{{ usuario.sello.url }}" alt="Sello actual"
+                     style="max-height:60px; max-width:100%; border:1px solid #dee2e6; border-radius:4px; padding:4px; background:#fff;">
+                <div class="form-text">Imagen actual</div>
+              </div>
+              {% endif %}
+              {{ form.sello }}
+              <div class="form-text">{{ form.sello.help_text }}</div>
+            </div>
+          </div>
+          {% endif %}
         </div>
         {% if form.password1 %}
         <div class="col-md-6">

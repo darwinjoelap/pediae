@@ -26,7 +26,7 @@ TEAL       = colors.HexColor('#2AACA8')
 LINEA      = colors.HexColor('#D1D5DB')
 
 MARGIN  = 1.5 * cm
-FIRMA_H = 2.6 * cm
+FIRMA_H = 3.8 * cm   # ampliado para acomodar imagen de firma encima de la línea
 
 # ── Estilos ───────────────────────────────────────────────────────────────────
 _ctr = [0]
@@ -121,14 +121,15 @@ def _fecha_letras(d: date) -> str:
     return f'a los {dia_n} ({d.day}) días del mes de {mes_n} de {anio_n}'
 
 
-def _canvas_cb(nombre_medico, especialidad, numero_mpps, telefono, wm_bytes):
-    """Devuelve la función onPage para el canvas callback (watermark + firma)."""
+def _canvas_cb(nombre_medico, especialidad, numero_mpps, telefono, wm_bytes,
+               firma_bytes=None, sello_bytes=None):
+    """Devuelve la función onPage para el canvas callback (watermark + firma + sello)."""
     PAGE_W, PAGE_H = letter
 
     def _on_page(canvas, doc):
         canvas.saveState()
 
-        # Watermark
+        # Watermark (logo semitransparente centrado en el cuerpo)
         if wm_bytes:
             wm_sz = 7 * cm
             cx = PAGE_W / 2
@@ -141,7 +142,7 @@ def _canvas_cb(nombre_medico, especialidad, numero_mpps, telefono, wm_bytes):
                 mask='auto', preserveAspectRatio=True,
             )
 
-        # Firma al pie
+        # Texto del pie de página (nombre, especialidad, MPPS, teléfono)
         cx = PAGE_W / 2
         LINE_W = 6 * cm
         lines = []
@@ -166,6 +167,38 @@ def _canvas_cb(nombre_medico, especialidad, numero_mpps, telefono, wm_bytes):
         canvas.setStrokeColor(GRIS_CLARO)
         canvas.setLineWidth(0.6)
         canvas.line(cx - LINE_W / 2, y, cx + LINE_W / 2, y)
+        y_linea = y
+
+        # Firma: imagen PNG centrada encima de la línea
+        if firma_bytes:
+            FIRMA_IMG_W = 5.5 * cm
+            FIRMA_IMG_H = 1.5 * cm
+            try:
+                reader = ImageReader(io.BytesIO(firma_bytes))
+                canvas.drawImage(
+                    reader,
+                    cx - FIRMA_IMG_W / 2, y_linea + 4,
+                    width=FIRMA_IMG_W, height=FIRMA_IMG_H,
+                    mask='auto', preserveAspectRatio=True,
+                )
+            except Exception:
+                pass
+
+        # Sello: imagen circular / cuadrada a la derecha de la línea de firma
+        if sello_bytes:
+            SELLO_SZ = 2.2 * cm
+            try:
+                reader = ImageReader(io.BytesIO(sello_bytes))
+                sx = cx + LINE_W / 2 + 5
+                sy = MARGIN + (len(lines) * LINE_LEAD) / 2 - SELLO_SZ / 2
+                canvas.drawImage(
+                    reader,
+                    sx, sy,
+                    width=SELLO_SZ, height=SELLO_SZ,
+                    mask='auto', preserveAspectRatio=True,
+                )
+            except Exception:
+                pass
 
         canvas.setFont('Helvetica', 7)
         canvas.setFillColor(GRIS_CLARO)
@@ -227,6 +260,25 @@ def _contexto_medico(medico, config):
     logo_bytes = _fetch_bytes(logo_url) if logo_url else None
     wm_bytes   = _transparent_png(logo_bytes, alpha=0.08) if logo_bytes else None
 
+    # Firma y sello digitalizados del médico
+    firma_bytes = None
+    if getattr(medico, 'firma', None):
+        try:
+            medico.firma.open('rb')
+            firma_bytes = medico.firma.read()
+            medico.firma.close()
+        except Exception:
+            firma_bytes = None
+
+    sello_bytes = None
+    if getattr(medico, 'sello', None):
+        try:
+            medico.sello.open('rb')
+            sello_bytes = medico.sello.read()
+            medico.sello.close()
+        except Exception:
+            sello_bytes = None
+
     return dict(
         nombre_medico=nombre_medico,
         especialidad=especialidad or consultorio,
@@ -235,6 +287,8 @@ def _contexto_medico(medico, config):
         logo_bytes=logo_bytes,
         wm_bytes=wm_bytes,
         direccion=direccion,
+        firma_bytes=firma_bytes,
+        sello_bytes=sello_bytes,
     )
 
 
@@ -347,7 +401,9 @@ def generar_constancia_nino_sano(paciente, medico, config, datos: dict) -> bytes
     ))
 
     on_page = _canvas_cb(ctx['nombre_medico'], ctx['especialidad'],
-                         ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'])
+                         ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'],
+                         firma_bytes=ctx.get('firma_bytes'),
+                         sello_bytes=ctx.get('sello_bytes'))
     return _build_pdf(items, on_page)
 
 
@@ -427,7 +483,9 @@ def generar_constancia_reposo(paciente, medico, config, datos: dict) -> bytes:
     ))
 
     on_page = _canvas_cb(ctx['nombre_medico'], ctx['especialidad'],
-                         ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'])
+                         ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'],
+                         firma_bytes=ctx.get('firma_bytes'),
+                         sello_bytes=ctx.get('sello_bytes'))
     return _build_pdf(items, on_page)
 
 
@@ -503,7 +561,9 @@ def generar_certificado_lactancia(paciente, medico, config, datos: dict) -> byte
     ))
 
     on_page = _canvas_cb(ctx['nombre_medico'], ctx['especialidad'],
-                         ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'])
+                         ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'],
+                         firma_bytes=ctx.get('firma_bytes'),
+                         sello_bytes=ctx.get('sello_bytes'))
     return _build_pdf(items, on_page)
 
 
@@ -596,5 +656,7 @@ def generar_constancia_lactancia_trabajo(paciente, medico, config, datos: dict) 
     items.append(Paragraph(peticion_txt, S_BODY))
 
     on_page = _canvas_cb(ctx['nombre_medico'], ctx['especialidad'],
-                         ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'])
+                         ctx['numero_mpps'], ctx['telefono'], ctx['wm_bytes'],
+                         firma_bytes=ctx.get('firma_bytes'),
+                         sello_bytes=ctx.get('sello_bytes'))
     return _build_pdf(items, on_page)
