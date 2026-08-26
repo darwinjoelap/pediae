@@ -878,7 +878,12 @@
           </div>
           <div class="mb-3">
             <label class="form-label fw-bold">Cédula de la madre <span class="text-danger">*</span></label>
-            <input type="text" name="cedula_madre" class="form-control" placeholder="Ej: V-12345678" required>
+            <input type="text" name="cedula_madre" id="cedulaMadreInput" class="form-control"
+              placeholder="Ej: V-12345678"
+              {% if paciente.filiacion_representante == 'madre' and paciente.cedula_representante %}
+              data-cedula-raw="{{ paciente.cedula_representante }}"
+              {% endif %}
+              required>
           </div>
           <div class="mb-3">
             <label class="form-label fw-bold">Ciudad</label>
@@ -897,6 +902,16 @@
     </div>
   </div>
 </div>
+
+<script>
+  document.getElementById('modalConstanciaTrabajo').addEventListener('show.bs.modal', function () {
+    var input = document.getElementById('cedulaMadreInput');
+    var raw = input ? (input.dataset.cedulaRaw || '') : '';
+    if (raw && !input.value) {
+      input.value = raw.replace(/-\d+$/, '');
+    }
+  });
+</script>
 {% endif %}
 
 {% endblock %}
