@@ -872,7 +872,9 @@
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label fw-bold">Nombre de la madre <span class="text-danger">*</span></label>
-            <input type="text" name="nombre_madre" class="form-control" placeholder="Nombre completo" required>
+            <input type="text" name="nombre_madre" class="form-control" placeholder="Nombre completo"
+              value="{% if paciente.nombre_madre %}{{ paciente.nombre_madre }}{% elif paciente.filiacion_representante == 'madre' %}{{ paciente.nombre_representante }}{% endif %}"
+              required>
           </div>
           <div class="mb-3">
             <label class="form-label fw-bold">Cédula de la madre <span class="text-danger">*</span></label>
