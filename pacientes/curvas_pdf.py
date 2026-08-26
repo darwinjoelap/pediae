@@ -147,7 +147,9 @@ def generar_pdf_curvas(paciente, medico, config, grafica_b64: str, indicador: st
     firma_field = getattr(medico, 'firma', None)
     if firma_field and getattr(firma_field, 'name', None):
         try:
+            firma_field.open('rb')
             firma_bytes = firma_field.read()
+            firma_field.close()
         except Exception:
             try:
                 with open(firma_field.path, 'rb') as fh:
@@ -159,7 +161,9 @@ def generar_pdf_curvas(paciente, medico, config, grafica_b64: str, indicador: st
     sello_field = getattr(medico, 'sello', None)
     if sello_field and getattr(sello_field, 'name', None):
         try:
+            sello_field.open('rb')
             sello_bytes = sello_field.read()
+            sello_field.close()
         except Exception:
             try:
                 with open(sello_field.path, 'rb') as fh:
