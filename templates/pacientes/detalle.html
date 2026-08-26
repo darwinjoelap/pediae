@@ -689,6 +689,10 @@
     data-bs-toggle="modal" data-bs-target="#modalConstanciaTrabajo">
     <i class="bi bi-briefcase me-1"></i> Constancia Lactancia (Trabajo)
   </button>
+  <button type="button" class="btn btn-outline-primary btn-sm"
+    data-bs-toggle="modal" data-bs-target="#modalInformeReferencia">
+    <i class="bi bi-send me-1"></i> Informe de Referencia
+  </button>
 </div>
 {% endif %}
 
@@ -936,6 +940,348 @@
     }
   });
 </script>
+
+<!-- Modal: Informe de Referencia -->
+<div class="modal fade" id="modalInformeReferencia" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-send me-2"></i> Informe Médico de Referencia
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'pacientes:informe_referencia_pdf' paciente.pk %}" target="_blank">
+        {% csrf_token %}
+        <div class="modal-body">
+
+          <!-- Referencia -->
+          <h6 class="fw-bold text-uppercase text-muted mb-3" style="font-size:0.75rem;letter-spacing:1px">
+            <i class="bi bi-arrow-right-circle me-1"></i> Datos de la Referencia
+          </h6>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="ref_especialidad">Especialidad a la que se refiere <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="ref_especialidad" name="especialidad_ref"
+                placeholder="Ej: Cardiología Pediátrica" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="ref_ciudad">Ciudad</label>
+              <input type="text" class="form-control" id="ref_ciudad" name="ciudad"
+                placeholder="Ej: Caracas"
+                value="{{ request.user.ciudad|default:'' }}">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="ref_motivo">Motivo de la referencia <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="ref_motivo" name="motivo_ref" rows="3"
+              placeholder="Describa el motivo clínico de la referencia..." required></textarea>
+          </div>
+
+          <hr class="my-3">
+
+          <!-- Antecedentes -->
+          <h6 class="fw-bold text-uppercase text-muted mb-2" style="font-size:0.75rem;letter-spacing:1px">
+            <i class="bi bi-clipboard2-pulse me-1"></i> Antecedentes a incluir
+          </h6>
+          <p class="text-muted small mb-3">Seleccione los antecedentes relevantes para este informe. Solo se incluirán los marcados.</p>
+
+          {% comment %}Antecedentes personales{% endcomment %}
+          <div class="mb-2">
+            <span class="badge bg-secondary mb-2">Personales</span>
+            <div class="row g-2">
+              {% if paciente.alergias %}
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Alergias conocidas: {{ paciente.alergias }}"
+                    id="antec_alergias" checked>
+                  <label class="form-check-label" for="antec_alergias">
+                    <strong>Alergias:</strong> {{ paciente.alergias }}
+                  </label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.enfermedades_cronicas %}
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Enfermedades crónicas: {{ paciente.enfermedades_cronicas }}"
+                    id="antec_cronicas" checked>
+                  <label class="form-check-label" for="antec_cronicas">
+                    <strong>Enfermedades crónicas:</strong> {{ paciente.enfermedades_cronicas }}
+                  </label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.cirugias_previas %}
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Cirugías previas: {{ paciente.cirugias_previas }}"
+                    id="antec_cirugias" checked>
+                  <label class="form-check-label" for="antec_cirugias">
+                    <strong>Cirugías previas:</strong> {{ paciente.cirugias_previas }}
+                  </label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.medicacion_actual %}
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Medicación actual: {{ paciente.medicacion_actual }}"
+                    id="antec_medicacion" checked>
+                  <label class="form-check-label" for="antec_medicacion">
+                    <strong>Medicación actual:</strong> {{ paciente.medicacion_actual }}
+                  </label>
+                </div>
+              </div>
+              {% endif %}
+              {% if not paciente.alergias and not paciente.enfermedades_cronicas and not paciente.cirugias_previas and not paciente.medicacion_actual %}
+              <div class="col-12 text-muted small fst-italic">Sin antecedentes personales registrados.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          {% comment %}Antecedentes perinatales{% endcomment %}
+          <div class="mb-2 mt-3">
+            <span class="badge bg-secondary mb-2">Perinatales / Neonatales</span>
+            <div class="row g-2">
+              {% if paciente.peso_nacer %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Peso al nacer: {{ paciente.peso_nacer }} g"
+                    id="antec_peso_nacer" checked>
+                  <label class="form-check-label" for="antec_peso_nacer">
+                    Peso al nacer: <strong>{{ paciente.peso_nacer }} g</strong>
+                  </label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.talla_nacer %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Talla al nacer: {{ paciente.talla_nacer }} cm"
+                    id="antec_talla_nacer" checked>
+                  <label class="form-check-label" for="antec_talla_nacer">
+                    Talla al nacer: <strong>{{ paciente.talla_nacer }} cm</strong>
+                  </label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.semanas_gestacion %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Edad gestacional: {{ paciente.semanas_gestacion }} semanas"
+                    id="antec_semanas" checked>
+                  <label class="form-check-label" for="antec_semanas">
+                    Edad gestacional: <strong>{{ paciente.semanas_gestacion }} sem</strong>
+                  </label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.via_parto %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Vía de parto: {{ paciente.get_via_parto_display }}"
+                    id="antec_via_parto">
+                  <label class="form-check-label" for="antec_via_parto">
+                    Vía de parto: <strong>{{ paciente.get_via_parto_display }}</strong>
+                  </label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.complicacion_preeclampsia %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente prenatal: preeclampsia materna"
+                    id="antec_preeclampsia" checked>
+                  <label class="form-check-label" for="antec_preeclampsia">Preeclampsia materna</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.complicacion_oligoamnios %}
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente prenatal: oligoamnios"
+                    id="antec_oligo" checked>
+                  <label class="form-check-label" for="antec_oligo">Oligoamnios</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.complicacion_infecciones %}
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente prenatal: infecciones maternas"
+                    id="antec_infec" checked>
+                  <label class="form-check-label" for="antec_infec">Infecciones maternas prenatales</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.neonatal_ictericia %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente neonatal: ictericia neonatal"
+                    id="antec_ictericia" checked>
+                  <label class="form-check-label" for="antec_ictericia">Ictericia neonatal</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.neonatal_sepsis %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente neonatal: sepsis neonatal"
+                    id="antec_sepsis" checked>
+                  <label class="form-check-label" for="antec_sepsis">Sepsis neonatal</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.neonatal_dificultad_respiratoria %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente neonatal: dificultad respiratoria"
+                    id="antec_dr" checked>
+                  <label class="form-check-label" for="antec_dr">Dificultad respiratoria neonatal</label>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+
+          {% comment %}Antecedentes familiares{% endcomment %}
+          <div class="mb-2 mt-3">
+            <span class="badge bg-secondary mb-2">Familiares</span>
+            <div class="row g-2">
+              {% if paciente.antec_diabetes %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente familiar: Diabetes mellitus"
+                    id="antec_dm" checked>
+                  <label class="form-check-label" for="antec_dm">Diabetes mellitus</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.antec_hipertension %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente familiar: Hipertensión arterial"
+                    id="antec_hta" checked>
+                  <label class="form-check-label" for="antec_hta">Hipertensión arterial</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.antec_cardiopatias %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente familiar: Cardiopatías"
+                    id="antec_cardio" checked>
+                  <label class="form-check-label" for="antec_cardio">Cardiopatías</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.antec_epilepsia %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente familiar: Epilepsia"
+                    id="antec_epilepsia" checked>
+                  <label class="form-check-label" for="antec_epilepsia">Epilepsia</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.antec_asma_atopia %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente familiar: Asma / atopia"
+                    id="antec_asma" checked>
+                  <label class="form-check-label" for="antec_asma">Asma / atopia</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if paciente.antec_oncologico %}
+              <div class="col-md-6">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Antecedente familiar: Enfermedad oncológica"
+                    id="antec_onco" checked>
+                  <label class="form-check-label" for="antec_onco">Enfermedad oncológica</label>
+                </div>
+              </div>
+              {% endif %}
+              {% if not paciente.antec_diabetes and not paciente.antec_hipertension and not paciente.antec_cardiopatias and not paciente.antec_epilepsia and not paciente.antec_asma_atopia and not paciente.antec_oncologico %}
+              <div class="col-12 text-muted small fst-italic">Sin antecedentes familiares registrados.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          {% comment %}Desarrollo{% endcomment %}
+          {% if paciente.antec_desarrollo %}
+          <div class="mb-2 mt-3">
+            <span class="badge bg-secondary mb-2">Desarrollo</span>
+            <div class="row g-2">
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="antec[]"
+                    value="Desarrollo psicomotor: {{ paciente.antec_desarrollo }}"
+                    id="antec_desarrollo">
+                  <label class="form-check-label" for="antec_desarrollo">
+                    <strong>Desarrollo psicomotor:</strong> {{ paciente.antec_desarrollo }}
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <hr class="my-3">
+
+          <!-- Observaciones finales -->
+          <h6 class="fw-bold text-uppercase text-muted mb-2" style="font-size:0.75rem;letter-spacing:1px">
+            <i class="bi bi-chat-square-text me-1"></i> Observaciones finales
+          </h6>
+          <div class="mb-3">
+            <textarea class="form-control" name="observaciones" rows="4"
+              placeholder="Información adicional relevante para el especialista, resumen clínico, hallazgos importantes..."></textarea>
+          </div>
+
+          <!-- Firma y sello -->
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="refInclFirma" name="incluir_firma"
+              {% if request.user.firma_public_id %}checked{% endif %}>
+            <label class="form-check-label" for="refInclFirma">
+              Incluir firma y sello en el documento
+              {% if not request.user.firma_public_id %}
+              <span class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>Sin firma cargada</span>
+              {% endif %}
+            </label>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-file-pdf me-1"></i> Generar Informe
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 {% endblock %}

@@ -393,6 +393,55 @@ def constancia_pdf(request, pk, tipo):
     return response
 
 
+# ── Informe de Referencia PDF ──────────────────────────────────────────────────
+
+@login_required
+def informe_referencia_pdf(request, pk):
+    """
+    POST → genera un PDF de Informe Médico de Referencia.
+    """
+    from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed
+
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+
+    try:
+        config = request.tenant.config
+    except Exception:
+        config = None
+
+    # Obtener última consulta con datos antropométricos
+    ultima_consulta = (
+        paciente.consultas
+        .filter(peso__isnull=False)
+        .order_by('-fecha', '-creado_en')
+        .first()
+    )
+
+    from .informe_referencia_pdf import generar_informe_referencia
+
+    datos = {
+        'especialidad_ref': request.POST.get('especialidad_ref', '').strip(),
+        'motivo_ref':        request.POST.get('motivo_ref', '').strip(),
+        'antecedentes':      request.POST.getlist('antec[]'),
+        'observaciones':     request.POST.get('observaciones', '').strip(),
+        'ciudad':            request.POST.get('ciudad', '').strip(),
+        'incluir_firma':     request.POST.get('incluir_firma') == 'on',
+        'ultima_consulta':   ultima_consulta,
+    }
+
+    pdf_bytes = generar_informe_referencia(paciente, request.user, config, datos)
+
+    nombre = f'informe_referencia_{paciente.cedula or paciente.pk}.pdf'
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{nombre}"'
+    return response
+
+
 # ── Vacunas ────────────────────────────────────────────────────────────────────
 
 def _vacunas_resumen(paciente, tenant):

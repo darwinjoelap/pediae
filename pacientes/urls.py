@@ -16,4 +16,6 @@ urlpatterns = [
     path('<int:pk>/curvas-pdf/', views.curvas_crecimiento_pdf, name='curvas_pdf'),
     # Constancias PDF
     path('<int:pk>/constancia/<str:tipo>/', views.constancia_pdf, name='constancia_pdf'),
+    # Informe de Referencia PDF
+    path('<int:pk>/informe-referencia/', views.informe_referencia_pdf, name='informe_referencia_pdf'),
 ]
