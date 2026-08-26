@@ -951,7 +951,7 @@
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <form method="post" action="{% url 'pacientes:informe_referencia_pdf' paciente.pk %}" target="_blank">
+      <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/informe-referencia/" target="_blank">
         {% csrf_token %}
         <div class="modal-body">
 
