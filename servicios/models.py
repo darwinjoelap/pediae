@@ -33,6 +33,12 @@ class Servicio(models.Model):
         max_digits=8, decimal_places=2,
         verbose_name='Precio (USD)'
     )
+    costo_adquisicion_usd = models.DecimalField(
+        max_digits=8, decimal_places=2,
+        null=True, blank=True, default=None,
+        verbose_name='Costo de adquisición (USD)',
+        help_text='Ej: vacunas. Opcional. Se usa para calcular el ingreso real.'
+    )
     activo = models.BooleanField(default=True, verbose_name='Activo')
     creado_en = models.DateTimeField(auto_now_add=True)
 

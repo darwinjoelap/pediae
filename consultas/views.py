@@ -77,6 +77,7 @@ def nueva_consulta(request, paciente_id):
                             consulta=consulta,
                             servicio=srv,
                             precio_usd=srv.precio_usd,
+                            costo_adquisicion_usd=srv.costo_adquisicion_usd,
                             tasa_cambio=tasa,
                         )
                     except Servicio.DoesNotExist:
@@ -180,6 +181,7 @@ def editar_consulta(request, pk):
                             consulta=consulta,
                             servicio=srv,
                             precio_usd=srv.precio_usd,
+                            costo_adquisicion_usd=srv.costo_adquisicion_usd,
                             tasa_cambio=tasa,
                         )
                     except Servicio.DoesNotExist:
@@ -534,6 +536,7 @@ def agregar_servicio(request, pk):
                 consulta=consulta,
                 servicio=srv,
                 precio_usd=srv.precio_usd,
+                costo_adquisicion_usd=srv.costo_adquisicion_usd,
                 tasa_cambio=tasa,
             )
             messages.success(request, f'Servicio "{srv.nombre}" agregado.')

@@ -338,6 +338,11 @@ class ConsultaServicio(models.Model):
         max_digits=8, decimal_places=2,
         verbose_name='Precio USD al momento'
     )
+    costo_adquisicion_usd = models.DecimalField(
+        max_digits=8, decimal_places=2,
+        null=True, blank=True, default=None,
+        verbose_name='Costo adquisición USD al momento',
+    )
     tasa_cambio = models.DecimalField(
         max_digits=12, decimal_places=2,
         null=True, blank=True,

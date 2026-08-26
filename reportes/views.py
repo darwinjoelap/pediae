@@ -471,6 +471,13 @@ def estadisticas(request):
     total_ingresos_usd = total_ingresos_usd + total_ingresos_proc
     ingresos_pendientes = ingresos_pendientes + ingresos_pendientes_proc
 
+    total_costo_adquisicion = ConsultaServicio.objects.filter(
+        consulta_id__in=consultas_ids,
+        consulta__pagado=True,
+        costo_adquisicion_usd__isnull=False,
+    ).aggregate(total=Sum('costo_adquisicion_usd'))['total'] or 0
+    ingreso_real_usd = total_ingresos_usd - total_costo_adquisicion
+
     servicios_top = ConsultaServicio.objects.filter(
         consulta_id__in=consultas_ids,
     ).values('servicio__nombre').annotate(
@@ -623,6 +630,8 @@ def estadisticas(request):
         'fecha_hasta': fecha_hasta,
         'total_ingresos_usd': total_ingresos_usd,
         'ingresos_pendientes': ingresos_pendientes,
+        'total_costo_adquisicion': total_costo_adquisicion,
+        'ingreso_real_usd': ingreso_real_usd,
         'medicos': medicos,
         'medico_id': medico_id,
         'medico_seleccionado': medico_seleccionado,
@@ -716,6 +725,14 @@ def estadisticas_pdf(request):
         consulta__pagado=False,
     ).aggregate(total=Sum('precio_usd'))['total'] or 0
 
+    total_costo_adquisicion_pdf = ConsultaServicio.objects.filter(
+        consulta__tenant=_tenant,
+        consulta__fecha__range=[fecha_desde, fecha_hasta],
+        consulta__pagado=True,
+        costo_adquisicion_usd__isnull=False,
+    ).aggregate(total=Sum('costo_adquisicion_usd'))['total'] or 0
+    ingreso_real_pdf = total_ingresos - total_costo_adquisicion_pdf
+
     # Consultas por tipo
     TIPO_LABELS = {
         'control': 'Control',
@@ -755,6 +772,8 @@ def estadisticas_pdf(request):
     elementos.append(Paragraph('INGRESOS', e_seccion))
     ing_data = [
         ['Ingresos cobrados', f'${total_ingresos} USD'],
+        ['Costo de adquisición', f'${total_costo_adquisicion_pdf} USD'],
+        ['Ingreso real', f'${ingreso_real_pdf} USD'],
         ['Ingresos pendientes', f'${ingresos_pendientes} USD'],
     ]
     tabla_ing = Table(ing_data, colWidths=[10*cm, 7*cm])

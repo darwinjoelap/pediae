@@ -90,6 +90,18 @@
   </div>
   <div class="col-6 col-md-2">
     <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fs-2 fw-bold text-danger">${{ total_costo_adquisicion|floatformat:2 }}</div>
+      <div class="text-muted small">Costo adquisición</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fs-2 fw-bold text-primary">${{ ingreso_real_usd|floatformat:2 }}</div>
+      <div class="text-muted small">Ingreso real USD</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card border-0 shadow-sm text-center py-3">
       <div class="fs-2 fw-bold text-warning">${{ ingresos_pendientes|floatformat:2 }}</div>
       <div class="text-muted small">Pendiente USD</div>
     </div>
