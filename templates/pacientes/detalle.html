@@ -772,6 +772,12 @@
             <input class="form-check-input" type="checkbox" name="incluir_vacunas" id="incluir_vacunas_check">
             <label class="form-check-label" for="incluir_vacunas_check">Incluir detalle de vacunas</label>
           </div>
+          {% if request.user.firma %}
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" name="incluir_firma" id="incluir_firma_nino" checked>
+            <label class="form-check-label" for="incluir_firma_nino"><i class="bi bi-pen me-1"></i> Incluir firma y sello</label>
+          </div>
+          {% endif %}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -815,6 +821,12 @@
             <input type="text" name="motivo" class="form-control"
               placeholder="Ej: síndrome gripal, fiebre">
           </div>
+          {% if request.user.firma %}
+          <div class="form-check form-switch mt-1">
+            <input class="form-check-input" type="checkbox" name="incluir_firma" id="incluir_firma_reposo" checked>
+            <label class="form-check-label" for="incluir_firma_reposo"><i class="bi bi-pen me-1"></i> Incluir firma y sello</label>
+          </div>
+          {% endif %}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -848,6 +860,12 @@
             <label class="form-label fw-bold">Duración de lactancia exclusiva (meses) <span class="text-danger">*</span></label>
             <input type="number" name="duracion_meses" class="form-control" min="1" max="24" value="6" required>
           </div>
+          {% if request.user.firma %}
+          <div class="form-check form-switch mt-1">
+            <input class="form-check-input" type="checkbox" name="incluir_firma" id="incluir_firma_lactancia" checked>
+            <label class="form-check-label" for="incluir_firma_lactancia"><i class="bi bi-pen me-1"></i> Incluir firma y sello</label>
+          </div>
+          {% endif %}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -891,6 +909,12 @@
               value="{% if lugares %}{{ lugares.0.ciudad }}{% endif %}"
               placeholder="Ej: Caracas">
           </div>
+          {% if request.user.firma %}
+          <div class="form-check form-switch mt-1">
+            <input class="form-check-input" type="checkbox" name="incluir_firma" id="incluir_firma_trabajo" checked>
+            <label class="form-check-label" for="incluir_firma_trabajo"><i class="bi bi-pen me-1"></i> Incluir firma y sello</label>
+          </div>
+          {% endif %}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>

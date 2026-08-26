@@ -327,13 +327,15 @@ def constancia_pdf(request, pk, tipo):
         generar_constancia_lactancia_trabajo,
     )
 
-    ciudad = request.POST.get('ciudad', '').strip()
+    ciudad        = request.POST.get('ciudad', '').strip()
+    incluir_firma = request.POST.get('incluir_firma') == 'on'
 
     if tipo == 'nino_sano':
         datos = {
             'ciudad': ciudad,
             'vacunas_ok': request.POST.get('vacunas_ok') == 'on',
             'incluir_vacunas': request.POST.get('incluir_vacunas') == 'on',
+            'incluir_firma': incluir_firma,
         }
         pdf_bytes = generar_constancia_nino_sano(paciente, request.user, config, datos)
         nombre = f'constancia_nino_sano_{paciente.pk}.pdf'
@@ -355,6 +357,7 @@ def constancia_pdf(request, pk, tipo):
             'dias': dias,
             'motivo': request.POST.get('motivo', '').strip(),
             'fecha_inicio': fecha_inicio,
+            'incluir_firma': incluir_firma,
         }
         pdf_bytes = generar_constancia_reposo(paciente, request.user, config, datos)
         nombre = f'reposo_{paciente.pk}.pdf'
@@ -367,6 +370,7 @@ def constancia_pdf(request, pk, tipo):
         datos = {
             'ciudad': ciudad,
             'duracion_meses': duracion_meses,
+            'incluir_firma': incluir_firma,
         }
         pdf_bytes = generar_certificado_lactancia(paciente, request.user, config, datos)
         nombre = f'certificado_lactancia_{paciente.pk}.pdf'
@@ -376,6 +380,7 @@ def constancia_pdf(request, pk, tipo):
             'ciudad': ciudad,
             'nombre_madre': request.POST.get('nombre_madre', '').strip(),
             'cedula_madre': request.POST.get('cedula_madre', '').strip(),
+            'incluir_firma': incluir_firma,
         }
         pdf_bytes = generar_constancia_lactancia_trabajo(paciente, request.user, config, datos)
         nombre = f'constancia_lactancia_trabajo_{paciente.pk}.pdf'

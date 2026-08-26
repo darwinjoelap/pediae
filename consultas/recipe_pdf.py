@@ -30,7 +30,7 @@ SEP    = 0.8 * cm
 COL_W  = (PAGE_W - 2 * MARGIN - SEP) / 2
 
 # Altura reservada para la firma al pie (espacio que el contenido no debe pisar)
-FIRMA_H = 2.4 * cm   # HR + nombre + especialidad + mpps + telefono
+FIRMA_H = 4.0 * cm   # imagen firma + línea + nombre + especialidad + mpps + teléfono
 
 # ── Estilos ───────────────────────────────────────────────────────────────────
 _ctr = [0]
@@ -215,6 +215,31 @@ def generar_recipe_pdf(consulta, medico, config):
     logo_bytes = _fetch_bytes(logo_url) if logo_url else None
     wm_bytes   = _transparent_png(logo_bytes, alpha=0.10) if logo_bytes else None
 
+    # ── Firma y sello del médico ──────────────────────────────────────────────
+    firma_bytes = None
+    firma_field = getattr(medico, 'firma', None)
+    if firma_field and getattr(firma_field, 'name', None):
+        try:
+            firma_bytes = firma_field.read()
+        except Exception:
+            try:
+                with open(firma_field.path, 'rb') as fh:
+                    firma_bytes = fh.read()
+            except Exception:
+                firma_bytes = None
+
+    sello_bytes = None
+    sello_field = getattr(medico, 'sello', None)
+    if sello_field and getattr(sello_field, 'name', None):
+        try:
+            sello_bytes = sello_field.read()
+        except Exception:
+            try:
+                with open(sello_field.path, 'rb') as fh:
+                    sello_bytes = fh.read()
+            except Exception:
+                sello_bytes = None
+
     # ── Edad / fecha ──────────────────────────────────────────────────────────
     try:
         edad_str = paciente.get_edad_detallada()
@@ -300,12 +325,45 @@ def generar_recipe_pdf(consulta, medico, config):
         canvas.setLineWidth(0.6)
         for cx in (col1_cx, col2_cx):
             canvas.line(cx - LINE_W / 2, y, cx + LINE_W / 2, y)
+        y_linea = y
+
+        # Firma: imagen centrada encima de la línea en cada columna
+        if firma_bytes:
+            FIRMA_IMG_W = 5.5 * cm
+            FIRMA_IMG_H = 1.8 * cm
+            try:
+                for cx in (col1_cx, col2_cx):
+                    reader = ImageReader(io.BytesIO(firma_bytes))
+                    canvas.drawImage(
+                        reader,
+                        cx - FIRMA_IMG_W / 2, y_linea + 2,
+                        width=FIRMA_IMG_W, height=FIRMA_IMG_H,
+                        mask='auto', preserveAspectRatio=True,
+                    )
+            except Exception:
+                pass
+
+        # Sello: a la derecha de la línea de cada columna
+        if sello_bytes:
+            SELLO_SZ = 2.5 * cm
+            sy = MARGIN + (len(lines) * LINE_LEADING) / 2 - SELLO_SZ / 2
+            try:
+                for cx in (col1_cx, col2_cx):
+                    reader = ImageReader(io.BytesIO(sello_bytes))
+                    canvas.drawImage(
+                        reader,
+                        cx + LINE_W / 2 + 4, sy,
+                        width=SELLO_SZ, height=SELLO_SZ,
+                        mask='auto', preserveAspectRatio=True,
+                    )
+            except Exception:
+                pass
 
         # Línea divisoria vertical entre columnas (misma que la tabla)
         div_x = MARGIN + COL_W + SEP / 2
         canvas.setStrokeColor(LINEA)
         canvas.setLineWidth(0.5)
-        canvas.line(div_x, MARGIN, div_x, y + 4)
+        canvas.line(div_x, MARGIN, div_x, y_linea + 4)
 
         canvas.restoreState()
 

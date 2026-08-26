@@ -28,7 +28,7 @@ LINEA      = colors.HexColor('#D1D5DB')
 FONDO      = colors.HexColor('#F9FAFB')
 
 MARGIN  = 1.5 * cm
-FIRMA_H = 2.6 * cm   # espacio reservado para la firma al pie
+FIRMA_H = 4.5 * cm   # espacio reservado para firma + sello al pie
 
 # ── Estilos ───────────────────────────────────────────────────────────────────
 _ctr = [0]
@@ -141,6 +141,31 @@ def generar_pdf_curvas(paciente, medico, config, grafica_b64: str, indicador: st
     # ── Logo ──────────────────────────────────────────────────────────────────
     logo_bytes = _fetch_bytes(logo_url) if logo_url else None
     wm_bytes   = _transparent_png(logo_bytes, alpha=0.08) if logo_bytes else None
+
+    # ── Firma y sello del médico ──────────────────────────────────────────────
+    firma_bytes = None
+    firma_field = getattr(medico, 'firma', None)
+    if firma_field and getattr(firma_field, 'name', None):
+        try:
+            firma_bytes = firma_field.read()
+        except Exception:
+            try:
+                with open(firma_field.path, 'rb') as fh:
+                    firma_bytes = fh.read()
+            except Exception:
+                firma_bytes = None
+
+    sello_bytes = None
+    sello_field = getattr(medico, 'sello', None)
+    if sello_field and getattr(sello_field, 'name', None):
+        try:
+            sello_bytes = sello_field.read()
+        except Exception:
+            try:
+                with open(sello_field.path, 'rb') as fh:
+                    sello_bytes = fh.read()
+            except Exception:
+                sello_bytes = None
 
     # ── Imagen del gráfico ────────────────────────────────────────────────────
     if ',' in grafica_b64:
@@ -269,6 +294,37 @@ def generar_pdf_curvas(paciente, medico, config, grafica_b64: str, indicador: st
         canvas.setStrokeColor(GRIS_CLARO)
         canvas.setLineWidth(0.6)
         canvas.line(cx - LINE_W / 2, y, cx + LINE_W / 2, y)
+        y_linea = y
+
+        # Firma: imagen centrada encima de la línea
+        if firma_bytes:
+            FIRMA_IMG_W = 7.5 * cm
+            FIRMA_IMG_H = 2.2 * cm
+            try:
+                reader = ImageReader(io.BytesIO(firma_bytes))
+                canvas.drawImage(
+                    reader,
+                    cx - FIRMA_IMG_W / 2, y_linea + 2,
+                    width=FIRMA_IMG_W, height=FIRMA_IMG_H,
+                    mask='auto', preserveAspectRatio=True,
+                )
+            except Exception:
+                pass
+
+        # Sello: a la derecha de la línea
+        if sello_bytes:
+            SELLO_SZ = 3.0 * cm
+            sy = MARGIN + (len(lines) * LINE_LEAD) / 2 - SELLO_SZ / 2
+            try:
+                reader = ImageReader(io.BytesIO(sello_bytes))
+                canvas.drawImage(
+                    reader,
+                    cx + LINE_W / 2 + 5, sy,
+                    width=SELLO_SZ, height=SELLO_SZ,
+                    mask='auto', preserveAspectRatio=True,
+                )
+            except Exception:
+                pass
 
         # Fecha generación (esquina inferior derecha)
         canvas.setFont('Helvetica', 7)

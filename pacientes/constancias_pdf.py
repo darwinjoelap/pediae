@@ -311,6 +311,9 @@ def generar_constancia_nino_sano(paciente, medico, config, datos: dict) -> bytes
     """
     PAGE_W, _ = letter
     ctx = _contexto_medico(medico, config)
+    if not datos.get('incluir_firma', True):
+        ctx['firma_bytes'] = None
+        ctx['sello_bytes'] = None
 
     ciudad          = datos.get('ciudad', '')
     vacunas_ok      = datos.get('vacunas_ok', True)
@@ -441,6 +444,9 @@ def generar_constancia_reposo(paciente, medico, config, datos: dict) -> bytes:
     """
     PAGE_W, _ = letter
     ctx = _contexto_medico(medico, config)
+    if not datos.get('incluir_firma', True):
+        ctx['firma_bytes'] = None
+        ctx['sello_bytes'] = None
 
     ciudad      = datos.get('ciudad', '')
     dias        = int(datos.get('dias', 1))
@@ -507,6 +513,9 @@ def generar_certificado_lactancia(paciente, medico, config, datos: dict) -> byte
     """
     PAGE_W, _ = letter
     ctx = _contexto_medico(medico, config)
+    if not datos.get('incluir_firma', True):
+        ctx['firma_bytes'] = None
+        ctx['sello_bytes'] = None
 
     ciudad         = datos.get('ciudad', '')
     duracion_meses = int(datos.get('duracion_meses', 6))
@@ -586,6 +595,9 @@ def generar_constancia_lactancia_trabajo(paciente, medico, config, datos: dict) 
     """
     PAGE_W, _ = letter
     ctx = _contexto_medico(medico, config)
+    if not datos.get('incluir_firma', True):
+        ctx['firma_bytes'] = None
+        ctx['sello_bytes'] = None
 
     ciudad       = datos.get('ciudad', '')
     nombre_madre = datos.get('nombre_madre', '').strip()
