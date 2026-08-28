@@ -524,6 +524,27 @@ def toggle_pago(request, pk):
         return _r(request, '/agenda/')
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
+
+@login_required
+def eliminar_procedimiento(request, pk):
+    from .models import Procedimiento
+    from datetime import date, timedelta
+    from django.http import HttpResponseForbidden, HttpResponseNotAllowed
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+    proc = get_object_or_404(Procedimiento, pk=pk, tenant=request.tenant)
+    limite = date.today() - timedelta(days=7)
+    if proc.creado_en.date() < limite:
+        messages.error(request, 'Solo puedes eliminar procedimientos creados en los últimos 7 días.')
+        return _r(request, f'/pacientes/{proc.paciente.pk}/')
+    paciente_pk = proc.paciente.pk
+    proc.delete()
+    messages.success(request, 'Procedimiento eliminado correctamente.')
+    return _r(request, f'/pacientes/{paciente_pk}/')
+
+
 @login_required
 def agregar_servicio(request, pk):
     if not request.user.es_medico:

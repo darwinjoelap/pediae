@@ -398,5 +398,10 @@ class Procedimiento(models.Model):
         verbose_name_plural = 'Procedimientos'
         ordering = ['-fecha', '-creado_en']
 
+    @property
+    def puede_eliminar(self):
+        from datetime import date, timedelta
+        return self.creado_en.date() >= date.today() - timedelta(days=7)
+
     def __str__(self):
         return f'{self.servicio.nombre} — {self.paciente.nombre_completo} ({self.fecha})'
