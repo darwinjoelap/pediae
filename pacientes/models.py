@@ -409,16 +409,22 @@ class Paciente(models.Model):
         )
 
     def get_edad_detallada(self):
-        """Retorna edad en años, meses y días."""
+        """Retorna edad en años, meses y días. Incluye total en meses para <5 años."""
         if not self.fecha_nacimiento:
             return '—'
         from datetime import date
         from dateutil.relativedelta import relativedelta
         delta = relativedelta(date.today(), self.fecha_nacimiento)
-        if delta.years >= 2:
+        total_meses = delta.years * 12 + delta.months
+        if delta.years >= 5:
             return f'{delta.years} años'
+        elif delta.years >= 2:
+            if delta.months > 0:
+                return f'{delta.years} años y {delta.months} meses ({total_meses} m)'
+            else:
+                return f'{delta.years} años ({total_meses} m)'
         elif delta.years == 1:
-            return f'1 año y {delta.months} meses'
+            return f'1 año y {delta.months} meses ({total_meses} m)'
         elif delta.months > 0:
             return f'{delta.months} meses y {delta.days} días'
         else:
