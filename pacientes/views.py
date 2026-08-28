@@ -19,9 +19,10 @@ def _r(request, path):
 
 @login_required
 def lista_pacientes(request):
+    from django.db.models import Count
     tenant = request.tenant
     q = request.GET.get('q', '').strip()
-    pacientes = Paciente.objects.filter(tenant=tenant)
+    pacientes = Paciente.objects.filter(tenant=tenant).annotate(num_consultas=Count('consultas'))
     if q:
         pacientes = pacientes.filter(
             Q(nombre_completo__icontains=q) | Q(cedula__icontains=q) | Q(telefono__icontains=q)
@@ -248,6 +249,31 @@ def editar_paciente(request, pk):
         'paciente': paciente,
         'titulo': 'Editar ficha',
     })
+
+
+@login_required
+def eliminar_paciente(request, pk):
+    """
+    POST → elimina el paciente solo si no tiene consultas ni procedimientos.
+    Solo médicos pueden eliminar.
+    """
+    from django.http import HttpResponseForbidden, HttpResponseBadRequest
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+
+    if paciente.consultas.exists():
+        messages.error(request, f'No se puede eliminar a {paciente.nombre_completo}: tiene consultas registradas.')
+        return _r(request, '/pacientes/')
+
+    nombre = paciente.nombre_completo
+    paciente.delete()
+    messages.success(request, f'Paciente {nombre} eliminada correctamente.')
+    return _r(request, '/pacientes/')
 
 
 # ── Curvas OMS — PDF ──────────────────────────────────────────────────────────
