@@ -128,12 +128,18 @@ def detalle_consulta(request, pk):
         pk=pk, tenant=request.tenant
     )
     from servicios.models import Servicio
+    from datetime import date, timedelta
     servicios_disponibles = Servicio.objects.filter(
         tenant=request.tenant, activo=True
+    )
+    puede_eliminar = (
+        not consulta.pagado
+        and consulta.creado_en.date() >= date.today() - timedelta(days=7)
     )
     return render(request, 'consultas/detalle.html', {
         'consulta': consulta,
         'servicios_disponibles': servicios_disponibles,
+        'puede_eliminar': puede_eliminar,
     })
 
 
@@ -555,6 +561,52 @@ def eliminar_servicio(request, pk):
         cs.delete()
         messages.success(request, 'Servicio eliminado.')
     return _r(request, f'/consultas/{consulta_pk}/')
+
+
+@login_required
+def eliminar_consulta(request, pk):
+    """
+    Elimina una consulta con restricciones estrictas:
+    - Solo médicos
+    - POST con confirmación 'ELIMINAR'
+    - Creada hace ≤7 días
+    - No pagada
+    """
+    from django.http import HttpResponseForbidden, HttpResponseBadRequest
+    from datetime import date, timedelta
+
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    consulta = get_object_or_404(
+        Consulta.objects.select_related('paciente'),
+        pk=pk, tenant=request.tenant
+    )
+
+    # Validar confirmación
+    if request.POST.get('confirmacion', '').strip().upper() != 'ELIMINAR':
+        messages.error(request, 'Confirmación incorrecta. Escribe ELIMINAR para confirmar.')
+        return _r(request, f'/consultas/{pk}/')
+
+    # Validar ≤7 días
+    limite = date.today() - timedelta(days=7)
+    if consulta.creado_en.date() < limite:
+        messages.error(request, 'Solo puedes eliminar consultas creadas en los últimos 7 días.')
+        return _r(request, f'/consultas/{pk}/')
+
+    # Validar no pagada
+    if consulta.pagado:
+        messages.error(request, 'No se puede eliminar una consulta que ya fue marcada como pagada.')
+        return _r(request, f'/consultas/{pk}/')
+
+    paciente_pk = consulta.paciente.pk
+    consulta.delete()
+    messages.success(request, 'Consulta eliminada correctamente.')
+    return _r(request, f'/pacientes/{paciente_pk}/')
+
 
 @login_required
 def nuevo_procedimiento(request, paciente_id):

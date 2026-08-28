@@ -221,6 +221,13 @@
        class="btn btn-sm btn-outline-primary">
       <i class="bi bi-paperclip me-1"></i> Adjuntar
     </a>
+    {% if puede_eliminar %}
+    <button type="button" class="btn btn-sm btn-outline-danger"
+      data-bs-toggle="modal" data-bs-target="#modalEliminarConsulta"
+      title="Eliminar esta consulta (solo disponible 7 días tras su creación)">
+      <i class="bi bi-trash3"></i>
+    </button>
+    {% endif %}
   </div>
 </div>
 
@@ -244,4 +251,37 @@
 {% else %}
 <p class="text-muted small">No hay archivos adjuntos.</p>
 {% endif %}
+
+{% if puede_eliminar %}
+<!-- Modal: eliminar consulta -->
+<div class="modal fade" id="modalEliminarConsulta" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Eliminar consulta</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ TENANT_PREFIX }}/consultas/{{ consulta.pk }}/eliminar/">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p>Estás a punto de eliminar la consulta del <strong>{{ consulta.fecha|date:"d/m/Y" }}</strong> del paciente <strong>{{ consulta.paciente.nombre_completo }}</strong>.</p>
+          <p class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Esta acción <strong>no se puede deshacer</strong>. El registro se eliminará permanentemente.</p>
+          <div class="mb-0">
+            <label class="form-label fw-semibold">Escribe <code>ELIMINAR</code> para confirmar:</label>
+            <input type="text" name="confirmacion" class="form-control"
+              placeholder="ELIMINAR" autocomplete="off" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash3 me-1"></i> Eliminar definitivamente
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
