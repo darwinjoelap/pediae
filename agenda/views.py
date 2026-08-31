@@ -97,9 +97,9 @@ def agenda_dia(request, fecha):
 
     servicios_disponibles = Servicio.objects.filter(tenant=tenant, activo=True)
 
-    # ── Cumpleaños del día (solo cuando es hoy) ───────────────────────────────
+    # ── Cumpleaños del día ────────────────────────────────────────────────────
     pacientes_cumple = []
-    if fecha_obj == date.today():
+    if True:
         nombre_consultorio = ''
         try:
             nombre_consultorio = tenant.config.nombre_display()
