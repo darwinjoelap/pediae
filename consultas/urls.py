@@ -17,4 +17,11 @@ urlpatterns = [
     path('procedimiento/<int:pk>/eliminar/', views.eliminar_procedimiento, name='eliminar_procedimiento'),
     path('servicio/<int:pk>/eliminar/', views.eliminar_servicio, name='eliminar_servicio'),
     path('<int:pk>/eliminar/', views.eliminar_consulta, name='eliminar'),
+    # Glosario de medicamentos
+    path('medicamentos/', views.lista_medicamentos, name='lista_medicamentos'),
+    path('medicamentos/json/', views.medicamentos_json, name='medicamentos_json'),
+    path('medicamentos/nuevo/', views.nuevo_medicamento, name='nuevo_medicamento'),
+    path('medicamentos/<int:pk>/editar/', views.editar_medicamento, name='editar_medicamento'),
+    path('medicamentos/<int:pk>/toggle/', views.toggle_medicamento, name='toggle_medicamento'),
+    path('medicamentos/<int:pk>/eliminar/', views.eliminar_medicamento, name='eliminar_medicamento'),
 ]

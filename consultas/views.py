@@ -107,6 +107,11 @@ def nueva_consulta(request, paciente_id):
             initial['lugar'] = cita.lugar
         form = ConsultaForm(initial=initial, tenant=request.tenant)
 
+    import json as _json
+    from .models import Medicamento
+    meds_qs = list(Medicamento.objects.filter(
+        tenant=request.tenant, activo=True
+    ).order_by('orden', 'nombre').values('pk', 'nombre', 'indicaciones'))
     return render(request, 'consultas/form.html', {
         'form': form,
         'paciente': paciente,
@@ -114,6 +119,8 @@ def nueva_consulta(request, paciente_id):
         'titulo': 'Nueva consulta',
         'servicios_disponibles': servicios_disponibles,
         'servicios_seleccionados': servicios_preseleccionados,
+        'medicamentos_disponibles': meds_qs,
+        'medicamentos_json': _json.dumps(meds_qs, ensure_ascii=False),
     })
 
 @login_required
@@ -198,6 +205,11 @@ def editar_consulta(request, pk):
     else:
         form = ConsultaForm(instance=consulta, tenant=request.tenant)
 
+    import json as _json
+    from .models import Medicamento
+    meds_qs = list(Medicamento.objects.filter(
+        tenant=request.tenant, activo=True
+    ).order_by('orden', 'nombre').values('pk', 'nombre', 'indicaciones'))
     return render(request, 'consultas/form.html', {
         'form': form,
         'paciente': paciente,
@@ -206,6 +218,8 @@ def editar_consulta(request, pk):
         'consulta': consulta,
         'servicios_disponibles': servicios_disponibles,
         'servicios_seleccionados': servicios_preseleccionados,
+        'medicamentos_disponibles': meds_qs,
+        'medicamentos_json': _json.dumps(meds_qs, ensure_ascii=False),
     })
 
 
@@ -543,6 +557,91 @@ def eliminar_procedimiento(request, pk):
     proc.delete()
     messages.success(request, 'Procedimiento eliminado correctamente.')
     return _r(request, f'/pacientes/{paciente_pk}/')
+
+
+# ── Glosario de medicamentos ─────────────────────────────────────────────────
+
+@login_required
+def lista_medicamentos(request):
+    from .models import Medicamento
+    from django.http import HttpResponseForbidden
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    meds = Medicamento.objects.filter(tenant=request.tenant).order_by('orden', 'nombre')
+    return render(request, 'consultas/glosario_medicamentos.html', {'medicamentos': meds})
+
+
+@login_required
+def medicamentos_json(request):
+    from .models import Medicamento
+    meds = list(Medicamento.objects.filter(
+        tenant=request.tenant, activo=True
+    ).order_by('orden', 'nombre').values('pk', 'nombre', 'indicaciones'))
+    return JsonResponse({'medicamentos': meds})
+
+
+@login_required
+def nuevo_medicamento(request):
+    from .models import Medicamento
+    from django.http import HttpResponseForbidden
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method == 'POST':
+        nombre      = request.POST.get('nombre', '').strip()
+        indicaciones = request.POST.get('indicaciones', '').strip()
+        orden       = int(request.POST.get('orden', 0) or 0)
+        if nombre:
+            Medicamento.objects.create(
+                tenant=request.tenant,
+                nombre=nombre,
+                indicaciones=indicaciones,
+                orden=orden,
+            )
+            messages.success(request, f'Medicamento "{nombre}" agregado.')
+    return _r(request, '/consultas/medicamentos/')
+
+
+@login_required
+def editar_medicamento(request, pk):
+    from .models import Medicamento
+    from django.http import HttpResponseForbidden
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    med = get_object_or_404(Medicamento, pk=pk, tenant=request.tenant)
+    if request.method == 'POST':
+        med.nombre       = request.POST.get('nombre', med.nombre).strip()
+        med.indicaciones = request.POST.get('indicaciones', med.indicaciones).strip()
+        med.orden        = int(request.POST.get('orden', med.orden) or 0)
+        med.save()
+        messages.success(request, 'Medicamento actualizado.')
+    return _r(request, '/consultas/medicamentos/')
+
+
+@login_required
+def toggle_medicamento(request, pk):
+    from .models import Medicamento
+    from django.http import HttpResponseForbidden
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method == 'POST':
+        med = get_object_or_404(Medicamento, pk=pk, tenant=request.tenant)
+        med.activo = not med.activo
+        med.save(update_fields=['activo'])
+    return _r(request, '/consultas/medicamentos/')
+
+
+@login_required
+def eliminar_medicamento(request, pk):
+    from .models import Medicamento
+    from django.http import HttpResponseForbidden
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method == 'POST':
+        med = get_object_or_404(Medicamento, pk=pk, tenant=request.tenant)
+        nombre = med.nombre
+        med.delete()
+        messages.success(request, f'Medicamento "{nombre}" eliminado.')
+    return _r(request, '/consultas/medicamentos/')
 
 
 @login_required

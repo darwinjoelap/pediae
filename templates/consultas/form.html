@@ -113,6 +113,30 @@
       </div>
       {% endif %}
 
+      {% if medicamentos_disponibles %}
+      <div id="pediae-med-picker-card" class="card border-0 mb-3" style="background:#f0fdf4">
+        <div class="card-body py-2 px-3">
+          <p class="small fw-semibold mb-2" style="color:#166534">
+            <i class="bi bi-capsule-pill me-1"></i>Agregar desde glosario de medicamentos
+          </p>
+          <div class="d-flex gap-2 align-items-center">
+            <select id="med-picker" class="form-select form-select-sm">
+              <option value="">— Seleccionar medicamento —</option>
+              {% for med in medicamentos_disponibles %}
+              <option value="{{ med.pk }}">{{ med.nombre }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" id="btn-med-agregar"
+                    class="btn btn-sm flex-shrink-0 fw-semibold"
+                    style="background:#2AACA8;color:#fff;white-space:nowrap">
+              <i class="bi bi-plus-lg"></i> Agregar
+            </button>
+          </div>
+          <div id="meds-chips" class="d-flex flex-wrap gap-1 mt-2"></div>
+        </div>
+      </div>
+      {% endif %}
+
       {% crispy form %}
 
       <div class="card border-0 bg-light mt-3 mb-3">
@@ -138,4 +162,65 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if medicamentos_disponibles %}
+<script id="pediae-meds-data" type="application/json">{{ medicamentos_json|safe }}</script>
+<script>
+(function () {
+  var picker  = document.getElementById('med-picker');
+  var btnAdd  = document.getElementById('btn-med-agregar');
+  var chips   = document.getElementById('meds-chips');
+  if (!btnAdd) return;
+
+  /* Mover el picker justo antes del campo tratamiento */
+  var pickerCard = document.getElementById('pediae-med-picker-card');
+  var divTrat    = document.getElementById('div_id_tratamiento');
+  if (pickerCard && divTrat) {
+    divTrat.parentNode.insertBefore(pickerCard, divTrat);
+  }
+
+  var medData = {};
+  try {
+    JSON.parse(document.getElementById('pediae-meds-data').textContent)
+      .forEach(function(m) { medData[String(m.pk)] = m; });
+  } catch(e) {}
+
+  btnAdd.addEventListener('click', function () {
+    var val = picker.value;
+    if (!val) return;
+    var med = medData[val];
+    if (!med) return;
+
+    /* Campo tratamiento: agrega bullet con el nombre */
+    var fTrat = document.getElementById('id_tratamiento');
+    if (fTrat) {
+      var t = fTrat.value.trim();
+      fTrat.value = t ? t + '\n• ' + med.nombre : '• ' + med.nombre;
+    }
+
+    /* Campo indicaciones: agrega nombre + instrucciones */
+    var fInd = document.getElementById('id_indicaciones');
+    if (fInd) {
+      var i = fInd.value.trim();
+      var bloque = med.nombre + ':\n' + med.indicaciones;
+      fInd.value = i ? i + '\n\n' + bloque : bloque;
+    }
+
+    /* Chip visual */
+    var chip = document.createElement('span');
+    chip.className = 'badge d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill';
+    chip.style.cssText = 'background:#d1fae5;color:#065f46;font-size:.72rem;font-weight:500';
+    chip.innerHTML = '<i class="bi bi-capsule-pill"></i><span>' + med.nombre + '</span>' +
+      '<button type="button" style="background:none;border:none;padding:0 0 0 2px;cursor:pointer;color:#065f46;font-size:.65rem">&#x2715;</button>';
+    chip.querySelector('button').addEventListener('click', function(){ chip.remove(); });
+    chips.appendChild(chip);
+
+    picker.selectedIndex = 0;
+    picker.focus();
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

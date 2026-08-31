@@ -1,4 +1,6 @@
+import re
 from datetime import date, timedelta
+from urllib.parse import quote as _url_quote
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 
@@ -10,6 +12,14 @@ from pediae.decorators import tenant_login_required as login_required
 import json
 from django.http import JsonResponse
 from django.utils import timezone
+
+
+def _clean_phone_wa(tel):
+    """Normaliza un número venezolano para WhatsApp (código 58)."""
+    digits = re.sub(r'\D', '', tel or '')
+    if digits.startswith('0'):
+        digits = '58' + digits[1:]
+    return digits if len(digits) >= 10 else ''
 
 
 def _r(request, path):
@@ -87,6 +97,56 @@ def agenda_dia(request, fecha):
 
     servicios_disponibles = Servicio.objects.filter(tenant=tenant, activo=True)
 
+    # ── Cumpleaños del día (solo cuando es hoy) ───────────────────────────────
+    pacientes_cumple = []
+    if fecha_obj == date.today():
+        nombre_consultorio = ''
+        try:
+            nombre_consultorio = tenant.config.nombre_display()
+        except Exception:
+            try:
+                nombre_consultorio = tenant.config.nombre_consultorio or str(tenant)
+            except Exception:
+                nombre_consultorio = str(tenant)
+
+        for p in Paciente.objects.filter(
+            tenant=tenant,
+            fecha_nacimiento__isnull=False,
+            fecha_nacimiento__month=fecha_obj.month,
+            fecha_nacimiento__day=fecha_obj.day,
+        ).order_by('nombre_completo'):
+            # Preferir teléfono del representante; si no, el del paciente
+            tel_rep = _clean_phone_wa(p.telefono_representante)
+            tel_pac = _clean_phone_wa(p.telefono)
+            phone   = tel_rep or tel_pac
+
+            primer_nombre = p.nombre_completo.split()[0] if p.nombre_completo else 'tu pequeño/a'
+
+            if tel_rep:
+                # Determinar nombre del representante para saludo personalizado
+                if p.nombre_representante:
+                    saludo = p.nombre_representante.split()[0]
+                elif p.filiacion_representante == 'madre' and p.nombre_madre:
+                    saludo = p.nombre_madre.split()[0]
+                elif p.filiacion_representante == 'padre' and p.nombre_padre:
+                    saludo = p.nombre_padre.split()[0]
+                else:
+                    saludo = None
+                intro = f'¡Hola {saludo}! ' if saludo else '¡Hola! '
+            else:
+                intro = '¡Hola! '
+
+            msg = (
+                f'{intro}🎂 El equipo de {nombre_consultorio} '
+                f'le desea a {primer_nombre} un muy feliz cumpleaños. ¡Que lo pase excelente! 🎈'
+            )
+
+            pacientes_cumple.append({
+                'paciente': p,
+                'wa_url': f'https://wa.me/{phone}?text={_url_quote(msg)}' if phone else '',
+                'telefono_valido': bool(phone),
+            })
+
     return render(request, 'agenda/dia.html', {
         'fecha': fecha_obj,
         'citas': citas_list,
@@ -98,6 +158,7 @@ def agenda_dia(request, fecha):
         'consultas_sin_cita': consultas_sin_cita,
         'procedimientos_sin_cita': procedimientos_sin_cita,
         'servicios_disponibles': servicios_disponibles,
+        'pacientes_cumple': pacientes_cumple,
     })
 
 @login_required

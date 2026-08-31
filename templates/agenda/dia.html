@@ -56,6 +56,38 @@
 </div>
 {% endif %}
 
+{% if es_hoy and pacientes_cumple %}
+<div class="card border-0 mb-3" style="background:linear-gradient(135deg,#fef9c3,#fef3c7);border-left:4px solid #f59e0b!important">
+  <div class="card-body py-2 px-3">
+    <p class="small fw-semibold mb-2" style="color:#92400e">
+      <i class="bi bi-balloon-heart me-1"></i>Cumpleaños de hoy
+    </p>
+    <div class="d-flex flex-column gap-2">
+      {% for item in pacientes_cumple %}
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <a href="{{ TENANT_PREFIX }}/pacientes/{{ item.paciente.pk }}/"
+             class="fw-bold text-decoration-none text-dark">
+            {{ item.paciente.nombre_completo }}
+          </a>
+          <span class="text-muted small ms-2">{{ item.paciente.get_edad_detallada }}</span>
+        </div>
+        {% if item.wa_url %}
+        <a href="{{ item.wa_url }}" target="_blank"
+           class="btn btn-sm fw-semibold"
+           style="background:#25D366;color:#fff;white-space:nowrap">
+          <i class="bi bi-whatsapp me-1"></i>Felicitar
+        </a>
+        {% else %}
+        <span class="badge bg-secondary">Sin teléfono</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% if citas %}
 <div class="d-flex flex-column gap-3">
   {% for cita in citas %}

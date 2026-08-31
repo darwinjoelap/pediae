@@ -405,3 +405,25 @@ class Procedimiento(models.Model):
 
     def __str__(self):
         return f'{self.servicio.nombre} — {self.paciente.nombre_completo} ({self.fecha})'
+
+
+class Medicamento(models.Model):
+    tenant = models.ForeignKey(
+        'tenant.Tenant', on_delete=models.CASCADE,
+        related_name='medicamentos', verbose_name='Tenant'
+    )
+    nombre = models.CharField(max_length=200, verbose_name='Nombre')
+    indicaciones = models.TextField(
+        verbose_name='Indicaciones por defecto',
+        help_text='Ej: 1 tableta cada 8 horas por 5 días'
+    )
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    orden = models.IntegerField(default=0, verbose_name='Orden')
+
+    class Meta:
+        ordering = ['orden', 'nombre']
+        verbose_name = 'Medicamento'
+        verbose_name_plural = 'Medicamentos'
+
+    def __str__(self):
+        return self.nombre

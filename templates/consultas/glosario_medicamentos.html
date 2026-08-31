@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% block title %}Glosario de medicamentos{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="fw-bold mb-0"><i class="bi bi-capsule-pill me-2"></i>Medicamentos</h5>
+  <button type="button" class="btn btn-sm"
+          style="background-color:#2AACA8;color:white"
+          data-bs-toggle="modal" data-bs-target="#modalNuevoMed">
+    <i class="bi bi-plus-lg me-1"></i> Nuevo
+  </button>
+</div>
+
+<p class="text-muted small mb-3">
+  Crea un glosario de medicamentos frecuentes con sus indicaciones por defecto.
+  Al registrar una consulta podrás agregarlos con un clic y se copiarán automáticamente
+  en los campos de Tratamiento e Indicaciones.
+</p>
+
+{% if medicamentos %}
+<div class="d-flex flex-column gap-2">
+  {% for med in medicamentos %}
+  <div class="card border-0 shadow-sm {% if not med.activo %}opacity-50{% endif %}">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div class="flex-grow-1">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="fw-bold">{{ med.nombre }}</span>
+            {% if med.activo %}
+            <span class="badge bg-success" style="font-size:0.65rem">Activo</span>
+            {% else %}
+            <span class="badge bg-secondary" style="font-size:0.65rem">Inactivo</span>
+            {% endif %}
+            {% if med.orden %}
+            <span class="badge bg-light text-muted border" style="font-size:0.65rem">Orden {{ med.orden }}</span>
+            {% endif %}
+          </div>
+          {% if med.indicaciones %}
+          <div class="text-muted small" style="white-space:pre-wrap">{{ med.indicaciones }}</div>
+          {% endif %}
+        </div>
+        <div class="d-flex gap-1 flex-shrink-0">
+          <!-- Toggle activo/inactivo -->
+          <form method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/{{ med.pk }}/toggle/" class="d-inline">
+            {% csrf_token %}
+            <button type="submit"
+                    class="btn btn-sm {% if med.activo %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                    title="{% if med.activo %}Desactivar{% else %}Activar{% endif %}">
+              <i class="bi {% if med.activo %}bi-pause-circle{% else %}bi-play-circle{% endif %}"></i>
+            </button>
+          </form>
+          <!-- Editar -->
+          <button type="button" class="btn btn-sm btn-outline-secondary"
+                  data-bs-toggle="modal" data-bs-target="#modalEditarMed"
+                  data-pk="{{ med.pk }}"
+                  data-nombre="{{ med.nombre }}"
+                  data-indicaciones="{{ med.indicaciones|escapejs }}"
+                  data-orden="{{ med.orden }}"
+                  title="Editar">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <!-- Eliminar -->
+          <button type="button" class="btn btn-sm btn-outline-danger"
+                  data-bs-toggle="modal" data-bs-target="#modalEliminarMed"
+                  data-pk="{{ med.pk }}"
+                  data-nombre="{{ med.nombre }}"
+                  title="Eliminar">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-capsule-pill" style="font-size:3rem;opacity:0.3"></i>
+  <p class="mt-3 mb-1">Aún no hay medicamentos registrados</p>
+  <button type="button" class="btn btn-primary btn-touch"
+          data-bs-toggle="modal" data-bs-target="#modalNuevoMed">
+    <i class="bi bi-plus-lg me-1"></i> Agregar primer medicamento
+  </button>
+</div>
+{% endif %}
+
+<!-- Modal: Nuevo medicamento -->
+<div class="modal fade" id="modalNuevoMed" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#2AACA8">
+        <h5 class="modal-title text-white">
+          <i class="bi bi-capsule-pill me-1"></i> Nuevo medicamento
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/nuevo/">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" class="form-control" required placeholder="Ej: Amoxicilina 250mg/5ml">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Indicaciones por defecto</label>
+            <textarea name="indicaciones" class="form-control" rows="3"
+                      placeholder="Ej: 1 cucharadita cada 8 horas por 7 días"></textarea>
+            <div class="form-text">Se copiará automáticamente al agregar en la consulta.</div>
+          </div>
+          <div class="mb-0">
+            <label class="form-label fw-bold">Orden <small class="text-muted fw-normal">(menor = aparece primero)</small></label>
+            <input type="number" name="orden" class="form-control" value="0" min="0" style="max-width:100px">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar medicamento -->
+<div class="modal fade" id="modalEditarMed" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-pencil me-1"></i> Editar medicamento
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formEditarMed" method="post" action="">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
+            <input type="text" id="editNombre" name="nombre" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Indicaciones por defecto</label>
+            <textarea id="editIndicaciones" name="indicaciones" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="mb-0">
+            <label class="form-label fw-bold">Orden</label>
+            <input type="number" id="editOrden" name="orden" class="form-control" min="0" style="max-width:100px">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i> Guardar cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Eliminar medicamento -->
+<div class="modal fade" id="modalEliminarMed" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="bi bi-trash3 me-2"></i>Eliminar medicamento</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formEliminarMed" method="post" action="">
+        {% csrf_token %}
+        <div class="modal-body">
+          <p>¿Estás seguro de eliminar <strong id="eliminarMedNombre"></strong>?</p>
+          <p class="text-danger small mb-0">Esta acción no se puede deshacer.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash3 me-1"></i> Eliminar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('modalEditarMed').addEventListener('show.bs.modal', function(e) {
+  var btn = e.relatedTarget;
+  document.getElementById('editNombre').value       = btn.dataset.nombre;
+  document.getElementById('editIndicaciones').value = btn.dataset.indicaciones;
+  document.getElementById('editOrden').value        = btn.dataset.orden;
+  document.getElementById('formEditarMed').action   =
+    '{{ TENANT_PREFIX }}/consultas/medicamentos/' + btn.dataset.pk + '/editar/';
+});
+
+document.getElementById('modalEliminarMed').addEventListener('show.bs.modal', function(e) {
+  var btn = e.relatedTarget;
+  document.getElementById('eliminarMedNombre').textContent = btn.dataset.nombre;
+  document.getElementById('formEliminarMed').action =
+    '{{ TENANT_PREFIX }}/consultas/medicamentos/' + btn.dataset.pk + '/eliminar/';
+});
+</script>
+{% endblock %}
