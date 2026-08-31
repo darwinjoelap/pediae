@@ -136,9 +136,13 @@ def agenda_dia(request, fecha):
             else:
                 intro = '¡Hola! '
 
+            edad_cumple = fecha_obj.year - p.fecha_nacimiento.year
+            años_txt = 'año' if edad_cumple == 1 else 'años'
             msg = (
-                f'{intro}🎂 El equipo de {nombre_consultorio} '
-                f'le desea a {primer_nombre} un muy feliz cumpleaños. ¡Que lo pase excelente! 🎈'
+                f'{intro}El equipo de {nombre_consultorio} '
+                f'le desea a {primer_nombre} un muy feliz cumpleaños, '
+                f'hoy cumple {edad_cumple} {años_txt}. '
+                f'Que lo pase excelente!'
             )
 
             pacientes_cumple.append({
