@@ -118,6 +118,39 @@
             </div>
           </div>
           {% endif %}
+          {# ── Banner PDF ── #}
+          {% if form.banner_upload %}
+          <hr class="my-3">
+          <p class="text-muted small mb-2"><i class="bi bi-image me-1"></i> Banner de encabezado PDF</p>
+          <div class="row g-3">
+            <div class="col-12">
+              {% if usuario.banner_public_id %}
+              <div class="mb-2">
+                <img src="{{ usuario.get_banner_url }}" alt="Banner actual"
+                     style="max-height:80px; max-width:100%; border:1px solid #dee2e6; border-radius:4px; padding:4px; background:#fff;">
+                <div class="form-text">Banner actual</div>
+              </div>
+              <div class="form-check mb-2">
+                {{ form.limpiar_banner }}
+                <label class="form-check-label text-danger" for="{{ form.limpiar_banner.id_for_label }}">
+                  {{ form.limpiar_banner.label }}
+                </label>
+              </div>
+              {% endif %}
+              {{ form.banner_upload }}
+              <div class="form-text">{{ form.banner_upload.help_text }}</div>
+            </div>
+            <div class="col-12 d-flex align-items-center gap-2">
+              <div class="form-check">
+                {{ form.usar_banner }}
+                <label class="form-check-label fw-semibold" for="{{ form.usar_banner.id_for_label }}">
+                  {{ form.usar_banner.label }}
+                </label>
+              </div>
+              <span class="text-muted small">— cuando está marcado, todos los PDFs muestran el banner en lugar del membrete estándar</span>
+            </div>
+          </div>
+          {% endif %}
         </div>
         {% if form.password1 %}
         <div class="col-md-6">
