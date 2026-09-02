@@ -125,8 +125,9 @@ def _bloque_lado(etiqueta, contenido_texto, *, col_w, nombre_medico,
     items += _membrete(col_w, nombre_medico, especialidad, direccion, logo_bytes, banner_bytes=banner_bytes)
     items.append(Spacer(1, 3 * mm))
 
-    # 2. Línea separadora
-    items.append(HRFlowable(width=col_w, thickness=0.5, color=LINEA, spaceAfter=0))
+    # 2. Línea separadora (se omite cuando el banner ya actúa como separador visual)
+    if not banner_bytes:
+        items.append(HRFlowable(width=col_w, thickness=0.5, color=LINEA, spaceAfter=0))
     items.append(Spacer(1, 3 * mm))
 
     # 3. Fecha (derecha)
