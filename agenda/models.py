@@ -129,10 +129,16 @@ class Cita(models.Model):
 
     def get_whatsapp_url(self, tenant=None):
         import urllib.parse
+        import re
+
+        def _fmt_hora(t):
+            """Hora en formato 12 h sin cero inicial: '2:30 pm'."""
+            return t.strftime('%I:%M %p').lstrip('0').lower()
+
         tenant = tenant or self.tenant
         nombre_saludo, telefono, representante = self._destinatario_whatsapp()
-
-        telefono_limpio = telefono.replace('-', '').replace(' ', '').replace('(', '').replace(')', '')
+        # Eliminar todo lo que no sea dígito o '+' (incluye caracteres Unicode invisibles)
+        telefono_limpio = re.sub(r'[^\d+]', '', telefono)
         if telefono_limpio.startswith('0'):
             telefono_limpio = '+58' + telefono_limpio[1:]
         elif not telefono_limpio.startswith('+'):
@@ -155,22 +161,22 @@ class Cita(models.Model):
             or 'nuestro consultorio'
         )
 
-        if config and config.whatsapp_mensaje:
-            extra = f'\nCita: {self.fecha.strftime("%d/%m/%Y")} a las {self.hora_inicio.strftime("%H:%M")}{lugar_str}'
-            mensaje = f'{config.whatsapp_mensaje}\n\nHola {nombre_saludo},{extra}'
-            return f'https://wa.me/{telefono_limpio}?text={urllib.parse.quote(mensaje)}'
-
         if representante:
             cuerpo = (
                 f'le recordamos la cita de {self.paciente.nombre_completo} con {nombre_consultorio} '
-                f'el {self.fecha.strftime("%d/%m/%Y")} a las {self.hora_inicio.strftime("%H:%M")}{lugar_str}.'
+                f'el {self.fecha.strftime("%d/%m/%Y")} a las {_fmt_hora(self.hora_inicio)}{lugar_str}.'
             )
         else:
             cuerpo = (
                 f'le recordamos su cita con {nombre_consultorio} '
-                f'el {self.fecha.strftime("%d/%m/%Y")} a las {self.hora_inicio.strftime("%H:%M")}{lugar_str}.'
+                f'el {self.fecha.strftime("%d/%m/%Y")} a las {_fmt_hora(self.hora_inicio)}{lugar_str}.'
             )
-        mensaje = f'Hola {nombre_saludo}, {cuerpo} Por favor confirme su asistencia. Gracias.'
+
+        if config and config.whatsapp_mensaje:
+            mensaje = f'Hola {nombre_saludo}, {cuerpo}\n\n{config.whatsapp_mensaje}'
+        else:
+            mensaje = f'Hola {nombre_saludo}, {cuerpo} Por favor confirme su asistencia. Gracias.'
+
         return f'https://wa.me/{telefono_limpio}?text={urllib.parse.quote(mensaje)}'
 
     def get_email_asunto(self):
