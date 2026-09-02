@@ -184,21 +184,25 @@ def generar_informe_referencia(paciente, medico, config, datos: dict) -> bytes:
 
     telefono = telefono_med or telefono_cf
 
-    # ── Logo / watermark ─────────────────────────────────────────────────────
-    logo_bytes = _fetch_bytes(logo_url) if logo_url else None
-    wm_bytes   = _transparent_png(logo_bytes, alpha=0.08) if logo_bytes else None
-
-    # ── Firma / sello ─────────────────────────────────────────────────────────
-    firma_bytes = sello_bytes = None
-    if datos.get('incluir_firma', True):
-        firma_url = medico.get_firma_url() if hasattr(medico, 'get_firma_url') else None
-        firma_bytes = _fetch_bytes(firma_url) if firma_url else None
-        sello_url = medico.get_sello_url() if hasattr(medico, 'get_sello_url') else None
-        sello_bytes = _fetch_bytes(sello_url) if sello_url else None
-
-    # ── Banner del médico ─────────────────────────────────────────────────────
+    # ── Fetch paralelo: logo, firma, sello, banner ────────────────────────────
+    firma_url  = medico.get_firma_url()  if hasattr(medico, 'get_firma_url')  else None
+    sello_url  = medico.get_sello_url()  if hasattr(medico, 'get_sello_url')  else None
     banner_url = medico.get_banner_url() if hasattr(medico, 'get_banner_url') else None
-    _banner_bytes = _fetch_bytes(banner_url) if banner_url else None
+
+    from concurrent.futures import ThreadPoolExecutor
+    urls = [logo_url, firma_url, sello_url, banner_url]
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        logo_bytes, _firma_bytes, _sello_bytes, _banner_bytes = [
+            r if url else None
+            for url, r in zip(urls, ex.map(lambda u: _fetch_bytes(u) if u else None, urls))
+        ]
+
+    wm_bytes = _transparent_png(logo_bytes, alpha=0.08) if logo_bytes else None
+
+    # Firma/sello sólo si el PDF las incluye
+    firma_bytes = _firma_bytes if datos.get('incluir_firma', True) else None
+    sello_bytes = _sello_bytes if datos.get('incluir_firma', True) else None
+
     banner_bytes_ctx = _banner_bytes if (getattr(medico, 'usar_banner', False) and bool(_banner_bytes)) else None
 
     # ── Datos del paciente ────────────────────────────────────────────────────
