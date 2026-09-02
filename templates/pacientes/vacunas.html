@@ -5,14 +5,20 @@
 <div class="container-fluid px-2 px-md-3 pb-5">
 
   {# ── Encabezado ────────────────────────────────────────────────────── #}
-  <div class="d-flex align-items-center gap-2 mb-3 pt-2">
+  <div class="d-flex align-items-center gap-2 mb-3 pt-2 flex-wrap">
     <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-arrow-left"></i>
     </a>
-    <div>
-      <h5 class="mb-0 fw-bold">💉 Vacunas</h5>
+    <div class="flex-grow-1">
+      <h5 class="mb-0 fw-bold">💉 Esquema de Vacunación</h5>
       <small class="text-muted">{{ paciente.nombre_completo }} · {{ paciente.get_edad_detallada }}</small>
     </div>
+    {% if request.user.es_medico %}
+    <button type="button" class="btn btn-sm btn-outline-primary"
+      data-bs-toggle="modal" data-bs-target="#modalPdf">
+      <i class="bi bi-file-earmark-pdf"></i> PDF
+    </button>
+    {% endif %}
   </div>
 
   {% if messages %}
@@ -23,10 +29,10 @@
     {% endfor %}
   {% endif %}
 
-  {# ── Resumen de estado ─────────────────────────────────────────────── #}
+  {# ── Resumen ───────────────────────────────────────────────────────── #}
   <div class="row g-2 mb-3">
     <div class="col-4">
-      <div class="card text-center border-success">
+      <div class="card text-center border-success h-100">
         <div class="card-body py-2">
           <div class="fs-4 fw-bold text-success">{{ aplicadas|length }}</div>
           <small class="text-muted">Aplicadas</small>
@@ -34,7 +40,7 @@
       </div>
     </div>
     <div class="col-4">
-      <div class="card text-center border-warning">
+      <div class="card text-center border-warning h-100">
         <div class="card-body py-2">
           <div class="fs-4 fw-bold text-warning">{{ pendientes|length }}</div>
           <small class="text-muted">Pendientes</small>
@@ -42,9 +48,9 @@
       </div>
     </div>
     <div class="col-4">
-      <div class="card text-center border-danger">
+      <div class="card text-center {% if atrasadas %}border-danger{% else %}border-secondary{% endif %} h-100">
         <div class="card-body py-2">
-          <div class="fs-4 fw-bold text-danger">{{ atrasadas|length }}</div>
+          <div class="fs-4 fw-bold {% if atrasadas %}text-danger{% else %}text-secondary{% endif %}">{{ atrasadas|length }}</div>
           <small class="text-muted">Atrasadas</small>
         </div>
       </div>
@@ -59,26 +65,54 @@
   </div>
   {% endif %}
 
-  {# ── Tabla de esquema completo ─────────────────────────────────────── #}
+  {# ── Leyenda rápida ────────────────────────────────────────────────── #}
+  <div class="d-flex gap-3 mb-3 flex-wrap small text-muted">
+    <span><span class="badge bg-success">✓</span> Aplicada</span>
+    <span><span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i></span> Atrasada</span>
+    <span><span class="badge bg-warning text-dark"><i class="bi bi-clock"></i></span> Pendiente</span>
+    <span><span class="badge bg-light text-secondary border"><i class="bi bi-arrow-right"></i></span> Futura</span>
+    {% if request.user.es_medico %}
+    <span class="ms-auto"><i class="bi bi-lightning-fill text-success"></i> = marcar rápido · <i class="bi bi-pencil text-primary"></i> = registrar con detalle</span>
+    {% endif %}
+  </div>
+
+  {# ── Grupos etarios ────────────────────────────────────────────────── #}
+  {% for grupo in grupos %}
   <div class="card shadow-sm mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-semibold">Esquema de vacunación</span>
+
+    {# Encabezado del grupo #}
+    <div class="card-header py-2 d-flex align-items-center gap-2"
+      style="background: linear-gradient(90deg,#2AACA8 0%,#1e8a87 100%); color:white;">
+      <i class="bi bi-calendar2-heart"></i>
+      <span class="fw-bold">{{ grupo.label }}</span>
+      {# Chips de estado del grupo #}
+      <span class="ms-auto d-flex gap-1">
+        {% with gaplic=0 gatras=0 gpend=0 %}
+        {% for e in grupo.vacunas %}
+          {% if e.estado == 'aplicada' %}<span class="badge bg-success rounded-pill">✓</span>{% endif %}
+          {% if e.estado == 'atrasada' %}<span class="badge bg-danger rounded-pill">!</span>{% endif %}
+        {% endfor %}
+        {% endwith %}
+      </span>
     </div>
+
     <div class="table-responsive">
       <table class="table table-sm table-hover mb-0 align-middle">
-        <thead class="table-light">
+        <thead class="table-light small">
           <tr>
-            <th>Vacuna</th>
-            <th class="d-none d-md-table-cell">Protege contra</th>
-            <th>Edad</th>
+            <th style="min-width:160px">Vacuna</th>
+            <th class="d-none d-md-table-cell" style="min-width:120px">Protege contra</th>
             <th>Estado</th>
             <th>Fecha</th>
-            {% if request.user.es_medico %}<th></th>{% endif %}
+            <th class="d-none d-sm-table-cell">Lote</th>
+            {% if request.user.es_medico %}<th class="text-end" style="min-width:110px">Acciones</th>{% endif %}
           </tr>
         </thead>
         <tbody>
-          {% for e in esquema %}
-          <tr>
+          {% for e in grupo.vacunas %}
+          <tr {% if e.estado == 'atrasada' %}class="table-danger"{% elif e.estado == 'aplicada' %}class="table-success bg-opacity-25"{% endif %}>
+
+            {# Nombre + dosis #}
             <td class="fw-semibold">
               {{ e.vacuna.nombre }}
               <span class="badge bg-light text-dark border">d{{ e.vacuna.dosis_numero }}</span>
@@ -86,55 +120,121 @@
                 <span class="badge bg-info text-dark ms-1" title="Extra consultorio">+</span>
               {% endif %}
             </td>
+
+            {# Protege contra #}
             <td class="d-none d-md-table-cell text-muted small">{{ e.vacuna.enfermedad }}</td>
-            <td class="text-nowrap small">{{ e.vacuna.edad_display }}</td>
+
+            {# Estado #}
             <td>
               {% if e.estado == 'aplicada' %}
                 <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aplicada</span>
               {% elif e.estado == 'atrasada' %}
                 <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Atrasada</span>
-              {% else %}
+              {% elif e.estado == 'pendiente' %}
                 <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> Pendiente</span>
+              {% else %}
+                <span class="badge bg-light text-secondary border"><i class="bi bi-arrow-right"></i> Futura</span>
               {% endif %}
             </td>
+
+            {# Fecha #}
             <td class="small text-muted">
               {% if e.aplicada %}
-                {{ e.aplicada.fecha|date:"d/m/Y" }}
-                {% if e.aplicada.lote %}<br><span class="text-muted">Lote: {{ e.aplicada.lote }}</span>{% endif %}
+                {% if e.aplicada.fecha %}
+                  {{ e.aplicada.fecha|date:"d/m/Y" }}
+                {% else %}
+                  <span class="text-muted fst-italic">Sin fecha</span>
+                {% endif %}
               {% else %}—{% endif %}
             </td>
+
+            {# Lote #}
+            <td class="d-none d-sm-table-cell small text-muted">
+              {% if e.aplicada and e.aplicada.lote %}{{ e.aplicada.lote }}{% else %}—{% endif %}
+            </td>
+
+            {# Acciones #}
             {% if request.user.es_medico %}
             <td class="text-end">
-              {% if e.estado != 'aplicada' %}
-                <button type="button" class="btn btn-sm btn-outline-success py-0"
-                  data-bs-toggle="modal" data-bs-target="#modalRegistrar"
-                  data-vacuna-id="{{ e.vacuna.pk }}"
-                  data-vacuna-nombre="{{ e.vacuna.nombre }} (d{{ e.vacuna.dosis_numero }})">
-                  <i class="bi bi-plus-circle"></i> Registrar
-                </button>
-              {% else %}
-                <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/{{ e.aplicada.pk }}/eliminar/"
-                  onsubmit="return confirm('¿Eliminar este registro?');">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-sm btn-outline-danger py-0">
-                    <i class="bi bi-trash"></i>
+              <div class="d-flex gap-1 justify-content-end flex-wrap">
+
+                {% if e.estado != 'aplicada' %}
+                  {# Marcado rápido ─ 1 clic #}
+                  <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/marcar/"
+                    style="display:inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="vacuna_id" value="{{ e.vacuna.pk }}">
+                    <button type="submit"
+                      class="btn btn-sm btn-success py-0 px-2"
+                      title="Marcar como vacunado (sin fecha/lote)">
+                      <i class="bi bi-lightning-fill"></i>
+                    </button>
+                  </form>
+
+                  {# Registrar con detalle #}
+                  <button type="button"
+                    class="btn btn-sm btn-outline-primary py-0"
+                    data-bs-toggle="modal" data-bs-target="#modalRegistrar"
+                    data-vacuna-id="{{ e.vacuna.pk }}"
+                    data-vacuna-nombre="{{ e.vacuna.nombre }} (d{{ e.vacuna.dosis_numero }})"
+                    data-fecha=""
+                    data-lote=""
+                    data-obs=""
+                    data-modo="registrar"
+                    title="Registrar con fecha y lote">
+                    <i class="bi bi-pencil"></i> Registrar
                   </button>
-                </form>
-              {% endif %}
+
+                {% else %}
+                  {# Ya aplicada: completar datos si faltan #}
+                  {% if not e.aplicada.fecha or not e.aplicada.lote %}
+                  <button type="button"
+                    class="btn btn-sm btn-outline-secondary py-0"
+                    data-bs-toggle="modal" data-bs-target="#modalRegistrar"
+                    data-vacuna-id="{{ e.vacuna.pk }}"
+                    data-vacuna-nombre="{{ e.vacuna.nombre }} (d{{ e.vacuna.dosis_numero }})"
+                    data-fecha="{% if e.aplicada.fecha %}{{ e.aplicada.fecha|date:'Y-m-d' }}{% endif %}"
+                    data-lote="{{ e.aplicada.lote|default:'' }}"
+                    data-obs="{{ e.aplicada.observaciones|default:'' }}"
+                    data-modo="editar"
+                    title="Completar fecha y lote">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  {% endif %}
+
+                  {# Eliminar #}
+                  <form method="post"
+                    action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/{{ e.aplicada.pk }}/eliminar/"
+                    onsubmit="return confirm('¿Eliminar registro de {{ e.vacuna.nombre }}?');"
+                    style="display:inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger py-0"
+                      title="Eliminar registro">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                {% endif %}
+
+              </div>
             </td>
             {% endif %}
+
           </tr>
-          {% empty %}
-          <tr><td colspan="6" class="text-center text-muted py-3">No hay vacunas en el catálogo.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+  {% empty %}
+  <div class="alert alert-info">No hay vacunas configuradas en el catálogo.</div>
+  {% endfor %}
 
-</div>
+</div>{# /container #}
 
-{# ── Modal para registrar vacuna ───────────────────────────────────────── #}
+
+{# ════════════════════════════════════════════════════════════════════════════
+   Modal: Registrar / Editar vacuna
+   ════════════════════════════════════════════════════════════════════════════ #}
 {% if request.user.es_medico %}
 <div class="modal fade" id="modalRegistrar" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
@@ -142,30 +242,37 @@
       <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/registrar/">
         {% csrf_token %}
         <input type="hidden" name="vacuna_id" id="inputVacunaId">
+
         <div class="modal-header">
-          <h6 class="modal-title fw-bold">Registrar vacuna</h6>
+          <h6 class="modal-title fw-bold" id="tituloModal">Registrar vacuna</h6>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
+
         <div class="modal-body">
-          <p class="mb-3"><strong id="labelVacunaNombre"></strong></p>
+          <p class="mb-3 fw-semibold" id="labelVacunaNombre"></p>
+
           <div class="mb-3">
-            <label class="form-label fw-semibold">Fecha de aplicación <span class="text-danger">*</span></label>
-            <input type="date" name="fecha" class="form-control form-control-lg"
-              value="{{ today|date:'Y-m-d' }}" required>
+            <label class="form-label">Fecha de aplicación <span class="text-muted small">(opcional)</span></label>
+            <input type="date" name="fecha" id="inputFecha" class="form-control form-control-lg">
+            <div class="form-text">Si no recuerda la fecha exacta puede dejarlo vacío.</div>
           </div>
+
           <div class="mb-3">
-            <label class="form-label">Lote / Laboratorio</label>
-            <input type="text" name="lote" class="form-control" placeholder="Ej: LOT2024-01">
+            <label class="form-label">Lote / Laboratorio <span class="text-muted small">(opcional)</span></label>
+            <input type="text" name="lote" id="inputLote" class="form-control"
+              placeholder="Ej: LOT2024-01">
           </div>
+
           <div class="mb-2">
-            <label class="form-label">Observaciones</label>
-            <input type="text" name="observaciones" class="form-control"
+            <label class="form-label">Observaciones <span class="text-muted small">(opcional)</span></label>
+            <input type="text" name="observaciones" id="inputObs" class="form-control"
               placeholder="Reacciones, notas...">
           </div>
         </div>
+
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-success px-4">
+          <button type="submit" class="btn btn-success px-4" id="btnGuardar">
             <i class="bi bi-check-circle"></i> Guardar
           </button>
         </div>
@@ -173,11 +280,73 @@
     </div>
   </div>
 </div>
+
+{# ════════════════════════════════════════════════════════════════════════════
+   Modal: PDF del esquema
+   ════════════════════════════════════════════════════════════════════════════ #}
+<div class="modal fade" id="modalPdf" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/pdf/"
+        target="_blank">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold"><i class="bi bi-file-earmark-pdf text-danger"></i> Generar PDF del esquema</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Ciudad <span class="text-muted small">(opcional)</span></label>
+            <input type="text" name="ciudad" class="form-control"
+              placeholder="Ej: Caracas">
+          </div>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="incluir_firma"
+              id="chkFirmaPdf" checked>
+            <label class="form-check-label" for="chkFirmaPdf">
+              Incluir firma y sello del médico
+            </label>
+          </div>
+          <hr class="my-2">
+          <div class="d-flex gap-2 align-items-center small text-muted">
+            <i class="bi bi-info-circle"></i>
+            El PDF muestra el estado actual de cada vacuna con fecha y lote registrados.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger px-4">
+            <i class="bi bi-file-earmark-pdf"></i> Generar PDF
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
-document.getElementById('modalRegistrar').addEventListener('show.bs.modal', function(e) {
+document.getElementById('modalRegistrar').addEventListener('show.bs.modal', function (e) {
   var btn = e.relatedTarget;
+  var modo = btn.dataset.modo || 'registrar';
+
   document.getElementById('inputVacunaId').value = btn.dataset.vacunaId;
   document.getElementById('labelVacunaNombre').textContent = btn.dataset.vacunaNombre;
+
+  // Pre-rellenar campos si estamos editando
+  document.getElementById('inputFecha').value = btn.dataset.fecha || '';
+  document.getElementById('inputLote').value  = btn.dataset.lote  || '';
+  document.getElementById('inputObs').value   = btn.dataset.obs   || '';
+
+  // Cambiar título y botón según modo
+  if (modo === 'editar') {
+    document.getElementById('tituloModal').textContent = 'Completar datos de vacuna';
+    document.getElementById('btnGuardar').innerHTML =
+      '<i class="bi bi-save"></i> Actualizar';
+  } else {
+    document.getElementById('tituloModal').textContent = 'Registrar vacuna';
+    document.getElementById('btnGuardar').innerHTML =
+      '<i class="bi bi-check-circle"></i> Guardar';
+  }
 });
 </script>
 {% endif %}

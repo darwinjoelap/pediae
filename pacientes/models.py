@@ -506,6 +506,11 @@ class Vacuna(models.Model):
     es_pai = models.BooleanField(default=True, verbose_name='Vacuna PAI (esquema oficial)')
     activa = models.BooleanField(default=True)
     orden = models.PositiveSmallIntegerField(default=0, verbose_name='Orden de visualización')
+    grupo_etario = models.CharField(
+        max_length=60, blank=True, default='',
+        verbose_name='Grupo etario',
+        help_text='Ej: Recién nacido (0-28 días), 2 meses, 12 meses, Adolescentes',
+    )
 
     class Meta:
         verbose_name = 'Vacuna'
@@ -543,7 +548,7 @@ class VacunaAplicada(models.Model):
         on_delete=models.PROTECT,
         related_name='aplicaciones',
     )
-    fecha = models.DateField(verbose_name='Fecha de aplicación')
+    fecha = models.DateField(null=True, blank=True, verbose_name='Fecha de aplicación')
     lote = models.CharField(max_length=50, blank=True, verbose_name='Lote / Laboratorio')
     observaciones = models.CharField(max_length=300, blank=True, verbose_name='Observaciones')
     aplicada_por = models.ForeignKey(

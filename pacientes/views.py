@@ -470,6 +470,16 @@ def informe_referencia_pdf(request, pk):
 
 # ── Vacunas ────────────────────────────────────────────────────────────────────
 
+def _esquema_por_grupos(esquema):
+    """Agrupa el esquema de vacunas por grupo_etario para la UI y el PDF."""
+    from collections import OrderedDict
+    grupos = OrderedDict()
+    for e in esquema:
+        g = getattr(e['vacuna'], 'grupo_etario', '') or 'Otras vacunas'
+        grupos.setdefault(g, []).append(e)
+    return [{'label': k, 'vacunas': v} for k, v in grupos.items()]
+
+
 def _vacunas_resumen(paciente, tenant):
     """Para el perfil: dict con conteos y listas cortas."""
     edad_meses = paciente.get_edad_en_meses()
@@ -545,10 +555,12 @@ def vacunas_paciente(request, pk):
     """Página completa del esquema de vacunación."""
     paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
     esquema = _estado_esquema(paciente, request.tenant)
+    grupos = _esquema_por_grupos(esquema)
 
     return render(request, 'pacientes/vacunas.html', {
         'paciente': paciente,
         'esquema': esquema,
+        'grupos': grupos,
         'aplicadas': [e for e in esquema if e['estado'] == 'aplicada'],
         'pendientes': [e for e in esquema if e['estado'] == 'pendiente'],
         'atrasadas': [e for e in esquema if e['estado'] == 'atrasada'],
@@ -568,12 +580,8 @@ def registrar_vacuna(request, pk):
 
     if request.method == 'POST':
         vacuna_id = request.POST.get('vacuna_id')
-        fecha = request.POST.get('fecha')
-        lote = request.POST.get('lote', '').strip()
-        obs = request.POST.get('observaciones', '').strip()
-
-        if not vacuna_id or not fecha:
-            messages.error(request, 'Selecciona la vacuna y la fecha.')
+        if not vacuna_id:
+            messages.error(request, 'Selecciona la vacuna.')
             return _r(request, f'/pacientes/{pk}/vacunas/')
 
         try:
@@ -581,6 +589,20 @@ def registrar_vacuna(request, pk):
         except Vacuna.DoesNotExist:
             messages.error(request, 'Vacuna no encontrada.')
             return _r(request, f'/pacientes/{pk}/vacunas/')
+
+        # Fecha es opcional — si no se provee, queda como None
+        fecha_raw = request.POST.get('fecha', '').strip()
+        fecha = None
+        if fecha_raw:
+            try:
+                from datetime import datetime as _dt
+                _dt.strptime(fecha_raw, '%Y-%m-%d')
+                fecha = fecha_raw
+            except ValueError:
+                pass
+
+        lote = request.POST.get('lote', '').strip()
+        obs  = request.POST.get('observaciones', '').strip()
 
         obj, created = VacunaAplicada.objects.get_or_create(
             paciente=paciente,
@@ -594,13 +616,59 @@ def registrar_vacuna(request, pk):
             ),
         )
         if not created:
-            obj.fecha = fecha
-            obj.lote = lote
-            obj.observaciones = obs
+            # Actualizar sólo los campos que llegaron en el POST
+            if fecha:
+                obj.fecha = fecha
+            if lote:
+                obj.lote = lote
+            if obs:
+                obj.observaciones = obs
             obj.aplicada_por = request.user
             obj.save()
 
-        messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) registrada.')
+        if created:
+            messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) registrada.')
+        else:
+            messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) actualizada.')
+
+    return _r(request, f'/pacientes/{pk}/vacunas/')
+
+
+@login_required
+def marcar_vacunado(request, pk):
+    """POST: marca una vacuna como aplicada con un solo clic (sin fecha ni lote)."""
+    if not request.user.es_medico:
+        messages.error(request, 'No tienes permiso para registrar vacunas.')
+        return _r(request, f'/pacientes/{pk}/vacunas/')
+
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+
+    if request.method == 'POST':
+        vacuna_id = request.POST.get('vacuna_id')
+        if not vacuna_id:
+            return _r(request, f'/pacientes/{pk}/vacunas/')
+
+        try:
+            vacuna = Vacuna.objects.get(pk=vacuna_id, activa=True)
+        except Vacuna.DoesNotExist:
+            messages.error(request, 'Vacuna no encontrada.')
+            return _r(request, f'/pacientes/{pk}/vacunas/')
+
+        obj, created = VacunaAplicada.objects.get_or_create(
+            paciente=paciente,
+            vacuna=vacuna,
+            defaults=dict(
+                tenant=request.tenant,
+                fecha=None,        # marcado rápido: sin fecha
+                lote='',
+                observaciones='',
+                aplicada_por=request.user,
+            ),
+        )
+        if created:
+            messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) marcada como aplicada.')
+        else:
+            messages.info(request, f'{vacuna.nombre} ya estaba registrada.')
 
     return _r(request, f'/pacientes/{pk}/vacunas/')
 
@@ -621,3 +689,42 @@ def eliminar_vacuna_aplicada(request, pk, va_pk):
         messages.success(request, f'Registro de {nombre} eliminado.')
 
     return _r(request, f'/pacientes/{pk}/vacunas/')
+
+
+@login_required
+def vacunas_pdf(request, pk):
+    """POST → genera PDF del esquema de vacunación del paciente."""
+    from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed
+
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+
+    try:
+        config = request.tenant.config
+    except Exception:
+        config = None
+
+    from .vacunas_pdf import generar_vacunas_pdf
+
+    esquema = _estado_esquema(paciente, request.tenant)
+    datos = {
+        'ciudad':        request.POST.get('ciudad', '').strip(),
+        'incluir_firma': request.POST.get('incluir_firma') == 'on',
+    }
+
+    pdf_bytes = generar_vacunas_pdf(
+        paciente=paciente,
+        medico=request.user,
+        config=config,
+        esquema=esquema,
+        datos=datos,
+    )
+
+    nombre = f'vacunas_{paciente.cedula or paciente.pk}.pdf'
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{nombre}"'
+    return response
