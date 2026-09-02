@@ -1,6 +1,9 @@
+import logging
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 from .models import Usuario
+
+logger = logging.getLogger(__name__)
 
 
 class UsuarioCrearForm(forms.ModelForm):
@@ -68,6 +71,7 @@ class UsuarioEditarForm(forms.ModelForm):
         if firma_file:
             try:
                 import cloudinary.uploader
+                firma_file.seek(0)
                 result = cloudinary.uploader.upload(
                     firma_file,
                     folder='firmas',
@@ -76,8 +80,8 @@ class UsuarioEditarForm(forms.ModelForm):
                     resource_type='image',
                 )
                 usuario.firma_public_id = result['public_id']
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error('Error subiendo firma a Cloudinary: %s', e, exc_info=True)
         elif self.cleaned_data.get('limpiar_firma'):
             usuario.firma_public_id = ''
 
@@ -85,6 +89,7 @@ class UsuarioEditarForm(forms.ModelForm):
         if sello_file:
             try:
                 import cloudinary.uploader
+                sello_file.seek(0)
                 result = cloudinary.uploader.upload(
                     sello_file,
                     folder='sellos',
@@ -93,8 +98,8 @@ class UsuarioEditarForm(forms.ModelForm):
                     resource_type='image',
                 )
                 usuario.sello_public_id = result['public_id']
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error('Error subiendo sello a Cloudinary: %s', e, exc_info=True)
         elif self.cleaned_data.get('limpiar_sello'):
             usuario.sello_public_id = ''
 
@@ -102,6 +107,7 @@ class UsuarioEditarForm(forms.ModelForm):
         if banner_file:
             try:
                 import cloudinary.uploader
+                banner_file.seek(0)
                 result = cloudinary.uploader.upload(
                     banner_file,
                     folder='banners',
@@ -110,8 +116,9 @@ class UsuarioEditarForm(forms.ModelForm):
                     resource_type='image',
                 )
                 usuario.banner_public_id = result['public_id']
-            except Exception:
-                pass
+                logger.info('Banner subido a Cloudinary: %s', result['public_id'])
+            except Exception as e:
+                logger.error('Error subiendo banner a Cloudinary: %s', e, exc_info=True)
         elif self.cleaned_data.get('limpiar_banner'):
             usuario.banner_public_id = ''
 
