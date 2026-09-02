@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ginea-v3';
+const CACHE_NAME = 'ginea-v4';
 const STATIC_ASSETS = [
   '/static/css/app.css',
   '/static/js/app.js',
@@ -24,23 +24,24 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  if (event.request.method !== 'GET') return;
+  const req = event.request;
 
+  // Solo interceptar GET; dejar pasar POST, PUT, DELETE, etc.
+  if (req.method !== 'GET') return;
+
+  // Ignorar esquemas que no sean http/https (evita error con chrome-extension://)
+  if (!req.url.startsWith('http')) return;
+
+  const url = new URL(req.url);
+
+  // Cache-first solo para assets estáticos propios y CDN
   if (url.pathname.startsWith('/static/') || url.hostname.includes('cdn.jsdelivr.net')) {
     event.respondWith(
-      caches.match(event.request).then(cached => cached || fetch(event.request))
+      caches.match(req).then(cached => cached || fetch(req))
     );
     return;
   }
 
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return response;
-      })
-      .catch(() => caches.match(event.request))
-  );
+  // Todo lo demás (HTML dinámico, APIs) → solo red, sin cachear
+  // Esto es crítico: cachear HTML causa tokens CSRF viejos
 });
