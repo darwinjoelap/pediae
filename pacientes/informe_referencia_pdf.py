@@ -235,7 +235,8 @@ def generar_informe_referencia(paciente, medico, config, datos: dict) -> bytes:
     # Membrete
     items += _membrete(PAGE_W, MARGIN, nombre_medico, especialidad or consultorio, direccion, logo_bytes, banner_bytes=banner_bytes_ctx)
     items.append(Spacer(1, 2 * mm))
-    items.append(HRFlowable(width=ancho_util, thickness=0.8, color=TEAL, spaceAfter=0))
+    if not banner_bytes_ctx:
+        items.append(HRFlowable(width=ancho_util, thickness=0.8, color=TEAL, spaceAfter=0))
     items.append(Spacer(1, 3 * mm))
 
     # Título + fecha

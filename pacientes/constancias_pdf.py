@@ -268,20 +268,23 @@ def _contexto_medico(medico, config):
         except Exception:
             pass
 
-    telefono   = telefono_med or telefono_cf
-    logo_bytes = _fetch_bytes(logo_url) if logo_url else None
-    wm_bytes   = _transparent_png(logo_bytes, alpha=0.08) if logo_bytes else None
+    telefono = telefono_med or telefono_cf
 
-    # Firma y sello digitalizados del médico
-    firma_url = medico.get_firma_url() if hasattr(medico, 'get_firma_url') else None
-    firma_bytes = _fetch_bytes(firma_url) if firma_url else None
-
-    sello_url = medico.get_sello_url() if hasattr(medico, 'get_sello_url') else None
-    sello_bytes = _fetch_bytes(sello_url) if sello_url else None
-
-    # Banner del médico
+    # URLs de imágenes
+    firma_url  = medico.get_firma_url()  if hasattr(medico, 'get_firma_url')  else None
+    sello_url  = medico.get_sello_url()  if hasattr(medico, 'get_sello_url')  else None
     banner_url = medico.get_banner_url() if hasattr(medico, 'get_banner_url') else None
-    _banner_bytes = _fetch_bytes(banner_url) if banner_url else None
+
+    # Fetch de todas las imágenes en paralelo (logo, firma, sello, banner)
+    from concurrent.futures import ThreadPoolExecutor
+    urls = [logo_url, firma_url, sello_url, banner_url]
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        logo_bytes, firma_bytes, sello_bytes, _banner_bytes = [
+            r if url else None
+            for url, r in zip(urls, ex.map(lambda u: _fetch_bytes(u) if u else None, urls))
+        ]
+
+    wm_bytes     = _transparent_png(logo_bytes, alpha=0.08) if logo_bytes else None
     _usar_banner = getattr(medico, 'usar_banner', False) and bool(_banner_bytes)
 
     return dict(
@@ -344,8 +347,9 @@ def generar_constancia_nino_sano(paciente, medico, config, datos: dict) -> bytes
                        ctx['direccion'], ctx['logo_bytes'],
                        banner_bytes=ctx.get('banner_bytes'))
     items.append(Spacer(1, 3 * mm))
-    items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
-                             color=TEAL, spaceAfter=0))
+    if not ctx.get('banner_bytes'):
+        items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
+                                 color=TEAL, spaceAfter=0))
     items.append(Spacer(1, 6 * mm))
 
     items.append(Paragraph('CONSTANCIA DE NIÑO SANO', S_TITULO))
@@ -467,8 +471,9 @@ def generar_constancia_reposo(paciente, medico, config, datos: dict) -> bytes:
                        ctx['direccion'], ctx['logo_bytes'],
                        banner_bytes=ctx.get('banner_bytes'))
     items.append(Spacer(1, 3 * mm))
-    items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
-                             color=TEAL, spaceAfter=0))
+    if not ctx.get('banner_bytes'):
+        items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
+                                 color=TEAL, spaceAfter=0))
     items.append(Spacer(1, 6 * mm))
 
     items.append(Paragraph('CONSTANCIA DE REPOSO MÉDICO', S_TITULO))
@@ -539,8 +544,9 @@ def generar_certificado_lactancia(paciente, medico, config, datos: dict) -> byte
                        ctx['direccion'], ctx['logo_bytes'],
                        banner_bytes=ctx.get('banner_bytes'))
     items.append(Spacer(1, 3 * mm))
-    items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
-                             color=TEAL, spaceAfter=0))
+    if not ctx.get('banner_bytes'):
+        items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
+                                 color=TEAL, spaceAfter=0))
     items.append(Spacer(1, 6 * mm))
 
     items.append(Paragraph('CERTIFICADO DE LACTANCIA MATERNA EXCLUSIVA', S_TITULO))
@@ -646,8 +652,9 @@ def generar_constancia_lactancia_trabajo(paciente, medico, config, datos: dict) 
                        ctx['direccion'], ctx['logo_bytes'],
                        banner_bytes=ctx.get('banner_bytes'))
     items.append(Spacer(1, 3 * mm))
-    items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
-                             color=TEAL, spaceAfter=0))
+    if not ctx.get('banner_bytes'):
+        items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
+                                 color=TEAL, spaceAfter=0))
     items.append(Spacer(1, 6 * mm))
 
     items.append(Paragraph('CONSTANCIA DE LACTANCIA MATERNA', S_TITULO))

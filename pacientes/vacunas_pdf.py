@@ -320,7 +320,8 @@ def generar_vacunas_pdf(paciente, medico, config, esquema: list, datos: dict) ->
                        ctx['direccion'], ctx['logo_bytes'],
                        banner_bytes=ctx.get('banner_bytes'))
     items.append(Spacer(1, 3 * mm))
-    items.append(HRFlowable(width=ancho_util, thickness=0.8, color=TEAL, spaceAfter=0))
+    if not ctx.get('banner_bytes'):
+        items.append(HRFlowable(width=ancho_util, thickness=0.8, color=TEAL, spaceAfter=0))
     items.append(Spacer(1, 5 * mm))
 
     # Título
