@@ -106,14 +106,38 @@ class UsuarioEditarForm(forms.ModelForm):
         banner_file = self.cleaned_data.get('banner_upload')
         if banner_file:
             try:
+                import io
+                from PIL import Image as PILImage
                 import cloudinary.uploader
+
                 banner_file.seek(0)
+                img = PILImage.open(banner_file)
+                # Convertir a RGB para garantizar compatibilidad con JPEG
+                if img.mode not in ('RGB', 'RGBA'):
+                    img = img.convert('RGBA')
+                # Redimensionar: máximo 1200px de ancho manteniendo proporción
+                max_w = 1200
+                if img.width > max_w:
+                    ratio = max_w / img.width
+                    img = img.resize((max_w, int(img.height * ratio)), PILImage.LANCZOS)
+                # Guardar en buffer como PNG (preserva transparencia) o JPEG si es RGB puro
+                buf = io.BytesIO()
+                if img.mode == 'RGBA':
+                    img.save(buf, format='PNG', optimize=True)
+                    buf.seek(0)
+                    fmt_opts = {'format': 'png'}
+                else:
+                    img.save(buf, format='JPEG', quality=85, optimize=True)
+                    buf.seek(0)
+                    fmt_opts = {'format': 'jpg'}
+
                 result = cloudinary.uploader.upload(
-                    banner_file,
+                    buf,
                     folder='banners',
                     public_id=f'banner_{usuario.pk}',
                     overwrite=True,
                     resource_type='image',
+                    **fmt_opts,
                 )
                 usuario.banner_public_id = result['public_id']
                 logger.info('Banner subido a Cloudinary: %s', result['public_id'])
