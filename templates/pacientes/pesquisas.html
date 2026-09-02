@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Pesquisas — {{ paciente.nombre_completo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-2 px-md-3 pb-5">
+
+  <div class="d-flex align-items-center gap-2 mb-3 pt-2 flex-wrap">
+    <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <div class="flex-grow-1">
+      <h5 class="mb-0 fw-bold">🔍 Pesquisas</h5>
+      <small class="text-muted">{{ paciente.nombre_completo }} · {{ paciente.get_edad_detallada }}</small>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show py-2" role="alert">
+        {{ msg }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="row g-2 mb-3">
+    <div class="col-6">
+      <div class="card text-center border-success h-100">
+        <div class="card-body py-2">
+          <div class="fs-4 fw-bold text-success">{{ realizadas_count }}</div>
+          <small class="text-muted">Realizadas</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="card text-center {% if pendientes_count %}border-danger{% else %}border-secondary{% endif %} h-100">
+        <div class="card-body py-2">
+          <div class="fs-4 fw-bold {% if pendientes_count %}text-danger{% else %}text-secondary{% endif %}">
+            {{ pendientes_count }}
+          </div>
+          <small class="text-muted">Pendientes</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if pendientes_count %}
+  <div class="alert alert-danger py-2 mb-3">
+    <strong><i class="bi bi-exclamation-triangle-fill"></i> Pesquisas pendientes:</strong>
+    {% for e in esquema %}{% if e.estado == 'pendiente' %}{{ e.pesquisa.nombre }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card shadow-sm">
+    <div class="card-header py-2 d-flex align-items-center gap-2"
+      style="background: linear-gradient(90deg,#2AACA8 0%,#1e8a87 100%); color:white;">
+      <i class="bi bi-search-heart"></i>
+      <span class="fw-bold">Esquema de pesquisas</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 align-middle">
+        <thead class="table-light small">
+          <tr>
+            <th style="min-width:180px">Pesquisa</th>
+            <th>Estado</th>
+            <th>Fecha</th>
+            <th>Comentario</th>
+            {% if request.user.es_medico %}<th class="text-end" style="min-width:120px">Acciones</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in esquema %}
+          <tr {% if e.estado == 'realizada' %}class="table-success bg-opacity-25"{% else %}class="table-danger bg-opacity-10"{% endif %}>
+
+            <td class="fw-semibold">
+              {{ e.pesquisa.nombre }}
+              {% if e.pesquisa.descripcion %}
+                <br><small class="text-muted fw-normal">{{ e.pesquisa.descripcion }}</small>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if e.estado == 'realizada' %}
+                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Realizada</span>
+              {% else %}
+                <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Pendiente</span>
+              {% endif %}
+            </td>
+
+            <td class="small text-muted">
+              {% if e.realizada %}
+                {% if e.realizada.fecha %}
+                  {{ e.realizada.fecha|date:"d/m/Y" }}
+                {% else %}
+                  <span class="fst-italic">Sin fecha</span>
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+
+            <td class="small text-muted">
+              {% if e.realizada and e.realizada.comentario %}
+                {{ e.realizada.comentario }}
+              {% else %}—{% endif %}
+            </td>
+
+            {% if request.user.es_medico %}
+            <td class="text-end">
+              <div class="d-flex gap-1 justify-content-end flex-wrap">
+                {% if e.estado == 'pendiente' %}
+                  <button type="button"
+                    class="btn btn-sm btn-success py-0 px-2"
+                    data-bs-toggle="modal" data-bs-target="#modalRegistrar"
+                    data-pesquisa-id="{{ e.pesquisa.pk }}"
+                    data-pesquisa-nombre="{{ e.pesquisa.nombre }}"
+                    data-fecha=""
+                    data-comentario=""
+                    data-modo="registrar"
+                    title="Marcar como realizada">
+                    <i class="bi bi-check-lg"></i> Marcar
+                  </button>
+                {% else %}
+                  <button type="button"
+                    class="btn btn-sm btn-outline-secondary py-0"
+                    data-bs-toggle="modal" data-bs-target="#modalRegistrar"
+                    data-pesquisa-id="{{ e.pesquisa.pk }}"
+                    data-pesquisa-nombre="{{ e.pesquisa.nombre }}"
+                    data-fecha="{% if e.realizada.fecha %}{{ e.realizada.fecha|date:'Y-m-d' }}{% endif %}"
+                    data-comentario="{{ e.realizada.comentario|default:'' }}"
+                    data-modo="editar"
+                    title="Editar registro">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <form method="post"
+                    action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/pesquisas/{{ e.realizada.pk }}/eliminar/"
+                    onsubmit="return confirm('¿Eliminar registro de {{ e.pesquisa.nombre }}?');"
+                    style="display:inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger py-0"
+                      title="Eliminar registro">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
+            {% endif %}
+
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="text-center text-muted py-3">No hay pesquisas configuradas.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+{% if request.user.es_medico %}
+<div class="modal fade" id="modalRegistrar" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/pesquisas/registrar/">
+        {% csrf_token %}
+        <input type="hidden" name="pesquisa_id" id="inputPesquisaId">
+
+        <div class="modal-header">
+          <h6 class="modal-title fw-bold" id="tituloModal">Registrar pesquisa</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <p class="mb-3 fw-semibold" id="labelPesquisaNombre"></p>
+
+          <div class="mb-3">
+            <label class="form-label">Fecha de realización <span class="text-muted small">(opcional)</span></label>
+            <input type="date" name="fecha" id="inputFecha" class="form-control form-control-lg">
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Comentario / Resultado <span class="text-muted small">(opcional)</span></label>
+            <input type="text" name="comentario" id="inputComentario" class="form-control"
+              placeholder="Ej: Normal, Sin alteraciones...">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success px-4" id="btnGuardar">
+            <i class="bi bi-check-circle"></i> Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('modalRegistrar').addEventListener('show.bs.modal', function (e) {
+  var btn = e.relatedTarget;
+  var modo = btn.dataset.modo || 'registrar';
+  document.getElementById('inputPesquisaId').value = btn.dataset.pesquisaId;
+  document.getElementById('labelPesquisaNombre').textContent = btn.dataset.pesquisaNombre;
+  document.getElementById('inputFecha').value = btn.dataset.fecha || '';
+  document.getElementById('inputComentario').value = btn.dataset.comentario || '';
+  if (modo === 'editar') {
+    document.getElementById('tituloModal').textContent = 'Editar pesquisa';
+    document.getElementById('btnGuardar').innerHTML = '<i class="bi bi-save"></i> Actualizar';
+  } else {
+    document.getElementById('tituloModal').textContent = 'Registrar pesquisa';
+    document.getElementById('btnGuardar').innerHTML = '<i class="bi bi-check-circle"></i> Guardar';
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

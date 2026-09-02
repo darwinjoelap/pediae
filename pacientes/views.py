@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.db import models as _m
 from datetime import date
 
-from .models import Paciente, Vacuna, VacunaAplicada
+from .models import Paciente, Vacuna, VacunaAplicada, Pesquisa, PesquisaRealizada
 from .forms import PacienteAsistenteForm, PacientePersonalForm, PacienteCompletoForm, PacienteDoctoraNuevoForm
 
 
@@ -88,6 +88,9 @@ def detalle_paciente(request, pk):
 
     # Vacunas: resumen para el perfil (atrasadas + próximas pendientes)
     vacunas_resumen = _vacunas_resumen(paciente, request.tenant)
+
+    # Pesquisas: resumen para el perfil
+    pesquisas_resumen = _pesquisas_resumen(paciente, request.tenant)
 
     # Datos de evolución para gráficas + OMS (solo si es médico)
     graficas_json = None
@@ -224,6 +227,7 @@ def detalle_paciente(request, pk):
         'graficas_json': graficas_json,
         'oms_json': oms_json,
         'vacunas_resumen': vacunas_resumen,
+        'pesquisas_resumen': pesquisas_resumen,
         'lugares': lugares,
     })
 
@@ -517,6 +521,30 @@ def _vacunas_resumen(paciente, tenant):
     }
 
 
+def _pesquisas_resumen(paciente, tenant):
+    """Para el perfil: dict con conteos de pesquisas realizadas/pendientes."""
+    pesquisas = Pesquisa.objects.filter(activa=True).filter(
+        _m.Q(tenant=None) | _m.Q(tenant=tenant)
+    ).order_by('orden', 'nombre')
+
+    realizadas_ids = set(
+        PesquisaRealizada.objects.filter(paciente=paciente, tenant=tenant)
+        .values_list('pesquisa_id', flat=True)
+    )
+
+    total = pesquisas.count()
+    realizadas = len(realizadas_ids)
+    pendientes = [p for p in pesquisas if p.pk not in realizadas_ids]
+
+    return {
+        'total': total,
+        'realizadas': realizadas,
+        'pendientes_count': total - realizadas,
+        'pendientes': pendientes,
+        'todas_realizadas': realizadas == total and total > 0,
+    }
+
+
 def _estado_esquema(paciente, tenant):
     """Esquema completo con estado por dosis."""
     edad_meses = paciente.get_edad_en_meses()
@@ -728,3 +756,104 @@ def vacunas_pdf(request, pk):
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{nombre}"'
     return response
+
+
+# ── Pesquisas ──────────────────────────────────────────────────────────────────
+
+@login_required
+def pesquisas_paciente(request, pk):
+    """Página principal del módulo de pesquisas."""
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+    tenant = request.tenant
+
+    pesquisas = Pesquisa.objects.filter(activa=True).filter(
+        _m.Q(tenant=None) | _m.Q(tenant=tenant)
+    ).order_by('orden', 'nombre')
+
+    realizadas_map = {
+        pr.pesquisa_id: pr
+        for pr in PesquisaRealizada.objects.filter(
+            paciente=paciente, tenant=tenant
+        ).select_related('pesquisa', 'realizada_por')
+    }
+
+    esquema = []
+    for p in pesquisas:
+        realizada = realizadas_map.get(p.pk)
+        esquema.append({
+            'pesquisa': p,
+            'realizada': realizada,
+            'estado': 'realizada' if realizada else 'pendiente',
+        })
+
+    realizadas_count = sum(1 for e in esquema if e['estado'] == 'realizada')
+    pendientes_count = len(esquema) - realizadas_count
+
+    return render(request, 'pacientes/pesquisas.html', {
+        'paciente': paciente,
+        'esquema': esquema,
+        'realizadas_count': realizadas_count,
+        'pendientes_count': pendientes_count,
+    })
+
+
+@login_required
+def registrar_pesquisa(request, pk):
+    """POST: registrar o actualizar una pesquisa realizada."""
+    from django.http import HttpResponseForbidden, HttpResponseNotAllowed
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+    pesquisa_id = request.POST.get('pesquisa_id')
+    pesquisa = get_object_or_404(Pesquisa, pk=pesquisa_id)
+
+    fecha_str = request.POST.get('fecha', '').strip()
+    comentario = request.POST.get('comentario', '').strip()
+
+    fecha = None
+    if fecha_str:
+        try:
+            from datetime import datetime
+            fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+
+    pr, created = PesquisaRealizada.objects.get_or_create(
+        paciente=paciente,
+        pesquisa=pesquisa,
+        tenant=request.tenant,
+        defaults={
+            'fecha': fecha,
+            'comentario': comentario,
+            'realizada_por': request.user,
+        },
+    )
+    if not created:
+        if fecha is not None:
+            pr.fecha = fecha
+        if comentario:
+            pr.comentario = comentario
+        pr.save()
+
+    messages.success(request, f'"{pesquisa.nombre}" marcada como realizada.')
+    return _r(request, f'/pacientes/{paciente.pk}/pesquisas/')
+
+
+@login_required
+def eliminar_pesquisa_realizada(request, pk, pr_pk):
+    """POST: eliminar registro de pesquisa realizada."""
+    from django.http import HttpResponseForbidden, HttpResponseNotAllowed
+    if not request.user.es_medico:
+        return HttpResponseForbidden()
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    paciente = get_object_or_404(Paciente, pk=pk, tenant=request.tenant)
+    pr = get_object_or_404(PesquisaRealizada, pk=pr_pk, paciente=paciente, tenant=request.tenant)
+    nombre = pr.pesquisa.nombre
+    pr.delete()
+    messages.success(request, f'Registro de "{nombre}" eliminado.')
+    return _r(request, f'/pacientes/{paciente.pk}/pesquisas/')

@@ -482,6 +482,32 @@
 </div>
 {% endif %}
 
+{% if pesquisas_resumen %}
+<div class="card shadow-sm mb-3
+  {% if pesquisas_resumen.pendientes_count %}border-danger{% else %}border-success{% endif %}">
+  <div class="card-body py-2 d-flex justify-content-between align-items-center">
+    <div>
+      <span class="fw-semibold me-2">
+        <i class="bi bi-search-heart me-1"></i> Pesquisas
+      </span>
+      <span class="badge bg-success me-1">{{ pesquisas_resumen.realizadas }} realizada{{ pesquisas_resumen.realizadas|pluralize }}</span>
+      {% if pesquisas_resumen.pendientes_count %}
+        <span class="badge bg-danger">{{ pesquisas_resumen.pendientes_count }} pendiente{{ pesquisas_resumen.pendientes_count|pluralize }}</span>
+      {% endif %}
+      {% if pesquisas_resumen.pendientes %}
+      <div class="text-danger small mt-1">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        {% for p in pesquisas_resumen.pendientes %}{{ p.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <a href="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/pesquisas/" class="btn btn-sm btn-outline-secondary">
+      Ver pesquisas <i class="bi bi-arrow-right"></i>
+    </a>
+  </div>
+</div>
+{% endif %}
+
 <h6 class="fw-bold text-uppercase text-muted mb-3"
     style="font-size:0.75rem;letter-spacing:1px">
   <i class="bi bi-clock-history me-1"></i> Historial de consultas

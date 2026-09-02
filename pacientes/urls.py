@@ -15,6 +15,10 @@ urlpatterns = [
     path('<int:pk>/vacunas/marcar/', views.marcar_vacunado, name='vacuna_marcar'),
     path('<int:pk>/vacunas/pdf/', views.vacunas_pdf, name='vacunas_pdf'),
     path('<int:pk>/vacunas/<int:va_pk>/eliminar/', views.eliminar_vacuna_aplicada, name='vacuna_eliminar'),
+    # Pesquisas
+    path('<int:pk>/pesquisas/', views.pesquisas_paciente, name='pesquisas'),
+    path('<int:pk>/pesquisas/registrar/', views.registrar_pesquisa, name='pesquisa_registrar'),
+    path('<int:pk>/pesquisas/<int:pr_pk>/eliminar/', views.eliminar_pesquisa_realizada, name='pesquisa_eliminar'),
     # Curvas OMS — PDF
     path('<int:pk>/curvas-pdf/', views.curvas_crecimiento_pdf, name='curvas_pdf'),
     # Constancias PDF

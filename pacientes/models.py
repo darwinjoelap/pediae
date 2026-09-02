@@ -567,3 +567,66 @@ class VacunaAplicada(models.Model):
 
     def __str__(self):
         return f'{self.paciente} — {self.vacuna.nombre} d{self.vacuna.dosis_numero} ({self.fecha})'
+
+
+# ── Catálogo de pesquisas ─────────────────────────────────────────────────────
+
+class Pesquisa(models.Model):
+    """Catálogo de pesquisas neonatales/pediátricas (compartido, tenant=None)."""
+    tenant = models.ForeignKey(
+        'tenant.Tenant',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='pesquisas_extra',
+        verbose_name='Consultorio',
+        help_text='Null = pesquisa estándar compartida.',
+    )
+    nombre = models.CharField(max_length=100, verbose_name='Pesquisa')
+    descripcion = models.CharField(max_length=200, blank=True, verbose_name='Descripción')
+    orden = models.PositiveSmallIntegerField(default=0, verbose_name='Orden')
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Pesquisa'
+        verbose_name_plural = 'Pesquisas'
+        ordering = ['orden', 'nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class PesquisaRealizada(models.Model):
+    """Registro de una pesquisa realizada a un paciente."""
+    tenant = models.ForeignKey(
+        'tenant.Tenant',
+        on_delete=models.CASCADE,
+        related_name='pesquisas_realizadas',
+    )
+    paciente = models.ForeignKey(
+        Paciente,
+        on_delete=models.CASCADE,
+        related_name='pesquisas_realizadas',
+    )
+    pesquisa = models.ForeignKey(
+        Pesquisa,
+        on_delete=models.PROTECT,
+        related_name='realizaciones',
+    )
+    fecha = models.DateField(null=True, blank=True, verbose_name='Fecha de realización')
+    comentario = models.CharField(max_length=300, blank=True, verbose_name='Comentario / Resultado')
+    realizada_por = models.ForeignKey(
+        'accounts.Usuario',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='pesquisas_realizadas',
+    )
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Pesquisa realizada'
+        verbose_name_plural = 'Pesquisas realizadas'
+        ordering = ['pesquisa__orden']
+        unique_together = [['paciente', 'pesquisa']]
+
+    def __str__(self):
+        return f'{self.paciente} — {self.pesquisa.nombre} ({self.fecha})'
