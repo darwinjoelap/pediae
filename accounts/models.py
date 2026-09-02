@@ -71,6 +71,18 @@ class Usuario(AbstractUser):
         help_text='PNG con fondo transparente recomendado. Aparece al lado de la firma en los PDFs.',
     )
 
+    # Banner de encabezado para PDFs — almacenado en Cloudinary
+    banner_public_id = models.CharField(
+        max_length=500, blank=True,
+        verbose_name='Banner PDF (Cloudinary public_id)',
+        help_text='Imagen de encabezado que sustituye el membrete en los PDFs cuando está habilitado.',
+    )
+    usar_banner = models.BooleanField(
+        default=False,
+        verbose_name='Usar banner en PDFs',
+        help_text='Si está marcado, los PDFs mostrarán el banner en lugar del membrete estándar.',
+    )
+
     class Meta:
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
@@ -113,3 +125,9 @@ class Usuario(AbstractUser):
             return None
         import cloudinary
         return cloudinary.CloudinaryResource(self.sello_public_id).build_url(secure=True)
+
+    def get_banner_url(self):
+        if not self.banner_public_id:
+            return None
+        import cloudinary
+        return cloudinary.CloudinaryResource(self.banner_public_id).build_url(secure=True)

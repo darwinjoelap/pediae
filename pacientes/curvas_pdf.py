@@ -73,9 +73,21 @@ def _transparent_png(raw_bytes, alpha=0.08, max_px=300):
         return None
 
 
-def _membrete(page_w, margin, nombre_medico, especialidad, direccion, logo_bytes):
-    """Header: logo a la izquierda + nombre grande + especialidad."""
+def _membrete(page_w, margin, nombre_medico, especialidad, direccion, logo_bytes, banner_bytes=None):
+    """Header: logo a la izquierda + nombre grande + especialidad. Si banner_bytes, muestra el banner."""
     ancho = page_w - 2 * margin
+
+    # Banner sustituye el membrete completo cuando está activo
+    if banner_bytes:
+        try:
+            from PIL import Image as PILImg
+            pil = PILImg.open(io.BytesIO(banner_bytes))
+            w_px, h_px = pil.size
+            ratio = h_px / w_px if w_px else 0.25
+            banner_h = min(ancho * ratio, 3.0 * cm)
+            return [Image(io.BytesIO(banner_bytes), width=ancho, height=banner_h)]
+        except Exception:
+            pass
     info = [Paragraph(nombre_medico, S_DR_NOM)]
     if especialidad:
         info.append(Paragraph(especialidad, S_DR_ESP))
@@ -149,6 +161,11 @@ def generar_pdf_curvas(paciente, medico, config, grafica_b64: str, indicador: st
     sello_url = medico.get_sello_url() if hasattr(medico, 'get_sello_url') else None
     sello_bytes = _fetch_bytes(sello_url) if sello_url else None
 
+    # ── Banner del médico ─────────────────────────────────────────────────────
+    banner_url = medico.get_banner_url() if hasattr(medico, 'get_banner_url') else None
+    _banner_bytes = _fetch_bytes(banner_url) if banner_url else None
+    banner_bytes_ctx = _banner_bytes if (getattr(medico, 'usar_banner', False) and bool(_banner_bytes)) else None
+
     # ── Imagen del gráfico ────────────────────────────────────────────────────
     if ',' in grafica_b64:
         grafica_b64 = grafica_b64.split(',', 1)[1]
@@ -180,7 +197,7 @@ def generar_pdf_curvas(paciente, medico, config, grafica_b64: str, indicador: st
     items = []
 
     # 1. Membrete
-    items += _membrete(PAGE_W, MARGIN, nombre_medico, especialidad or consultorio, direccion, logo_bytes)
+    items += _membrete(PAGE_W, MARGIN, nombre_medico, especialidad or consultorio, direccion, logo_bytes, banner_bytes=banner_bytes_ctx)
     items.append(Spacer(1, 3 * mm))
     items.append(HRFlowable(width=ancho_util, thickness=0.8, color=TEAL, spaceAfter=0))
     items.append(Spacer(1, 4 * mm))

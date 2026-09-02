@@ -81,8 +81,19 @@ def _transparent_png(raw_bytes, alpha=0.10, max_px=300):
         return None
 
 
-def _membrete(col_w, nombre_medico, especialidad, direccion, logo_bytes):
-    """Header: logo + nombre grande + especialidad + dirección."""
+def _membrete(col_w, nombre_medico, especialidad, direccion, logo_bytes, banner_bytes=None):
+    """Header: logo + nombre grande + especialidad + dirección. Si banner_bytes, muestra el banner."""
+    # Banner sustituye el membrete completo cuando está activo
+    if banner_bytes:
+        try:
+            from PIL import Image as PILImg
+            pil = PILImg.open(io.BytesIO(banner_bytes))
+            w_px, h_px = pil.size
+            ratio = h_px / w_px if w_px else 0.25
+            banner_h = min(col_w * ratio, 3.0 * cm)
+            return [Image(io.BytesIO(banner_bytes), width=col_w, height=banner_h)]
+        except Exception:
+            pass
     info = [Paragraph(nombre_medico, S_DR_NOM)]
     if especialidad:
         info.append(Paragraph(especialidad, S_DR_ESP))
@@ -105,13 +116,13 @@ def _membrete(col_w, nombre_medico, especialidad, direccion, logo_bytes):
 
 
 def _bloque_lado(etiqueta, contenido_texto, *, col_w, nombre_medico,
-                 especialidad, direccion, logo_bytes,
+                 especialidad, direccion, logo_bytes, banner_bytes=None,
                  paciente, consulta, edad_str, fecha_str, estudios=''):
     """Flowables de una columna (SIN firma — la firma va en el canvas callback)."""
     items = []
 
     # 1. Membrete
-    items += _membrete(col_w, nombre_medico, especialidad, direccion, logo_bytes)
+    items += _membrete(col_w, nombre_medico, especialidad, direccion, logo_bytes, banner_bytes=banner_bytes)
     items.append(Spacer(1, 3 * mm))
 
     # 2. Línea separadora
@@ -222,6 +233,11 @@ def generar_recipe_pdf(consulta, medico, config):
     sello_url = medico.get_sello_url() if hasattr(medico, 'get_sello_url') else None
     sello_bytes = _fetch_bytes(sello_url) if sello_url else None
 
+    # ── Banner del médico ─────────────────────────────────────────────────────
+    banner_url = medico.get_banner_url() if hasattr(medico, 'get_banner_url') else None
+    _banner_bytes = _fetch_bytes(banner_url) if banner_url else None
+    banner_bytes_ctx = _banner_bytes if (getattr(medico, 'usar_banner', False) and bool(_banner_bytes)) else None
+
     # ── Edad / fecha ──────────────────────────────────────────────────────────
     try:
         edad_str = paciente.get_edad_detallada()
@@ -242,6 +258,7 @@ def generar_recipe_pdf(consulta, medico, config):
         especialidad=especialidad,
         direccion=direccion,
         logo_bytes=logo_bytes,
+        banner_bytes=banner_bytes_ctx,
         paciente=paciente,
         consulta=consulta,
         edad_str=edad_str,

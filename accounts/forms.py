@@ -44,11 +44,18 @@ class UsuarioEditarForm(forms.ModelForm):
     )
     limpiar_firma = forms.BooleanField(required=False, label='Eliminar firma actual')
     limpiar_sello = forms.BooleanField(required=False, label='Eliminar sello actual')
+    banner_upload = forms.ImageField(
+        required=False,
+        label='Banner de encabezado PDF',
+        widget=forms.ClearableFileInput(attrs={'accept': 'image/*'}),
+        help_text='Imagen que reemplaza el membrete (logo + datos) en los PDFs cuando el banner está habilitado.',
+    )
+    limpiar_banner = forms.BooleanField(required=False, label='Eliminar banner actual')
 
     class Meta:
         model = Usuario
         fields = ['first_name', 'last_name', 'email', 'rol', 'sexo', 'is_active',
-                  'especialidad', 'credenciales', 'numero_mpps', 'telefono']
+                  'especialidad', 'credenciales', 'numero_mpps', 'telefono', 'usar_banner']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -90,6 +97,23 @@ class UsuarioEditarForm(forms.ModelForm):
                 pass
         elif self.cleaned_data.get('limpiar_sello'):
             usuario.sello_public_id = ''
+
+        banner_file = self.cleaned_data.get('banner_upload')
+        if banner_file:
+            try:
+                import cloudinary.uploader
+                result = cloudinary.uploader.upload(
+                    banner_file,
+                    folder='banners',
+                    public_id=f'banner_{usuario.pk}',
+                    overwrite=True,
+                    resource_type='image',
+                )
+                usuario.banner_public_id = result['public_id']
+            except Exception:
+                pass
+        elif self.cleaned_data.get('limpiar_banner'):
+            usuario.banner_public_id = ''
 
         if commit:
             usuario.save()

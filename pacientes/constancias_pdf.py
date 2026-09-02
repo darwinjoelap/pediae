@@ -72,8 +72,20 @@ def _transparent_png(raw_bytes, alpha=0.08, max_px=300):
         return None
 
 
-def _membrete(page_w, margin, nombre_medico, especialidad, direccion, logo_bytes):
+def _membrete(page_w, margin, nombre_medico, especialidad, direccion, logo_bytes, banner_bytes=None):
     ancho = page_w - 2 * margin
+
+    # Banner sustituye el membrete completo cuando está activo
+    if banner_bytes:
+        try:
+            from PIL import Image as PILImg
+            pil = PILImg.open(io.BytesIO(banner_bytes))
+            w_px, h_px = pil.size
+            ratio = h_px / w_px if w_px else 0.25
+            banner_h = min(ancho * ratio, 3.0 * cm)
+            return [Image(io.BytesIO(banner_bytes), width=ancho, height=banner_h)]
+        except Exception:
+            pass
     info = [Paragraph(nombre_medico, S_DR_NOM)]
     if especialidad:
         info.append(Paragraph(especialidad, S_DR_ESP))
@@ -267,6 +279,11 @@ def _contexto_medico(medico, config):
     sello_url = medico.get_sello_url() if hasattr(medico, 'get_sello_url') else None
     sello_bytes = _fetch_bytes(sello_url) if sello_url else None
 
+    # Banner del médico
+    banner_url = medico.get_banner_url() if hasattr(medico, 'get_banner_url') else None
+    _banner_bytes = _fetch_bytes(banner_url) if banner_url else None
+    _usar_banner = getattr(medico, 'usar_banner', False) and bool(_banner_bytes)
+
     return dict(
         nombre_medico=nombre_medico,
         especialidad=especialidad or consultorio,
@@ -277,6 +294,8 @@ def _contexto_medico(medico, config):
         direccion=direccion,
         firma_bytes=firma_bytes,
         sello_bytes=sello_bytes,
+        banner_bytes=_banner_bytes if _usar_banner else None,
+        usar_banner=_usar_banner,
     )
 
 
@@ -322,7 +341,8 @@ def generar_constancia_nino_sano(paciente, medico, config, datos: dict) -> bytes
     items = []
     items += _membrete(PAGE_W, MARGIN,
                        ctx['nombre_medico'], ctx['especialidad'],
-                       ctx['direccion'], ctx['logo_bytes'])
+                       ctx['direccion'], ctx['logo_bytes'],
+                       banner_bytes=ctx.get('banner_bytes'))
     items.append(Spacer(1, 3 * mm))
     items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
                              color=TEAL, spaceAfter=0))
@@ -444,7 +464,8 @@ def generar_constancia_reposo(paciente, medico, config, datos: dict) -> bytes:
     items = []
     items += _membrete(PAGE_W, MARGIN,
                        ctx['nombre_medico'], ctx['especialidad'],
-                       ctx['direccion'], ctx['logo_bytes'])
+                       ctx['direccion'], ctx['logo_bytes'],
+                       banner_bytes=ctx.get('banner_bytes'))
     items.append(Spacer(1, 3 * mm))
     items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
                              color=TEAL, spaceAfter=0))
@@ -515,7 +536,8 @@ def generar_certificado_lactancia(paciente, medico, config, datos: dict) -> byte
     items = []
     items += _membrete(PAGE_W, MARGIN,
                        ctx['nombre_medico'], ctx['especialidad'],
-                       ctx['direccion'], ctx['logo_bytes'])
+                       ctx['direccion'], ctx['logo_bytes'],
+                       banner_bytes=ctx.get('banner_bytes'))
     items.append(Spacer(1, 3 * mm))
     items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
                              color=TEAL, spaceAfter=0))
@@ -621,7 +643,8 @@ def generar_constancia_lactancia_trabajo(paciente, medico, config, datos: dict) 
     items = []
     items += _membrete(PAGE_W, MARGIN,
                        ctx['nombre_medico'], ctx['especialidad'],
-                       ctx['direccion'], ctx['logo_bytes'])
+                       ctx['direccion'], ctx['logo_bytes'],
+                       banner_bytes=ctx.get('banner_bytes'))
     items.append(Spacer(1, 3 * mm))
     items.append(HRFlowable(width=PAGE_W - 2 * MARGIN, thickness=0.8,
                              color=TEAL, spaceAfter=0))
