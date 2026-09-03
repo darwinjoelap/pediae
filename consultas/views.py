@@ -84,15 +84,14 @@ def nueva_consulta(request, paciente_id):
                         pass
 
             if consulta.proxima_cita:
-                import datetime
                 Cita.objects.create(
                     tenant=request.tenant,
                     paciente=paciente,
                     fecha=consulta.proxima_cita,
-                    hora_inicio=datetime.time(8, 0),
-                    hora_fin=datetime.time(8, 30),
+                    hora_inicio=None,
+                    hora_fin=None,
                     motivo='Control - ' + (consulta.diagnostico[:50] if consulta.diagnostico else 'Seguimiento'),
-                    estado='programada',
+                    estado='tentativa',
                     lugar=cita.lugar if cita else None,
                     creado_por=request.user,
                 )

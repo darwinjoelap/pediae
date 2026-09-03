@@ -29,18 +29,20 @@ class LugarConsulta(models.Model):
 
 class Cita(models.Model):
     ESTADO_CHOICES = [
-        ('programada', 'Programada'),
-        ('confirmada', 'Confirmada'),
-        ('atendida', 'Atendida'),
-        ('cancelada', 'Cancelada'),
-        ('no_asistio', 'No asistió'),
+        ('programada',  'Programada'),
+        ('confirmada',  'Confirmada'),
+        ('atendida',    'Atendida'),
+        ('cancelada',   'Cancelada'),
+        ('no_asistio',  'No asistió'),
+        ('tentativa',   'Tentativa'),
     ]
     ESTADO_COLORES = {
-        'programada': 'primary',
-        'confirmada': 'success',
-        'atendida': 'secondary',
-        'cancelada': 'danger',
-        'no_asistio': 'warning',
+        'programada':  'primary',
+        'confirmada':  'success',
+        'atendida':    'secondary',
+        'cancelada':   'danger',
+        'no_asistio':  'warning',
+        'tentativa':   'orange',
     }
     CANAL_CHOICES = [
         ('whatsapp', 'WhatsApp'),
@@ -60,7 +62,7 @@ class Cita(models.Model):
         related_name='citas', verbose_name='Paciente'
     )
     fecha = models.DateField(verbose_name='Fecha')
-    hora_inicio = models.TimeField(verbose_name='Hora de inicio')
+    hora_inicio = models.TimeField(null=True, blank=True, verbose_name='Hora de inicio')
     hora_fin = models.TimeField(null=True, blank=True, verbose_name='Hora de fin')
     motivo = models.CharField(max_length=200, blank=True, verbose_name='Motivo de la cita')
     estado = models.CharField(

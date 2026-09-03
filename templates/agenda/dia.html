@@ -189,7 +189,72 @@
   </div>
   {% endfor %}
 </div>
-{% else %}
+{% endif %}
+
+<!-- ── Sin hora asignada ──────────────────────────────────────────────── -->
+{% if citas_sin_hora %}
+<div class="mt-4 mb-2">
+  <h6 class="fw-bold text-uppercase text-muted" style="font-size:0.75rem;letter-spacing:1px">
+    <i class="bi bi-clock-history me-1"></i> Sin hora asignada
+  </h6>
+</div>
+<div class="d-flex flex-column gap-3">
+  {% for cita in citas_sin_hora %}
+  <div class="card cita-card estado-{{ cita.estado }} shadow-sm">
+    <div class="card-body py-3">
+      <div class="d-flex justify-content-between align-items-start">
+        <div class="flex-grow-1">
+          <div class="text-muted small mb-1">
+            <i class="bi bi-clock me-1"></i><span class="fst-italic">Por definir</span>
+            {% if cita.lugar %}
+            <span class="ms-2"><i class="bi bi-geo-alt me-1"></i>{{ cita.lugar.nombre }}</span>
+            {% endif %}
+          </div>
+          <h6 class="mb-1 fw-bold">
+            <a href="{{ TENANT_PREFIX }}/pacientes/{{ cita.paciente.pk }}/" class="text-decoration-none text-dark">
+              {{ cita.paciente.nombre_completo }}
+            </a>
+          </h6>
+          {% if cita.motivo %}
+          <div class="text-muted small"><i class="bi bi-chat-text me-1"></i>{{ cita.motivo }}</div>
+          {% endif %}
+          {% if cita.notas %}
+          <div class="text-muted small mt-1"><i class="bi bi-sticky me-1"></i>{{ cita.notas }}</div>
+          {% endif %}
+        </div>
+
+        <div class="d-flex flex-column align-items-end gap-1 ms-2">
+          <span class="badge bg-{{ cita.get_color }}">{{ cita.get_estado_display }}</span>
+          <div class="d-flex gap-1 mt-1 flex-wrap justify-content-end">
+            {% if user.es_medico and cita.estado != 'atendida' %}
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+              data-bs-toggle="modal"
+              data-bs-target="#modalAtendidaSH{{ cita.pk }}"
+              title="Marcar atendida">
+              <i class="bi bi-check2-circle"></i>
+            </button>
+            <form method="post" action="{{ TENANT_PREFIX }}/agenda/citas/{{ cita.pk }}/eliminar/"
+              onsubmit="return confirm('¿Eliminar esta cita?')" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar cita">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+            {% endif %}
+            <a href="{{ TENANT_PREFIX }}/agenda/citas/{{ cita.pk }}/editar/"
+               class="btn btn-sm btn-outline-secondary" title="Editar / asignar hora">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not citas and not citas_sin_hora %}
 <div class="text-center py-5 text-muted">
   <i class="bi bi-calendar-x" style="font-size:3rem;opacity:0.3"></i>
   <p class="mt-3 mb-1">No hay citas para este día</p>
@@ -281,11 +346,44 @@
 </div>
 {% endif %}
 
-<!-- Modales marcar atendida -->
+<!-- Modales marcar atendida — citas con hora -->
 {% if user.es_medico %}
 {% for cita in citas %}
 {% if cita.estado != 'atendida' %}
 <div class="modal fade" id="modalAtendida{{ cita.pk }}" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title fw-bold small">{{ cita.paciente.nombre_completo }}</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body d-flex flex-column gap-2">
+        <a href="{{ TENANT_PREFIX }}/consultas/nueva/{{ cita.paciente.pk }}/?cita={{ cita.pk }}"
+           class="btn btn-primary w-100">
+          <i class="bi bi-journal-plus me-1"></i> Registrar consulta
+        </a>
+        <button type="button" class="btn btn-outline-secondary w-100"
+          data-bs-dismiss="modal"
+          onclick="abrirProcedimiento('{{ cita.paciente.pk }}', '{{ cita.pk }}')">
+          <i class="bi bi-scissors me-1"></i> Registrar procedimiento
+        </button>
+        <form method="post" action="{{ TENANT_PREFIX }}/agenda/citas/{{ cita.pk }}/atendida/">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-check2-circle me-1"></i> Solo marcar atendida
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Modales marcar atendida — sin hora asignada -->
+{% for cita in citas_sin_hora %}
+{% if cita.estado != 'atendida' %}
+<div class="modal fade" id="modalAtendidaSH{{ cita.pk }}" tabindex="-1">
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
       <div class="modal-header py-2">

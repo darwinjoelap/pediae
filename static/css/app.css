@@ -6,11 +6,12 @@
 :root {
   --color-primary: #6f42c1;
   --color-primary-light: #e9d8fd;
-  --color-programada: #0d6efd;
-  --color-confirmada: #198754;
-  --color-atendida: #6c757d;
-  --color-cancelada: #dc3545;
-  --color-no_asistio: #ffc107;
+  --color-programada:  #0d6efd;
+  --color-confirmada:  #198754;
+  --color-atendida:    #6c757d;
+  --color-cancelada:   #dc3545;
+  --color-no_asistio:  #ffc107;
+  --color-tentativa:   #fd7e14;
 }
 
 /* ── Botones grandes para móvil ── */
@@ -37,11 +38,15 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
-.cita-card.estado-programada { border-left-color: var(--color-programada); }
-.cita-card.estado-confirmada { border-left-color: var(--color-confirmada); }
-.cita-card.estado-atendida { border-left-color: var(--color-atendida); }
-.cita-card.estado-cancelada { border-left-color: var(--color-cancelada); }
-.cita-card.estado-no_asistio { border-left-color: var(--color-no_asistio); }
+.cita-card.estado-programada  { border-left-color: var(--color-programada); }
+.cita-card.estado-confirmada  { border-left-color: var(--color-confirmada); }
+.cita-card.estado-atendida    { border-left-color: var(--color-atendida); }
+.cita-card.estado-cancelada   { border-left-color: var(--color-cancelada); }
+.cita-card.estado-no_asistio  { border-left-color: var(--color-no_asistio); }
+.cita-card.estado-tentativa   { border-left-color: var(--color-tentativa); }
+
+/* Badge naranja (estado tentativa) */
+.bg-orange { background-color: #fd7e14 !important; color: #fff !important; }
 
 /* ── Historial timeline ── */
 .timeline {

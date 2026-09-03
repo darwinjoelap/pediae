@@ -48,26 +48,31 @@ def agenda_dia(request, fecha):
     dia_siguiente = (fecha_obj + timedelta(days=1)).isoformat()
 
     resumen = {
-        'total': citas.count(),
-        'atendidas': citas.filter(estado='atendida').count(),
-        'pendientes': citas.filter(estado__in=['programada', 'confirmada']).count(),
+        'total':      citas.count(),
+        'atendidas':  citas.filter(estado='atendida').count(),
+        'pendientes': citas.filter(estado__in=['programada', 'confirmada', 'tentativa']).count(),
         'canceladas': citas.filter(estado__in=['cancelada', 'no_asistio']).count(),
     }
 
     from consultas.models import Consulta, Procedimiento
     from servicios.models import Servicio
 
-    # Anotar hora_termina: hora_fin propia o inicio de la siguiente cita
-    citas_list = list(citas)
-    for i, cita in enumerate(citas_list):
+    # Separar citas con hora asignada de las que aún no tienen hora
+    todos_list     = list(citas.order_by('hora_inicio'))
+    citas_con_hora = [c for c in todos_list if c.hora_inicio is not None]
+    citas_sin_hora = [c for c in todos_list if c.hora_inicio is None]
+
+    # Anotar hora_termina solo para citas con hora
+    for i, cita in enumerate(citas_con_hora):
         if cita.hora_fin:
             cita.hora_termina = cita.hora_fin
-        elif i + 1 < len(citas_list):
-            cita.hora_termina = citas_list[i + 1].hora_inicio
+        elif i + 1 < len(citas_con_hora):
+            cita.hora_termina = citas_con_hora[i + 1].hora_inicio
         else:
             cita.hora_termina = None
 
-    for cita in citas_list:
+    # Anotar whatsapp, consulta y procedimiento en ambos grupos
+    for cita in citas_con_hora + citas_sin_hora:
         cita.whatsapp_url = cita.get_whatsapp_url(tenant=tenant)
         cita.consulta_registrada = None
         cita.procedimiento_registrado = None
@@ -76,16 +81,10 @@ def agenda_dia(request, fecha):
             try:
                 cita.consulta_registrada = cita.consulta
             except Exception:
-                # Buscar consulta vinculada a esta cita específica
-                cita.consulta_registrada = Consulta.objects.filter(
-                    cita=cita,
-                ).first()
+                cita.consulta_registrada = Consulta.objects.filter(cita=cita).first()
 
             if not cita.consulta_registrada:
-                # Buscar procedimiento vinculado a esta cita específica
-                cita.procedimiento_registrado = Procedimiento.objects.filter(
-                    cita=cita,
-                ).first()
+                cita.procedimiento_registrado = Procedimiento.objects.filter(cita=cita).first()
 
     consultas_sin_cita = Consulta.objects.filter(
         tenant=tenant, fecha=fecha_obj, cita__isnull=True,
@@ -153,7 +152,8 @@ def agenda_dia(request, fecha):
 
     return render(request, 'agenda/dia.html', {
         'fecha': fecha_obj,
-        'citas': citas_list,
+        'citas': citas_con_hora,
+        'citas_sin_hora': citas_sin_hora,
         'dia_anterior': dia_anterior,
         'dia_siguiente': dia_siguiente,
         'es_hoy': fecha_obj == date.today(),
