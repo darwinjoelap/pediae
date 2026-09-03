@@ -134,7 +134,9 @@ class Cita(models.Model):
         import re
 
         def _fmt_hora(t):
-            """Hora en formato 12 h sin cero inicial: '2:30 pm'."""
+            """Hora en formato 12 h sin cero inicial: '2:30 pm'. Retorna cadena vacía si t es None."""
+            if t is None:
+                return 'hora por confirmar'
             return t.strftime('%I:%M %p').lstrip('0').lower()
 
         tenant = tenant or self.tenant
@@ -153,6 +155,9 @@ class Cita(models.Model):
         else:
             lugar_str = ''
 
+        hora_str = _fmt_hora(self.hora_inicio)
+        a_las = '' if self.hora_inicio is None else f' a las {hora_str}'
+
         try:
             config = tenant.config if tenant else None
         except Exception:
@@ -166,12 +171,12 @@ class Cita(models.Model):
         if representante:
             cuerpo = (
                 f'le recordamos la cita de {self.paciente.nombre_completo} con {nombre_consultorio} '
-                f'el {self.fecha.strftime("%d/%m/%Y")} a las {_fmt_hora(self.hora_inicio)}{lugar_str}.'
+                f'el {self.fecha.strftime("%d/%m/%Y")}{a_las}{lugar_str}.'
             )
         else:
             cuerpo = (
                 f'le recordamos su cita con {nombre_consultorio} '
-                f'el {self.fecha.strftime("%d/%m/%Y")} a las {_fmt_hora(self.hora_inicio)}{lugar_str}.'
+                f'el {self.fecha.strftime("%d/%m/%Y")}{a_las}{lugar_str}.'
             )
 
         if config and config.whatsapp_mensaje:
