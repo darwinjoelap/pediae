@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from pediae.decorators import tenant_login_required as login_required
 from pacientes.models import Paciente
