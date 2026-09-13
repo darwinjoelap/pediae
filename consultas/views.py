@@ -783,7 +783,11 @@ def calcular_dosis_medicamento(request, pk):
         except (ValueError, TypeError):
             pass
     nivel = request.GET.get('nivel', 'estandar')
-    resultado = med.calcular_dosis(peso_kg=peso, edad_meses=edad_meses, nivel=nivel)
+    try:
+        resultado = med.calcular_dosis(peso_kg=peso, edad_meses=edad_meses, nivel=nivel)
+    except Exception as exc:
+        import traceback
+        return JsonResponse({'error': str(exc), 'traceback': traceback.format_exc()}, status=500)
     return JsonResponse(resultado)
 
 
