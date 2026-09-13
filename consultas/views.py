@@ -701,8 +701,14 @@ def nuevo_medicamento(request):
                 dosis_fija=request.POST.get('dosis_fija', '').strip(),
                 dosis_mg_kg_min=_dec('dosis_mg_kg_min'),
                 dosis_mg_kg_max=_dec('dosis_mg_kg_max'),
-                frecuencia_horas=_int('frecuencia_horas'),
-                duracion_dias=_int('duracion_dias'),
+                frecuencia_horas=_int({
+                    'fija': 'frecuencia_horas_fija',
+                    'edad': 'frecuencia_horas_edad',
+                }.get(request.POST.get('modo_calculo', 'peso') or 'peso', 'frecuencia_horas')),
+                duracion_dias=_int({
+                    'fija': 'duracion_dias_fija',
+                    'edad': 'duracion_dias_edad',
+                }.get(request.POST.get('modo_calculo', 'peso') or 'peso', 'duracion_dias')),
                 presentacion=request.POST.get('presentacion', '').strip(),
                 concentracion_mg=_dec('concentracion_mg'),
                 volumen_ml=_dec('volumen_ml'),
@@ -744,13 +750,16 @@ def editar_medicamento(request, pk):
         med.nombre              = request.POST.get('nombre', med.nombre).strip()
         med.indicaciones        = request.POST.get('indicaciones', med.indicaciones).strip()
         med.orden               = int(request.POST.get('orden', med.orden) or 0)
-        med.modo_calculo        = request.POST.get('modo_calculo', 'peso') or 'peso'
+        _modo = request.POST.get('modo_calculo', 'peso') or 'peso'
+        _freq_key = {'fija': 'frecuencia_horas_fija', 'edad': 'frecuencia_horas_edad'}.get(_modo, 'frecuencia_horas')
+        _dur_key  = {'fija': 'duracion_dias_fija',    'edad': 'duracion_dias_edad'   }.get(_modo, 'duracion_dias')
+        med.modo_calculo        = _modo
         med.unidad_dosis_kg     = request.POST.get('unidad_dosis_kg', 'mg') or 'mg'
         med.dosis_fija          = request.POST.get('dosis_fija', '').strip()
         med.dosis_mg_kg_min     = _dec('dosis_mg_kg_min')
         med.dosis_mg_kg_max     = _dec('dosis_mg_kg_max')
-        med.frecuencia_horas    = _int('frecuencia_horas')
-        med.duracion_dias       = _int('duracion_dias')
+        med.frecuencia_horas    = _int(_freq_key)
+        med.duracion_dias       = _int(_dur_key)
         med.presentacion        = request.POST.get('presentacion', '').strip()
         med.concentracion_mg    = _dec('concentracion_mg')
         med.volumen_ml          = _dec('volumen_ml')
