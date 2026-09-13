@@ -246,6 +246,16 @@
     campoPeso.addEventListener('input', function() { if (this.value) pesoInput.value = this.value; });
     if (campoPeso.value && !pesoInput.value) pesoInput.value = campoPeso.value;
   }
+  /* ── Normalizar valores con formato locale (coma → punto) ─────────── */
+  (function() {
+    [pesoInput, campoPeso].forEach(function(el) {
+      if (!el || el.value) return;          // ya tiene valor válido
+      var attr = el.getAttribute('value');  // valor del HTML (puede ser "2,0")
+      if (attr) el.value = attr.replace(',', '.');
+    });
+    // Re-sincronizar por si campoPeso se normalizó recién
+    if (campoPeso && campoPeso.value && !pesoInput.value) pesoInput.value = campoPeso.value;
+  })();
 
   /* ── Índice de medicamentos del glosario ──────────────────────────── */
   var medData = {};
