@@ -410,11 +410,14 @@ class Procedimiento(models.Model):
 class Medicamento(models.Model):
 
     UNIDAD_CHOICES = [
-        ('mL',      'mL (jarabe / gotas)'),
-        ('tableta', 'Tableta / cápsula'),
-        ('mg',      'mg directo'),
-        ('UI',      'Unidades internacionales'),
-        ('gotas',   'Gotas'),
+        ('mL',         'mL (jarabe / gotas)'),
+        ('tableta',    'Tableta / cápsula'),
+        ('mg',         'mg directo'),
+        ('UI',         'Unidades internacionales'),
+        ('gotas',      'Gotas'),
+        ('puff',       'Puff / inhalación'),
+        ('aplicacion', 'Aplicación'),
+        ('sobre',      'Sobre'),
     ]
 
     tenant = models.ForeignKey(
@@ -436,7 +439,18 @@ class Medicamento(models.Model):
         ),
     )
 
-    # ── Dosificación pediátrica ─────────────────────────────────────────────
+    # ── Dosis fija (no depende del peso) ───────────────────────────────────
+    dosis_fija = models.CharField(
+        max_length=50, blank=True,
+        verbose_name='Dosis fija',
+        help_text=(
+            'Para medicamentos donde la dosis NO depende del peso. '
+            'Ej: 2 puffs, 1 inhalación, 3 gotas. '
+            'Si se completa, ignora los campos mg/kg y se usa directamente como {{DOSIS}}.'
+        ),
+    )
+
+    # ── Dosificación pediátrica (mg/kg) ────────────────────────────────────
     dosis_mg_kg_min = models.DecimalField(
         max_digits=7, decimal_places=3,
         null=True, blank=True,
@@ -518,7 +532,9 @@ class Medicamento(models.Model):
 
     @property
     def tiene_calculo(self):
-        """True si el medicamento tiene datos suficientes para calcular dosis."""
+        """True si el medicamento tiene datos suficientes para calcular/resolver dosis."""
+        if self.dosis_fija:
+            return True
         return bool(self.dosis_mg_kg_min and self.concentracion_mg and self.unidad_resultado)
 
     @property
@@ -540,6 +556,14 @@ class Medicamento(models.Model):
             'alertas': alertas,
             'tiene_rango': self.tiene_rango,
         }
+
+        # ── Dosis fija (puffs, inhalaciones, gotas óticas…) ──────────────────
+        if self.dosis_fija:
+            resultado['dosis_display'] = self.dosis_fija
+            resultado['texto'] = self._resolver_tokens(
+                peso_kg=peso_kg, dosis_mg=None, cantidad=self.dosis_fija
+            )
+            return resultado
 
         if not self.tiene_calculo:
             # Sin datos de dosificación → devolver plantilla sin resolver

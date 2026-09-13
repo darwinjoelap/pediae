@@ -82,6 +82,7 @@
                   data-edad-min="{{ med.edad_min_meses|default:'' }}"
                   data-edad-max="{{ med.edad_max_meses|default:'' }}"
                   data-peso-min="{{ med.peso_min_kg|default:'' }}"
+                  data-dosis-fija="{{ med.dosis_fija|escapejs }}"
                   title="Editar">
             <i class="bi bi-pencil"></i>
           </button>
@@ -116,14 +117,15 @@
 ══════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalNuevoMed" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-      <form class="modal-content" method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/nuevo/">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#2AACA8">
+        <h5 class="modal-title text-white">
+          <i class="bi bi-capsule-pill me-1"></i> Nuevo medicamento
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/nuevo/">
         {% csrf_token %}
-        <div class="modal-header" style="background:#2AACA8">
-          <h5 class="modal-title text-white">
-            <i class="bi bi-capsule-pill me-1"></i> Nuevo medicamento
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
         {% include 'consultas/_form_medicamento.html' with prefix="nuevo" %}
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -132,6 +134,7 @@
           </button>
         </div>
       </form>
+    </div>
   </div>
 </div>
 
@@ -140,14 +143,15 @@
 ══════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalEditarMed" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-      <form id="formEditarMed" class="modal-content" method="post" action="">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-pencil me-1"></i> Editar medicamento
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formEditarMed" method="post" action="">
         {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">
-            <i class="bi bi-pencil me-1"></i> Editar medicamento
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
         {% include 'consultas/_form_medicamento.html' with prefix="editar" %}
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -156,6 +160,7 @@
           </button>
         </div>
       </form>
+    </div>
   </div>
 </div>
 
@@ -219,6 +224,7 @@ document.getElementById('modalEditarMed').addEventListener('show.bs.modal', func
   set('editar_edad_min_meses',     d.edadMin);
   set('editar_edad_max_meses',     d.edadMax);
   set('editar_peso_min_kg',        d.pesoMin);
+  set('editar_dosis_fija',         d.dosisFija);
 
   // Auto-expandir paneles que tienen datos
   function expandIf(panelId, hasData) {
@@ -273,12 +279,18 @@ function actualizarPreview(prefix) {
   var vol          = parseFloat(document.getElementById(prefix+'_volumen_ml')?.value) || 0;
   var unidad       = (document.getElementById(prefix+'_unidad_resultado')?.value || '');
 
+  var dosisFija    = (document.getElementById(prefix+'_dosis_fija')?.value || '').trim();
+
   // Ejemplo con peso ficticio de 15 kg
   var pesoDemoKg = 15;
-  var factor = dosisMin ? (dosisMax ? (dosisMin + dosisMax)/2 : dosisMin) : 0;
-  var dosis_mg = factor * pesoDemoKg;
-  var cantidad = 0;
   var dosis_display = '';
+
+  if (dosisFija) {
+    dosis_display = dosisFija;
+  } else {
+    var factor = dosisMin ? (dosisMax ? (dosisMin + dosisMax)/2 : dosisMin) : 0;
+    var dosis_mg = factor * pesoDemoKg;
+    var cantidad = 0;
 
   if (dosis_mg > 0 && conc > 0 && unidad) {
     if (unidad === 'mL' && vol > 0) {
@@ -293,6 +305,7 @@ function actualizarPreview(prefix) {
     }
     dosis_display = cantidad + ' ' + unidad;
   }
+  } // end else (dosis_fija vacía)
 
   var frecTxt = frecHoras ? 'cada ' + frecHoras + ' horas' : '';
   var durTxt  = durDias ? 'por ' + durDias + ' día' + (durDias !== 1 ? 's' : '') : '';
@@ -352,7 +365,7 @@ document.getElementById('modalEditarMed').addEventListener('shown.bs.modal', fun
 });
 
 function bindPreviewEvents(prefix) {
-  var campos = ['nombre','indicaciones','dosis_mg_kg_min','dosis_mg_kg_max',
+  var campos = ['nombre','indicaciones','dosis_fija','dosis_mg_kg_min','dosis_mg_kg_max',
                 'frecuencia_horas','duracion_dias','presentacion',
                 'concentracion_mg','volumen_ml','unidad_resultado'];
   campos.forEach(function(c) {
