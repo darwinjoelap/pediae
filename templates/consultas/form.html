@@ -114,17 +114,18 @@
       {% endif %}
 
       {% if medicamentos_disponibles %}
+      <script id="pediae-meds-data" type="application/json">{{ medicamentos_json|safe }}</script>
       <div id="pediae-med-picker-card" class="card border-0 mb-3" style="background:#f0fdf4">
         <div class="card-body py-2 px-3">
-          <p class="small fw-semibold mb-2" style="color:#166534">
-            <i class="bi bi-capsule-pill me-1"></i>Agregar desde glosario de medicamentos
-          </p>
 
-          <!-- Selector + peso + nivel + botón -->
-          <div class="row g-2 align-items-end">
-            <div class="col-12 col-md-5">
-              <select id="med-picker" class="form-select form-select-sm">
-                <option value="">— Seleccionar medicamento —</option>
+          <!-- Cabecera: título + controles -->
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+            <span class="small fw-semibold" style="color:#166534">
+              <i class="bi bi-capsule-pill me-1"></i>Medicamentos del récipe
+            </span>
+            <div class="d-flex flex-wrap gap-1 align-items-center">
+              <select id="med-picker" class="form-select form-select-sm" style="min-width:160px">
+                <option value="">— Del glosario —</option>
                 {% for med in medicamentos_disponibles %}
                 <option value="{{ med.pk }}"
                         data-calcula="{{ med.tiene_calculo|yesno:'1,0' }}"
@@ -133,36 +134,53 @@
                 </option>
                 {% endfor %}
               </select>
-            </div>
-            <div class="col-6 col-md-2" id="med-peso-wrap">
-              <label class="form-label small mb-1" style="color:#166534">Peso (kg)</label>
               <input type="number" id="med-peso" class="form-control form-control-sm"
-                     step="0.1" min="0.5"
-                     value="{{ paciente_ultimo_peso|default:'' }}"
-                     placeholder="kg">
-            </div>
-            <div class="col-6 col-md-2" id="med-nivel-wrap" style="display:none">
-              <label class="form-label small mb-1" style="color:#166534">Nivel</label>
-              <select id="med-nivel" class="form-select form-select-sm">
+                     style="width:70px" step="0.1" min="0.5"
+                     value="{{ paciente_ultimo_peso|default:'' }}" placeholder="kg">
+              <select id="med-nivel" class="form-select form-select-sm" style="display:none;width:95px">
                 <option value="minimo">Mínimo</option>
                 <option value="estandar" selected>Estándar</option>
                 <option value="maximo">Máximo</option>
               </select>
-            </div>
-            <div class="col-12 col-md-3">
-              <button type="button" id="btn-med-agregar"
-                      class="btn btn-sm w-100 fw-semibold"
+              <button type="button" id="btn-med-agregar" class="btn btn-sm fw-semibold"
                       style="background:#2AACA8;color:#fff">
                 <i class="bi bi-plus-lg"></i> Agregar
+              </button>
+              <button type="button" id="btn-med-manual" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil me-1"></i>Manual
               </button>
             </div>
           </div>
 
           <!-- Alertas de dosis -->
-          <div id="med-alertas" class="mt-2"></div>
+          <div id="med-alertas" class="mb-1"></div>
 
-          <!-- Chips de medicamentos agregados -->
-          <div id="meds-chips" class="d-flex flex-wrap gap-1 mt-2"></div>
+          <!-- Filas numeradas de medicamentos -->
+          <div id="med-rows-container"></div>
+          <p id="med-rows-empty" class="text-muted small fst-italic mb-1" style="display:none">
+            Sin medicamentos numerados.
+          </p>
+
+          <!-- Texto libre: aparece debajo de los numerados, sin índice en el recipe -->
+          <div class="mt-2 pt-2 border-top">
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label small mb-1 text-muted">
+                  Tratamiento adicional <span class="fw-normal text-muted">(sin número)</span>
+                </label>
+                <textarea id="med-trat-libre" class="form-control form-control-sm" rows="2"
+                          placeholder="Texto libre — aparece al final del tratamiento sin numeración"></textarea>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label small mb-1 text-muted">
+                  Indicaciones adicionales <span class="fw-normal text-muted">(sin número)</span>
+                </label>
+                <textarea id="med-ind-libre" class="form-control form-control-sm" rows="2"
+                          placeholder="Texto libre — aparece al final de las indicaciones sin numeración"></textarea>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
       {% endif %}
@@ -196,50 +214,139 @@
 
 {% block extra_js %}
 {% if medicamentos_disponibles %}
-<script id="pediae-meds-data" type="application/json">{{ medicamentos_json|safe }}</script>
 <script>
 (function () {
   var picker    = document.getElementById('med-picker');
   var btnAdd    = document.getElementById('btn-med-agregar');
-  var chips     = document.getElementById('meds-chips');
+  var btnManual = document.getElementById('btn-med-manual');
   var pesoInput = document.getElementById('med-peso');
   var nivelSel  = document.getElementById('med-nivel');
-  var nivelWrap = document.getElementById('med-nivel-wrap');
   var alertasEl = document.getElementById('med-alertas');
-  if (!btnAdd) return;
+  var container = document.getElementById('med-rows-container');
+  var emptyMsg  = document.getElementById('med-rows-empty');
+  var libreT    = document.getElementById('med-trat-libre');
+  var libreI    = document.getElementById('med-ind-libre');
+  if (!btnAdd || !container) return;
 
-  /* Mover el picker justo antes del campo tratamiento */
+  /* ── Campos reales ocultos por el widget ──────────────────────────── */
+  var fTrat = document.getElementById('id_tratamiento');
+  var fInd  = document.getElementById('id_indicaciones');
+
+  /* Posicionar card antes del campo tratamiento y ocultar campos crispy */
   var pickerCard = document.getElementById('pediae-med-picker-card');
   var divTrat    = document.getElementById('div_id_tratamiento');
-  if (pickerCard && divTrat) {
-    divTrat.parentNode.insertBefore(pickerCard, divTrat);
-  }
+  var divInd     = document.getElementById('div_id_indicaciones');
+  if (pickerCard && divTrat) divTrat.parentNode.insertBefore(pickerCard, divTrat);
+  if (divTrat) divTrat.style.display = 'none';
+  if (divInd)  divInd.style.display  = 'none';
 
-  /* Sincronizar peso con el campo de la consulta en tiempo real */
+  /* ── Sincronizar peso con campo peso de la consulta ───────────────── */
   var campoPeso = document.getElementById('id_peso');
   if (campoPeso) {
-    campoPeso.addEventListener('input', function() {
-      if (this.value) pesoInput.value = this.value;
-    });
+    campoPeso.addEventListener('input', function() { if (this.value) pesoInput.value = this.value; });
     if (campoPeso.value && !pesoInput.value) pesoInput.value = campoPeso.value;
   }
 
+  /* ── Índice de medicamentos del glosario ──────────────────────────── */
   var medData = {};
   try {
     JSON.parse(document.getElementById('pediae-meds-data').textContent)
       .forEach(function(m) { medData[String(m.pk)] = m; });
   } catch(e) {}
 
-  /* Mostrar/ocultar selector de nivel cuando el med tiene rango */
+  var tenantPrefix = '{{ TENANT_PREFIX }}';
+
+  /* Nivel visible solo cuando el med tiene rango */
   picker.addEventListener('change', function() {
     var opt = picker.options[picker.selectedIndex];
-    nivelWrap.style.display = (opt && opt.dataset.rango === '1') ? '' : 'none';
+    nivelSel.style.display = (opt && opt.dataset.rango === '1') ? '' : 'none';
     alertasEl.innerHTML = '';
   });
 
-  /* Determinar URL base del tenant */
-  var tenantPrefix = '{{ TENANT_PREFIX }}';
+  /* ── Serializar filas + texto libre → campos ocultos ─────────────── */
+  function serializar() {
+    var rows = container.querySelectorAll('.med-row');
+    var trats = [], inds = [], n = 1;
+    rows.forEach(function(row) {
+      trats.push(n + '. ' + (row.querySelector('.med-nombre').value || '').trim());
+      inds.push(n + '. ' + (row.querySelector('.med-ind').value || '').trim());
+      row.querySelector('.med-num').textContent = n++;
+    });
+    var lt = (libreT ? libreT.value.trim() : '');
+    var li = (libreI ? libreI.value.trim() : '');
+    if (lt) trats.push(lt);
+    if (li) inds.push(li);
+    if (fTrat) fTrat.value = trats.join('\n');
+    if (fInd)  fInd.value  = inds.join('\n');
+    emptyMsg.style.display = rows.length ? 'none' : '';
+  }
 
+  if (libreT) libreT.addEventListener('input', serializar);
+  if (libreI) libreI.addEventListener('input', serializar);
+
+  /* ── Crear fila ───────────────────────────────────────────────────── */
+  function crearFila(nombre, indicacion) {
+    var idx = container.querySelectorAll('.med-row').length + 1;
+    var div = document.createElement('div');
+    div.className = 'med-row border rounded mb-1 bg-white';
+    div.innerHTML =
+      '<div class="d-flex align-items-start gap-2 p-2">' +
+        '<span class="med-num badge bg-secondary flex-shrink-0 mt-1" style="min-width:22px;text-align:center">' + idx + '</span>' +
+        '<div class="flex-grow-1">' +
+          '<input type="text" class="form-control form-control-sm mb-1 med-nombre"' +
+                 ' placeholder="Medicamento (ej: Amoxicilina 250 mg/5 mL)"' +
+                 ' value="' + (nombre || '').replace(/"/g, '&quot;').replace(/\n/g, ' ') + '">' +
+          '<textarea class="form-control form-control-sm med-ind" rows="2"' +
+                    ' placeholder="Indicaciones">' +
+                    (indicacion || '').replace(/</g,'&lt;') +
+                    '</textarea>' +
+        '</div>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 btn-remove-row" title="Eliminar">' +
+          '<i class="bi bi-x-lg"></i>' +
+        '</button>' +
+      '</div>';
+    div.querySelector('.btn-remove-row').addEventListener('click', function() { div.remove(); serializar(); });
+    div.querySelector('.med-nombre').addEventListener('input', serializar);
+    div.querySelector('.med-ind').addEventListener('input', serializar);
+    container.appendChild(div);
+    serializar();
+  }
+
+  /* ── Parsear valores existentes al editar una consulta ────────────── */
+  (function parsearExistentes() {
+    var txtT = (fTrat ? fTrat.value : '').trim();
+    var txtI = (fInd  ? fInd.value  : '').trim();
+    if (!txtT && !txtI) { serializar(); return; }
+
+    function agrupar(txt) {
+      var grupos = [], libre = [], buf = null;
+      txt.split('\n').forEach(function(l) {
+        var m = l.match(/^(\d+)\.\s*([\s\S]*)/);
+        if (m) { if (buf !== null) grupos.push(buf.trim()); buf = m[2]; }
+        else if (buf !== null) { buf += '\n' + l; }
+        else { libre.push(l); }
+      });
+      if (buf !== null) grupos.push(buf.trim());
+      return { grupos: grupos, libre: libre.join('\n').trim() };
+    }
+
+    var pt = agrupar(txtT), pi = agrupar(txtI);
+    var total = Math.max(pt.grupos.length, pi.grupos.length);
+    for (var i = 0; i < total; i++) crearFila(pt.grupos[i] || '', pi.grupos[i] || '');
+    if (libreT) libreT.value = pt.libre;
+    if (libreI) libreI.value = pi.libre;
+    serializar();
+  })();
+
+  /* ── Agregar fila manual vacía ────────────────────────────────────── */
+  btnManual.addEventListener('click', function() {
+    crearFila('', '');
+    var rows = container.querySelectorAll('.med-row');
+    var last = rows[rows.length - 1];
+    if (last) last.querySelector('.med-nombre').focus();
+  });
+
+  /* ── Agregar del glosario con cálculo de dosis ────────────────────── */
   btnAdd.addEventListener('click', function () {
     var val = picker.value;
     if (!val) { picker.focus(); return; }
@@ -248,16 +355,18 @@
 
     var peso = parseFloat(pesoInput.value);
     if (!peso || peso <= 0) {
-      alertasEl.innerHTML = '<div class="alert alert-warning alert-sm py-1 px-2 mb-0 small">' +
-        '<i class="bi bi-exclamation-triangle me-1"></i>Ingresa el peso del paciente para calcular la dosis.</div>';
+      alertasEl.innerHTML =
+        '<div class="alert alert-warning py-1 px-2 mb-0 small">' +
+        '<i class="bi bi-exclamation-triangle me-1"></i>Ingresa el peso del paciente.</div>';
       pesoInput.focus();
       return;
     }
 
-    alertasEl.innerHTML = '<div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Calculando dosis…</div>';
+    alertasEl.innerHTML =
+      '<div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Calculando dosis…</div>';
     btnAdd.disabled = true;
 
-    var nivel     = nivelSel ? nivelSel.value : 'estandar';
+    var nivel     = nivelSel.value || 'estandar';
     var edadMeses = {{ paciente_edad_meses|default:'null' }};
     var url = tenantPrefix + '/consultas/medicamentos/' + val + '/calcular/?peso=' +
               peso + '&nivel=' + nivel +
@@ -268,59 +377,26 @@
       .then(function(data) {
         btnAdd.disabled = false;
         alertasEl.innerHTML = '';
-
-        /* Mostrar alertas clínicas */
         if (data.alertas && data.alertas.length) {
           data.alertas.forEach(function(a) {
             alertasEl.innerHTML +=
               '<div class="alert alert-' + a.tipo + ' py-1 px-2 mb-1 small">' + a.msg + '</div>';
           });
         }
-
-        /* Campo tratamiento */
-        var fTrat = document.getElementById('id_tratamiento');
-        if (fTrat) {
-          var t = fTrat.value.trim();
-          fTrat.value = t ? t + '\n• ' + med.nombre : '• ' + med.nombre;
-        }
-
-        /* Campo indicaciones */
-        var fInd = document.getElementById('id_indicaciones');
-        if (fInd) {
-          var i = fInd.value.trim();
-          var bloque = data.texto || (med.nombre + (med.indicaciones ? ':\n' + med.indicaciones : ''));
-          fInd.value = i ? i + '\n\n' + bloque : bloque;
-        }
-
-        /* Chip */
-        var etiqueta = med.nombre;
-        if (data.dosis_display) etiqueta += ' · ' + data.dosis_display;
-        var chip = document.createElement('span');
-        chip.className = 'badge d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill';
-        chip.style.cssText = 'background:#d1fae5;color:#065f46;font-size:.72rem;font-weight:500';
-        chip.innerHTML = '<i class="bi bi-capsule-pill"></i><span>' + etiqueta + '</span>' +
-          '<button type="button" style="background:none;border:none;padding:0 0 0 2px;cursor:pointer;color:#065f46;font-size:.65rem" aria-label="Quitar">&#x2715;</button>';
-        chip.querySelector('button').addEventListener('click', function(){ chip.remove(); });
-        chips.appendChild(chip);
-
+        var nombre    = med.nombre + (med.presentacion ? '  ' + med.presentacion : '');
+        var indicacion = (data.texto || med.indicaciones || '').trim();
+        crearFila(nombre, indicacion);
         picker.selectedIndex = 0;
         picker.dispatchEvent(new Event('change'));
         picker.focus();
       })
-      .catch(function(err) {
+      .catch(function() {
         btnAdd.disabled = false;
-        /* Sin cálculo: insertar template sin resolver */
         alertasEl.innerHTML = '';
-        var fTrat = document.getElementById('id_tratamiento');
-        if (fTrat) {
-          var t = fTrat.value.trim();
-          fTrat.value = t ? t + '\n• ' + med.nombre : '• ' + med.nombre;
-        }
-        var fInd = document.getElementById('id_indicaciones');
-        if (fInd && med.indicaciones) {
-          var i = fInd.value.trim();
-          fInd.value = i ? i + '\n\n' + med.indicaciones : med.indicaciones;
-        }
+        crearFila(
+          med.nombre + (med.presentacion ? '  ' + med.presentacion : ''),
+          (med.indicaciones || '').trim()
+        );
         picker.selectedIndex = 0;
         picker.focus();
       });
