@@ -408,17 +408,105 @@ class Procedimiento(models.Model):
 
 
 class Medicamento(models.Model):
+
+    UNIDAD_CHOICES = [
+        ('mL',      'mL (jarabe / gotas)'),
+        ('tableta', 'Tableta / cápsula'),
+        ('mg',      'mg directo'),
+        ('UI',      'Unidades internacionales'),
+        ('gotas',   'Gotas'),
+    ]
+
     tenant = models.ForeignKey(
         'tenant.Tenant', on_delete=models.CASCADE,
         related_name='medicamentos', verbose_name='Tenant'
     )
-    nombre = models.CharField(max_length=200, verbose_name='Nombre')
+    nombre  = models.CharField(max_length=200, verbose_name='Nombre')
+    activo  = models.BooleanField(default=True, verbose_name='Activo')
+    orden   = models.IntegerField(default=0, verbose_name='Orden')
+
+    # ── Plantilla de indicaciones (soporta tokens {{DOSIS}}, {{FRECUENCIA}}, etc.)
     indicaciones = models.TextField(
-        verbose_name='Indicaciones por defecto',
-        help_text='Ej: 1 tableta cada 8 horas por 5 días'
+        verbose_name='Plantilla de indicaciones',
+        blank=True,
+        help_text=(
+            'Texto libre. Inserta variables automáticas con los botones: '
+            '{{DOSIS}}, {{DOSIS_MG}}, {{FRECUENCIA}}, {{DURACION}}, '
+            '{{PRESENTACION}}, {{NOMBRE}}, {{PESO}}'
+        ),
     )
-    activo = models.BooleanField(default=True, verbose_name='Activo')
-    orden = models.IntegerField(default=0, verbose_name='Orden')
+
+    # ── Dosificación pediátrica ─────────────────────────────────────────────
+    dosis_mg_kg_min = models.DecimalField(
+        max_digits=7, decimal_places=3,
+        null=True, blank=True,
+        verbose_name='Dosis mínima (mg/kg/dosis)',
+        help_text='Si no hay rango, usar solo este campo como dosis fija.',
+    )
+    dosis_mg_kg_max = models.DecimalField(
+        max_digits=7, decimal_places=3,
+        null=True, blank=True,
+        verbose_name='Dosis máxima (mg/kg/dosis)',
+        help_text='Completar solo si hay rango (leve / severo). Dejar vacío para dosis fija.',
+    )
+    frecuencia_horas = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name='Frecuencia (horas)',
+        help_text='Cada cuántas horas se administra. Ej: 8 → cada 8 horas.',
+    )
+    duracion_dias = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name='Duración (días)',
+        help_text='Número de días del tratamiento.',
+    )
+
+    # ── Presentación ────────────────────────────────────────────────────────
+    presentacion = models.CharField(
+        max_length=100, blank=True,
+        verbose_name='Presentación',
+        help_text='Ej: susp. 250 mg/5 mL  |  tab. 500 mg  |  gotas 100 mg/mL',
+    )
+    concentracion_mg = models.DecimalField(
+        max_digits=8, decimal_places=3,
+        null=True, blank=True,
+        verbose_name='Concentración (mg)',
+        help_text='mg del principio activo en la unidad de medida base.',
+    )
+    volumen_ml = models.DecimalField(
+        max_digits=6, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Volumen base (mL)',
+        help_text='mL correspondientes a la concentración indicada. '
+                  'Ej: 5 para "250 mg/5 mL". Dejar vacío para tabletas.',
+    )
+    unidad_resultado = models.CharField(
+        max_length=10, choices=UNIDAD_CHOICES, blank=True,
+        verbose_name='Unidad del resultado',
+    )
+
+    # ── Límites y alertas ───────────────────────────────────────────────────
+    dosis_max_absoluta = models.DecimalField(
+        max_digits=8, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Dosis máxima absoluta (mg/dosis)',
+        help_text='Techo del adulto. La dosis calculada nunca superará este valor.',
+    )
+    edad_min_meses = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name='Edad mínima (meses)',
+        help_text='Se mostrará advertencia si el paciente es menor de esta edad.',
+    )
+    edad_max_meses = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        verbose_name='Edad máxima (meses)',
+        help_text='Alerta si el paciente supera esta edad (revisar dosis adulto).',
+    )
+    peso_min_kg = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Peso mínimo (kg)',
+        help_text='Advertencia si el paciente pesa menos de este valor.',
+    )
 
     class Meta:
         ordering = ['orden', 'nombre']
@@ -427,3 +515,137 @@ class Medicamento(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    @property
+    def tiene_calculo(self):
+        """True si el medicamento tiene datos suficientes para calcular dosis."""
+        return bool(self.dosis_mg_kg_min and self.concentracion_mg and self.unidad_resultado)
+
+    @property
+    def tiene_rango(self):
+        """True si la dosis tiene rango (mín/máx por kg)."""
+        return bool(self.dosis_mg_kg_min and self.dosis_mg_kg_max)
+
+    def calcular_dosis(self, peso_kg, edad_meses=None, nivel='estandar'):
+        """
+        Calcula la dosis para un paciente dado su peso.
+        nivel: 'minimo' | 'estandar' | 'maximo'
+        Retorna dict con texto (plantilla resuelta), alertas y valores crudos.
+        """
+        alertas = []
+        resultado = {
+            'dosis_mg': None,
+            'dosis_display': None,
+            'texto': self.indicaciones,
+            'alertas': alertas,
+            'tiene_rango': self.tiene_rango,
+        }
+
+        if not self.tiene_calculo:
+            # Sin datos de dosificación → devolver plantilla sin resolver
+            resultado['texto'] = self._resolver_tokens(
+                peso_kg=peso_kg, dosis_mg=None, cantidad=None
+            )
+            return resultado
+
+        # ── Alertas de edad ────────────────────────────────────────────────
+        if edad_meses is not None:
+            if self.edad_min_meses and edad_meses < self.edad_min_meses:
+                meses = self.edad_min_meses
+                años = meses // 12
+                resto = meses % 12
+                txt = f'{años} años' if not resto else (
+                    f'{años} años y {resto} meses' if años else f'{meses} meses'
+                )
+                alertas.append({
+                    'tipo': 'danger',
+                    'msg': f'⚠️ Contraindicado en menores de {txt}.',
+                })
+            if self.edad_max_meses and edad_meses > self.edad_max_meses:
+                alertas.append({
+                    'tipo': 'warning',
+                    'msg': '⚠️ Paciente fuera del rango de edad pediátrico. Verificar dosis adulto.',
+                })
+
+        # ── Alerta de peso ─────────────────────────────────────────────────
+        if self.peso_min_kg and peso_kg < float(self.peso_min_kg):
+            alertas.append({
+                'tipo': 'warning',
+                'msg': f'⚠️ Peso por debajo del mínimo recomendado ({self.peso_min_kg} kg).',
+            })
+
+        # ── Calcular dosis en mg ───────────────────────────────────────────
+        if self.tiene_rango:
+            d_min = float(self.dosis_mg_kg_min)
+            d_max = float(self.dosis_mg_kg_max)
+            if nivel == 'minimo':
+                factor = d_min
+            elif nivel == 'maximo':
+                factor = d_max
+            else:  # estándar → punto medio
+                factor = (d_min + d_max) / 2
+        else:
+            factor = float(self.dosis_mg_kg_min)
+
+        dosis_mg = factor * float(peso_kg)
+
+        # ── Aplicar techo absoluto ─────────────────────────────────────────
+        if self.dosis_max_absoluta and dosis_mg > float(self.dosis_max_absoluta):
+            alertas.append({
+                'tipo': 'info',
+                'msg': (
+                    f'ℹ️ Dosis ajustada al tope máximo de '
+                    f'{self.dosis_max_absoluta} mg/dosis.'
+                ),
+            })
+            dosis_mg = float(self.dosis_max_absoluta)
+
+        # ── Convertir a unidad de resultado ───────────────────────────────
+        conc = float(self.concentracion_mg)
+        if self.unidad_resultado == 'mL' and self.volumen_ml:
+            cantidad = round((dosis_mg / conc) * float(self.volumen_ml), 1)
+        elif self.unidad_resultado == 'tableta':
+            raw = dosis_mg / conc
+            # Redondear a mitades (0.5) para tabletas partibles
+            cantidad = round(raw * 2) / 2
+        elif self.unidad_resultado == 'gotas':
+            cantidad = round((dosis_mg / conc) * float(self.volumen_ml or 1), 0)
+        else:
+            cantidad = round(dosis_mg, 1)
+
+        resultado['dosis_mg'] = round(dosis_mg, 1)
+        resultado['dosis_display'] = f'{cantidad} {self.unidad_resultado}'
+
+        resultado['texto'] = self._resolver_tokens(
+            peso_kg=peso_kg,
+            dosis_mg=round(dosis_mg, 1),
+            cantidad=cantidad,
+        )
+        return resultado
+
+    def _resolver_tokens(self, peso_kg, dosis_mg, cantidad):
+        """Reemplaza los tokens de la plantilla con valores reales."""
+        frecuencia_txt = (
+            f'cada {self.frecuencia_horas} horas' if self.frecuencia_horas else ''
+        )
+        duracion_txt = (
+            f'por {self.duracion_dias} día{"s" if self.duracion_dias != 1 else ""}'
+            if self.duracion_dias else ''
+        )
+        dosis_txt = (
+            f'{cantidad} {self.unidad_resultado}'
+            if cantidad is not None else ''
+        )
+        reemplazos = {
+            '{{NOMBRE}}':       self.nombre,
+            '{{PRESENTACION}}': self.presentacion or '',
+            '{{DOSIS}}':        dosis_txt,
+            '{{DOSIS_MG}}':     f'{dosis_mg} mg' if dosis_mg is not None else '',
+            '{{FRECUENCIA}}':   frecuencia_txt,
+            '{{DURACION}}':     duracion_txt,
+            '{{PESO}}':         f'{peso_kg} kg' if peso_kg is not None else '',
+        }
+        texto = self.indicaciones
+        for token, valor in reemplazos.items():
+            texto = texto.replace(token, valor)
+        return texto

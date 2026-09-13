@@ -1,0 +1,180 @@
+{% comment %}
+  Partial: campos del formulario de medicamento.
+  Variable requerida: prefix  ('nuevo' | 'editar')
+{% endcomment %}
+<div class="modal-body">
+
+  <!-- ── Básicos ── -->
+  <div class="row g-2 mb-3">
+    <div class="col-8">
+      <label class="form-label fw-bold small mb-1">Nombre <span class="text-danger">*</span></label>
+      <input type="text" id="{{ prefix }}_nombre" name="nombre"
+             class="form-control form-control-sm" required
+             placeholder="Ej: Amoxicilina 250 mg/5 mL">
+    </div>
+    <div class="col-4">
+      <label class="form-label fw-bold small mb-1">Orden</label>
+      <input type="number" id="{{ prefix }}_orden" name="orden"
+             class="form-control form-control-sm" value="0" min="0">
+    </div>
+  </div>
+
+  <!-- ── Dosificación ── -->
+  <div class="card border-0 bg-light rounded-3 p-3 mb-3">
+    <div class="fw-bold small mb-2" style="color:#2AACA8">
+      <i class="bi bi-calculator me-1"></i>Cálculo de dosis pediátrica
+      <span class="text-muted fw-normal">(opcional)</span>
+    </div>
+    <div class="row g-2">
+      <div class="col-6">
+        <label class="form-label small mb-1">Dosis mín (mg/kg/dosis)</label>
+        <input type="number" id="{{ prefix }}_dosis_mg_kg_min" name="dosis_mg_kg_min"
+               class="form-control form-control-sm" step="0.001" min="0"
+               placeholder="Ej: 12.5">
+        <div class="form-text" style="font-size:0.7rem">Dosis fija si no hay máximo</div>
+      </div>
+      <div class="col-6">
+        <label class="form-label small mb-1">Dosis máx (mg/kg/dosis)</label>
+        <input type="number" id="{{ prefix }}_dosis_mg_kg_max" name="dosis_mg_kg_max"
+               class="form-control form-control-sm" step="0.001" min="0"
+               placeholder="Solo si hay rango">
+      </div>
+      <div class="col-6">
+        <label class="form-label small mb-1">Frecuencia (horas)</label>
+        <input type="number" id="{{ prefix }}_frecuencia_horas" name="frecuencia_horas"
+               class="form-control form-control-sm" min="1"
+               placeholder="Ej: 8">
+      </div>
+      <div class="col-6">
+        <label class="form-label small mb-1">Duración (días)</label>
+        <input type="number" id="{{ prefix }}_duracion_dias" name="duracion_dias"
+               class="form-control form-control-sm" min="1"
+               placeholder="Ej: 7">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Presentación ── -->
+  <div class="card border-0 bg-light rounded-3 p-3 mb-3">
+    <div class="fw-bold small mb-2" style="color:#2AACA8">
+      <i class="bi bi-prescription-bottle me-1"></i>Presentación comercial
+      <span class="text-muted fw-normal">(para calcular volumen)</span>
+    </div>
+    <div class="row g-2">
+      <div class="col-12">
+        <label class="form-label small mb-1">Descripción</label>
+        <input type="text" id="{{ prefix }}_presentacion" name="presentacion"
+               class="form-control form-control-sm"
+               placeholder="Ej: Susp. 250 mg/5 mL  |  Tab. 500 mg  |  Gotas 100 mg/mL">
+      </div>
+      <div class="col-4">
+        <label class="form-label small mb-1">Concentración (mg)</label>
+        <input type="number" id="{{ prefix }}_concentracion_mg" name="concentracion_mg"
+               class="form-control form-control-sm" step="0.001" min="0"
+               placeholder="Ej: 250">
+      </div>
+      <div class="col-4">
+        <label class="form-label small mb-1">Volumen base (mL)</label>
+        <input type="number" id="{{ prefix }}_volumen_ml" name="volumen_ml"
+               class="form-control form-control-sm" step="0.01" min="0"
+               placeholder="Ej: 5">
+        <div class="form-text" style="font-size:0.7rem">Solo jarabes/gotas</div>
+      </div>
+      <div class="col-4">
+        <label class="form-label small mb-1">Unidad resultado</label>
+        <select id="{{ prefix }}_unidad_resultado" name="unidad_resultado"
+                class="form-select form-select-sm">
+          <option value="">---</option>
+          <option value="mL">mL</option>
+          <option value="tableta">Tableta</option>
+          <option value="mg">mg</option>
+          <option value="UI">UI</option>
+          <option value="gotas">Gotas</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Límites / alertas ── -->
+  <div class="card border-0 bg-light rounded-3 p-3 mb-3">
+    <div class="fw-bold small mb-2" style="color:#2AACA8">
+      <i class="bi bi-exclamation-triangle me-1"></i>Límites y alertas
+      <span class="text-muted fw-normal">(opcional)</span>
+    </div>
+    <div class="row g-2">
+      <div class="col-6">
+        <label class="form-label small mb-1">Edad mínima (meses)</label>
+        <input type="number" id="{{ prefix }}_edad_min_meses" name="edad_min_meses"
+               class="form-control form-control-sm" min="0"
+               placeholder="Ej: 3">
+      </div>
+      <div class="col-6">
+        <label class="form-label small mb-1">Edad máxima (meses)</label>
+        <input type="number" id="{{ prefix }}_edad_max_meses" name="edad_max_meses"
+               class="form-control form-control-sm" min="0"
+               placeholder="Ej: 216 (18 años)">
+      </div>
+      <div class="col-6">
+        <label class="form-label small mb-1">Peso mínimo (kg)</label>
+        <input type="number" id="{{ prefix }}_peso_min_kg" name="peso_min_kg"
+               class="form-control form-control-sm" step="0.01" min="0"
+               placeholder="Ej: 3">
+      </div>
+      <div class="col-6">
+        <label class="form-label small mb-1">Dosis máx absoluta (mg/dosis)</label>
+        <input type="number" id="{{ prefix }}_dosis_max_absoluta" name="dosis_max_absoluta"
+               class="form-control form-control-sm" step="0.01" min="0"
+               placeholder="Techo adulto. Ej: 500">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Plantilla de indicaciones ── -->
+  <div class="mb-3">
+    <label class="form-label fw-bold small mb-1">
+      Plantilla de indicaciones
+      <span class="text-muted fw-normal">(inserta variables con los botones)</span>
+    </label>
+
+    <!-- Barra de tokens (data-token evita conflictos con Django template) -->
+    <div class="d-flex flex-wrap gap-1 mb-2" data-prefix="{{ prefix }}">
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 med-token"
+              style="font-size:0.7rem;font-family:monospace"
+              data-token="&#123;&#123;NOMBRE&#125;&#125;">&#123;&#123;NOMBRE&#125;&#125;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 med-token"
+              style="font-size:0.7rem;font-family:monospace"
+              data-token="&#123;&#123;PRESENTACION&#125;&#125;">&#123;&#123;PRESENTACION&#125;&#125;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 med-token"
+              style="font-size:0.7rem;font-family:monospace"
+              data-token="&#123;&#123;DOSIS&#125;&#125;">&#123;&#123;DOSIS&#125;&#125;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 med-token"
+              style="font-size:0.7rem;font-family:monospace"
+              data-token="&#123;&#123;DOSIS_MG&#125;&#125;">&#123;&#123;DOSIS_MG&#125;&#125;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 med-token"
+              style="font-size:0.7rem;font-family:monospace"
+              data-token="&#123;&#123;FRECUENCIA&#125;&#125;">&#123;&#123;FRECUENCIA&#125;&#125;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 med-token"
+              style="font-size:0.7rem;font-family:monospace"
+              data-token="&#123;&#123;DURACION&#125;&#125;">&#123;&#123;DURACION&#125;&#125;</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 med-token"
+              style="font-size:0.7rem;font-family:monospace"
+              data-token="&#123;&#123;PESO&#125;&#125;">&#123;&#123;PESO&#125;&#125;</button>
+    </div>
+
+    <textarea id="{{ prefix }}_indicaciones" name="indicaciones"
+              class="form-control form-control-sm" rows="4" style="font-family:monospace"
+              placeholder="Ej: {{NOMBRE}} {{PRESENTACION}}&#10;{{DOSIS}} {{FRECUENCIA}} {{DURACION}}"></textarea>
+    <div class="form-text" style="font-size:0.7rem">
+      Los tokens se reemplazarán con los valores calculados al agregar en la consulta.
+    </div>
+  </div>
+
+  <!-- ── Vista previa ── -->
+  <div class="rounded-3 p-2 border" style="background:#f8f9fa">
+    <div class="small fw-bold mb-1 text-muted">
+      <i class="bi bi-eye me-1"></i>Vista previa <span class="fw-normal">(ejemplo: paciente 15 kg)</span>
+    </div>
+    <pre id="{{ prefix }}_preview" class="mb-0 small" style="white-space:pre-wrap;color:#999;font-family:inherit">(escribe la plantilla arriba y usa los botones para insertar variables)</pre>
+  </div>
+
+</div>

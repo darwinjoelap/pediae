@@ -108,9 +108,44 @@ def nueva_consulta(request, paciente_id):
 
     import json as _json
     from .models import Medicamento
-    meds_qs = list(Medicamento.objects.filter(
-        tenant=request.tenant, activo=True
-    ).order_by('orden', 'nombre').values('pk', 'nombre', 'indicaciones'))
+    from decimal import Decimal
+
+    def _meds_context(tenant):
+        qs = list(Medicamento.objects.filter(
+            tenant=tenant, activo=True
+        ).order_by('orden', 'nombre').values(
+            'pk', 'nombre', 'indicaciones',
+            'dosis_mg_kg_min', 'dosis_mg_kg_max',
+            'frecuencia_horas', 'duracion_dias',
+            'presentacion', 'concentracion_mg', 'volumen_ml',
+            'unidad_resultado', 'dosis_max_absoluta',
+        ))
+        for m in qs:
+            for k in ('dosis_mg_kg_min','dosis_mg_kg_max','concentracion_mg',
+                      'volumen_ml','dosis_max_absoluta'):
+                m[k] = float(m[k]) if m[k] is not None else None
+            m['tiene_calculo'] = bool(m['dosis_mg_kg_min'] and m['concentracion_mg'] and m['unidad_resultado'])
+            m['tiene_rango'] = bool(m['dosis_mg_kg_min'] and m['dosis_mg_kg_max'])
+        return qs
+
+    meds_qs = _meds_context(request.tenant)
+
+    # Edad actual del paciente en meses (para AJAX)
+    from dateutil.relativedelta import relativedelta
+    from datetime import date as _date
+    edad_meses_actual = None
+    if paciente.fecha_nacimiento:
+        d = relativedelta(_date.today(), paciente.fecha_nacimiento)
+        edad_meses_actual = d.years * 12 + d.months
+
+    # Peso de la última consulta (sugerencia)
+    ultimo_peso = None
+    ultima = Consulta.objects.filter(
+        paciente=paciente, tenant=request.tenant, peso__isnull=False
+    ).order_by('-fecha').first()
+    if ultima:
+        ultimo_peso = float(ultima.peso)
+
     return render(request, 'consultas/form.html', {
         'form': form,
         'paciente': paciente,
@@ -120,6 +155,8 @@ def nueva_consulta(request, paciente_id):
         'servicios_seleccionados': servicios_preseleccionados,
         'medicamentos_disponibles': meds_qs,
         'medicamentos_json': _json.dumps(meds_qs, ensure_ascii=False),
+        'paciente_edad_meses': edad_meses_actual,
+        'paciente_ultimo_peso': ultimo_peso,
     })
 
 @login_required
@@ -206,9 +243,37 @@ def editar_consulta(request, pk):
 
     import json as _json
     from .models import Medicamento
-    meds_qs = list(Medicamento.objects.filter(
-        tenant=request.tenant, activo=True
-    ).order_by('orden', 'nombre').values('pk', 'nombre', 'indicaciones'))
+    from decimal import Decimal
+
+    def _meds_ctx(tenant):
+        qs = list(Medicamento.objects.filter(
+            tenant=tenant, activo=True
+        ).order_by('orden', 'nombre').values(
+            'pk', 'nombre', 'indicaciones',
+            'dosis_mg_kg_min', 'dosis_mg_kg_max',
+            'frecuencia_horas', 'duracion_dias',
+            'presentacion', 'concentracion_mg', 'volumen_ml',
+            'unidad_resultado', 'dosis_max_absoluta',
+        ))
+        for m in qs:
+            for k in ('dosis_mg_kg_min','dosis_mg_kg_max','concentracion_mg',
+                      'volumen_ml','dosis_max_absoluta'):
+                m[k] = float(m[k]) if m[k] is not None else None
+            m['tiene_calculo'] = bool(m['dosis_mg_kg_min'] and m['concentracion_mg'] and m['unidad_resultado'])
+            m['tiene_rango'] = bool(m['dosis_mg_kg_min'] and m['dosis_mg_kg_max'])
+        return qs
+
+    meds_qs = _meds_ctx(request.tenant)
+
+    from dateutil.relativedelta import relativedelta
+    from datetime import date as _date
+    edad_meses_actual = None
+    if paciente.fecha_nacimiento:
+        d = relativedelta(_date.today(), paciente.fecha_nacimiento)
+        edad_meses_actual = d.years * 12 + d.months
+
+    peso_actual = float(consulta.peso) if consulta.peso else None
+
     return render(request, 'consultas/form.html', {
         'form': form,
         'paciente': paciente,
@@ -219,6 +284,8 @@ def editar_consulta(request, pk):
         'servicios_seleccionados': servicios_preseleccionados,
         'medicamentos_disponibles': meds_qs,
         'medicamentos_json': _json.dumps(meds_qs, ensure_ascii=False),
+        'paciente_edad_meses': edad_meses_actual,
+        'paciente_ultimo_peso': peso_actual,
     })
 
 
@@ -575,7 +642,20 @@ def medicamentos_json(request):
     from .models import Medicamento
     meds = list(Medicamento.objects.filter(
         tenant=request.tenant, activo=True
-    ).order_by('orden', 'nombre').values('pk', 'nombre', 'indicaciones'))
+    ).order_by('orden', 'nombre').values(
+        'pk', 'nombre', 'indicaciones',
+        'dosis_mg_kg_min', 'dosis_mg_kg_max',
+        'frecuencia_horas', 'duracion_dias',
+        'presentacion', 'concentracion_mg', 'volumen_ml',
+        'unidad_resultado', 'dosis_max_absoluta',
+    ))
+    # Serialize Decimal → str for JSON
+    for m in meds:
+        for k in ('dosis_mg_kg_min','dosis_mg_kg_max','concentracion_mg',
+                  'volumen_ml','dosis_max_absoluta'):
+            m[k] = str(m[k]) if m[k] is not None else None
+        m['tiene_calculo'] = bool(m['dosis_mg_kg_min'] and m['concentracion_mg'] and m['unidad_resultado'])
+        m['tiene_rango'] = bool(m['dosis_mg_kg_min'] and m['dosis_mg_kg_max'])
     return JsonResponse({'medicamentos': meds})
 
 
@@ -586,15 +666,36 @@ def nuevo_medicamento(request):
     if not request.user.es_medico:
         return HttpResponseForbidden()
     if request.method == 'POST':
-        nombre      = request.POST.get('nombre', '').strip()
+        nombre       = request.POST.get('nombre', '').strip()
         indicaciones = request.POST.get('indicaciones', '').strip()
-        orden       = int(request.POST.get('orden', 0) or 0)
+        orden        = int(request.POST.get('orden', 0) or 0)
+
+        def _dec(key):
+            v = request.POST.get(key, '').strip()
+            return v if v else None
+
+        def _int(key):
+            v = request.POST.get(key, '').strip()
+            return int(v) if v else None
+
         if nombre:
             Medicamento.objects.create(
                 tenant=request.tenant,
                 nombre=nombre,
                 indicaciones=indicaciones,
                 orden=orden,
+                dosis_mg_kg_min=_dec('dosis_mg_kg_min'),
+                dosis_mg_kg_max=_dec('dosis_mg_kg_max'),
+                frecuencia_horas=_int('frecuencia_horas'),
+                duracion_dias=_int('duracion_dias'),
+                presentacion=request.POST.get('presentacion', '').strip(),
+                concentracion_mg=_dec('concentracion_mg'),
+                volumen_ml=_dec('volumen_ml'),
+                unidad_resultado=request.POST.get('unidad_resultado', '').strip(),
+                dosis_max_absoluta=_dec('dosis_max_absoluta'),
+                edad_min_meses=_int('edad_min_meses'),
+                edad_max_meses=_int('edad_max_meses'),
+                peso_min_kg=_dec('peso_min_kg'),
             )
             messages.success(request, f'Medicamento "{nombre}" agregado.')
     return _r(request, '/consultas/medicamentos/')
@@ -608,9 +709,29 @@ def editar_medicamento(request, pk):
         return HttpResponseForbidden()
     med = get_object_or_404(Medicamento, pk=pk, tenant=request.tenant)
     if request.method == 'POST':
-        med.nombre       = request.POST.get('nombre', med.nombre).strip()
-        med.indicaciones = request.POST.get('indicaciones', med.indicaciones).strip()
-        med.orden        = int(request.POST.get('orden', med.orden) or 0)
+        def _dec(key):
+            v = request.POST.get(key, '').strip()
+            return v if v else None
+
+        def _int(key):
+            v = request.POST.get(key, '').strip()
+            return int(v) if v else None
+
+        med.nombre              = request.POST.get('nombre', med.nombre).strip()
+        med.indicaciones        = request.POST.get('indicaciones', med.indicaciones).strip()
+        med.orden               = int(request.POST.get('orden', med.orden) or 0)
+        med.dosis_mg_kg_min     = _dec('dosis_mg_kg_min')
+        med.dosis_mg_kg_max     = _dec('dosis_mg_kg_max')
+        med.frecuencia_horas    = _int('frecuencia_horas')
+        med.duracion_dias       = _int('duracion_dias')
+        med.presentacion        = request.POST.get('presentacion', '').strip()
+        med.concentracion_mg    = _dec('concentracion_mg')
+        med.volumen_ml          = _dec('volumen_ml')
+        med.unidad_resultado    = request.POST.get('unidad_resultado', '').strip()
+        med.dosis_max_absoluta  = _dec('dosis_max_absoluta')
+        med.edad_min_meses      = _int('edad_min_meses')
+        med.edad_max_meses      = _int('edad_max_meses')
+        med.peso_min_kg         = _dec('peso_min_kg')
         med.save()
         messages.success(request, 'Medicamento actualizado.')
     return _r(request, '/consultas/medicamentos/')
@@ -641,6 +762,29 @@ def eliminar_medicamento(request, pk):
         med.delete()
         messages.success(request, f'Medicamento "{nombre}" eliminado.')
     return _r(request, '/consultas/medicamentos/')
+
+
+@login_required
+def calcular_dosis_medicamento(request, pk):
+    """GET /consultas/medicamentos/<pk>/calcular/?peso=17&edad_meses=36&nivel=estandar"""
+    from .models import Medicamento
+    med = get_object_or_404(Medicamento, pk=pk, tenant=request.tenant, activo=True)
+    try:
+        peso = float(request.GET.get('peso', 0))
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'peso inválido'}, status=400)
+    if peso <= 0:
+        return JsonResponse({'error': 'peso requerido'}, status=400)
+    edad_meses = None
+    em = request.GET.get('edad_meses', '')
+    if em:
+        try:
+            edad_meses = int(em)
+        except (ValueError, TypeError):
+            pass
+    nivel = request.GET.get('nivel', 'estandar')
+    resultado = med.calcular_dosis(peso_kg=peso, edad_meses=edad_meses, nivel=nivel)
+    return JsonResponse(resultado)
 
 
 @login_required

@@ -24,4 +24,5 @@ urlpatterns = [
     path('medicamentos/<int:pk>/editar/', views.editar_medicamento, name='editar_medicamento'),
     path('medicamentos/<int:pk>/toggle/', views.toggle_medicamento, name='toggle_medicamento'),
     path('medicamentos/<int:pk>/eliminar/', views.eliminar_medicamento, name='eliminar_medicamento'),
+    path('medicamentos/<int:pk>/calcular/', views.calcular_dosis_medicamento, name='calcular_dosis_medicamento'),
 ]

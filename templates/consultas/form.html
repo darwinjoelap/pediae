@@ -119,19 +119,49 @@
           <p class="small fw-semibold mb-2" style="color:#166534">
             <i class="bi bi-capsule-pill me-1"></i>Agregar desde glosario de medicamentos
           </p>
-          <div class="d-flex gap-2 align-items-center">
-            <select id="med-picker" class="form-select form-select-sm">
-              <option value="">— Seleccionar medicamento —</option>
-              {% for med in medicamentos_disponibles %}
-              <option value="{{ med.pk }}">{{ med.nombre }}</option>
-              {% endfor %}
-            </select>
-            <button type="button" id="btn-med-agregar"
-                    class="btn btn-sm flex-shrink-0 fw-semibold"
-                    style="background:#2AACA8;color:#fff;white-space:nowrap">
-              <i class="bi bi-plus-lg"></i> Agregar
-            </button>
+
+          <!-- Selector + peso + nivel + botón -->
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-5">
+              <select id="med-picker" class="form-select form-select-sm">
+                <option value="">— Seleccionar medicamento —</option>
+                {% for med in medicamentos_disponibles %}
+                <option value="{{ med.pk }}"
+                        data-calcula="{{ med.tiene_calculo|yesno:'1,0' }}"
+                        data-rango="{{ med.tiene_rango|yesno:'1,0' }}">
+                  {{ med.nombre }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6 col-md-2" id="med-peso-wrap">
+              <label class="form-label small mb-1" style="color:#166534">Peso (kg)</label>
+              <input type="number" id="med-peso" class="form-control form-control-sm"
+                     step="0.1" min="0.5"
+                     value="{{ paciente_ultimo_peso|default:'' }}"
+                     placeholder="kg">
+            </div>
+            <div class="col-6 col-md-2" id="med-nivel-wrap" style="display:none">
+              <label class="form-label small mb-1" style="color:#166534">Nivel</label>
+              <select id="med-nivel" class="form-select form-select-sm">
+                <option value="minimo">Mínimo</option>
+                <option value="estandar" selected>Estándar</option>
+                <option value="maximo">Máximo</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <button type="button" id="btn-med-agregar"
+                      class="btn btn-sm w-100 fw-semibold"
+                      style="background:#2AACA8;color:#fff">
+                <i class="bi bi-plus-lg"></i> Agregar
+              </button>
+            </div>
           </div>
+
+          <!-- Alertas de dosis -->
+          <div id="med-alertas" class="mt-2"></div>
+
+          <!-- Chips de medicamentos agregados -->
           <div id="meds-chips" class="d-flex flex-wrap gap-1 mt-2"></div>
         </div>
       </div>
@@ -169,9 +199,13 @@
 <script id="pediae-meds-data" type="application/json">{{ medicamentos_json|safe }}</script>
 <script>
 (function () {
-  var picker  = document.getElementById('med-picker');
-  var btnAdd  = document.getElementById('btn-med-agregar');
-  var chips   = document.getElementById('meds-chips');
+  var picker    = document.getElementById('med-picker');
+  var btnAdd    = document.getElementById('btn-med-agregar');
+  var chips     = document.getElementById('meds-chips');
+  var pesoInput = document.getElementById('med-peso');
+  var nivelSel  = document.getElementById('med-nivel');
+  var nivelWrap = document.getElementById('med-nivel-wrap');
+  var alertasEl = document.getElementById('med-alertas');
   if (!btnAdd) return;
 
   /* Mover el picker justo antes del campo tratamiento */
@@ -181,44 +215,115 @@
     divTrat.parentNode.insertBefore(pickerCard, divTrat);
   }
 
+  /* Sincronizar peso con el campo de la consulta en tiempo real */
+  var campoPeso = document.getElementById('id_peso');
+  if (campoPeso) {
+    campoPeso.addEventListener('input', function() {
+      if (this.value) pesoInput.value = this.value;
+    });
+    if (campoPeso.value && !pesoInput.value) pesoInput.value = campoPeso.value;
+  }
+
   var medData = {};
   try {
     JSON.parse(document.getElementById('pediae-meds-data').textContent)
       .forEach(function(m) { medData[String(m.pk)] = m; });
   } catch(e) {}
 
+  /* Mostrar/ocultar selector de nivel cuando el med tiene rango */
+  picker.addEventListener('change', function() {
+    var opt = picker.options[picker.selectedIndex];
+    nivelWrap.style.display = (opt && opt.dataset.rango === '1') ? '' : 'none';
+    alertasEl.innerHTML = '';
+  });
+
+  /* Determinar URL base del tenant */
+  var tenantPrefix = '{{ TENANT_PREFIX }}';
+
   btnAdd.addEventListener('click', function () {
     var val = picker.value;
-    if (!val) return;
+    if (!val) { picker.focus(); return; }
     var med = medData[val];
     if (!med) return;
 
-    /* Campo tratamiento: agrega bullet con el nombre */
-    var fTrat = document.getElementById('id_tratamiento');
-    if (fTrat) {
-      var t = fTrat.value.trim();
-      fTrat.value = t ? t + '\n• ' + med.nombre : '• ' + med.nombre;
+    var peso = parseFloat(pesoInput.value);
+    if (!peso || peso <= 0) {
+      alertasEl.innerHTML = '<div class="alert alert-warning alert-sm py-1 px-2 mb-0 small">' +
+        '<i class="bi bi-exclamation-triangle me-1"></i>Ingresa el peso del paciente para calcular la dosis.</div>';
+      pesoInput.focus();
+      return;
     }
 
-    /* Campo indicaciones: agrega nombre + instrucciones */
-    var fInd = document.getElementById('id_indicaciones');
-    if (fInd) {
-      var i = fInd.value.trim();
-      var bloque = med.nombre + ':\n' + med.indicaciones;
-      fInd.value = i ? i + '\n\n' + bloque : bloque;
-    }
+    alertasEl.innerHTML = '<div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Calculando dosis…</div>';
+    btnAdd.disabled = true;
 
-    /* Chip visual */
-    var chip = document.createElement('span');
-    chip.className = 'badge d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill';
-    chip.style.cssText = 'background:#d1fae5;color:#065f46;font-size:.72rem;font-weight:500';
-    chip.innerHTML = '<i class="bi bi-capsule-pill"></i><span>' + med.nombre + '</span>' +
-      '<button type="button" style="background:none;border:none;padding:0 0 0 2px;cursor:pointer;color:#065f46;font-size:.65rem">&#x2715;</button>';
-    chip.querySelector('button').addEventListener('click', function(){ chip.remove(); });
-    chips.appendChild(chip);
+    var nivel     = nivelSel ? nivelSel.value : 'estandar';
+    var edadMeses = {{ paciente_edad_meses|default:'null' }};
+    var url = tenantPrefix + '/consultas/medicamentos/' + val + '/calcular/?peso=' +
+              peso + '&nivel=' + nivel +
+              (edadMeses !== null ? '&edad_meses=' + edadMeses : '');
 
-    picker.selectedIndex = 0;
-    picker.focus();
+    fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        btnAdd.disabled = false;
+        alertasEl.innerHTML = '';
+
+        /* Mostrar alertas clínicas */
+        if (data.alertas && data.alertas.length) {
+          data.alertas.forEach(function(a) {
+            alertasEl.innerHTML +=
+              '<div class="alert alert-' + a.tipo + ' py-1 px-2 mb-1 small">' + a.msg + '</div>';
+          });
+        }
+
+        /* Campo tratamiento */
+        var fTrat = document.getElementById('id_tratamiento');
+        if (fTrat) {
+          var t = fTrat.value.trim();
+          fTrat.value = t ? t + '\n• ' + med.nombre : '• ' + med.nombre;
+        }
+
+        /* Campo indicaciones */
+        var fInd = document.getElementById('id_indicaciones');
+        if (fInd) {
+          var i = fInd.value.trim();
+          var bloque = data.texto || (med.nombre + (med.indicaciones ? ':\n' + med.indicaciones : ''));
+          fInd.value = i ? i + '\n\n' + bloque : bloque;
+        }
+
+        /* Chip */
+        var etiqueta = med.nombre;
+        if (data.dosis_display) etiqueta += ' · ' + data.dosis_display;
+        var chip = document.createElement('span');
+        chip.className = 'badge d-inline-flex align-items-center gap-1 px-2 py-1 rounded-pill';
+        chip.style.cssText = 'background:#d1fae5;color:#065f46;font-size:.72rem;font-weight:500';
+        chip.innerHTML = '<i class="bi bi-capsule-pill"></i><span>' + etiqueta + '</span>' +
+          '<button type="button" style="background:none;border:none;padding:0 0 0 2px;cursor:pointer;color:#065f46;font-size:.65rem" aria-label="Quitar">&#x2715;</button>';
+        chip.querySelector('button').addEventListener('click', function(){ chip.remove(); });
+        chips.appendChild(chip);
+
+        picker.selectedIndex = 0;
+        picker.dispatchEvent(new Event('change'));
+        picker.focus();
+      })
+      .catch(function(err) {
+        btnAdd.disabled = false;
+        /* Sin cálculo: insertar template sin resolver */
+        alertasEl.innerHTML = '';
+        var fTrat = document.getElementById('id_tratamiento');
+        if (fTrat) {
+          var t = fTrat.value.trim();
+          fTrat.value = t ? t + '\n• ' + med.nombre : '• ' + med.nombre;
+        }
+        var fInd = document.getElementById('id_indicaciones');
+        if (fInd && med.indicaciones) {
+          var i = fInd.value.trim();
+          fInd.value = i ? i + '\n\n' + med.indicaciones : med.indicaciones;
+        }
+        picker.selectedIndex = 0;
+        picker.focus();
+      });
   });
 })();
 </script>
