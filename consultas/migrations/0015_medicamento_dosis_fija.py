@@ -22,23 +22,4 @@ class Migration(migrations.Migration):
                 ),
             ),
         ),
-        migrations.AlterField(
-            model_name='medicamento',
-            name='unidad_resultado',
-            field=models.CharField(
-                blank=True,
-                max_length=10,
-                verbose_name='Unidad del resultado',
-                choices=[
-                    ('mL',         'mL (jarabe / gotas)'),
-                    ('tableta',    'Tableta / cápsula'),
-                    ('mg',         'mg directo'),
-                    ('UI',         'Unidades internacionales'),
-                    ('gotas',      'Gotas'),
-                    ('puff',       'Puff / inhalación'),
-                    ('aplicacion', 'Aplicación'),
-                    ('sobre',      'Sobre'),
-                ],
-            ),
-        ),
     ]
