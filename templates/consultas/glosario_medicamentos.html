@@ -116,15 +116,14 @@
 ══════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalNuevoMed" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header" style="background:#2AACA8">
-        <h5 class="modal-title text-white">
-          <i class="bi bi-capsule-pill me-1"></i> Nuevo medicamento
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <form method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/nuevo/">
+      <form class="modal-content" method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/nuevo/">
         {% csrf_token %}
+        <div class="modal-header" style="background:#2AACA8">
+          <h5 class="modal-title text-white">
+            <i class="bi bi-capsule-pill me-1"></i> Nuevo medicamento
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
         {% include 'consultas/_form_medicamento.html' with prefix="nuevo" %}
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -133,7 +132,6 @@
           </button>
         </div>
       </form>
-    </div>
   </div>
 </div>
 
@@ -142,15 +140,14 @@
 ══════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalEditarMed" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title fw-bold">
-          <i class="bi bi-pencil me-1"></i> Editar medicamento
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <form id="formEditarMed" method="post" action="">
+      <form id="formEditarMed" class="modal-content" method="post" action="">
         {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">
+            <i class="bi bi-pencil me-1"></i> Editar medicamento
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
         {% include 'consultas/_form_medicamento.html' with prefix="editar" %}
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -159,7 +156,6 @@
           </button>
         </div>
       </form>
-    </div>
   </div>
 </div>
 
