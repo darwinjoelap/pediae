@@ -460,6 +460,17 @@ def estadisticas(request):
     if medico_seleccionado:
         procedimientos_qs = procedimientos_qs.filter(medico=medico_seleccionado)
 
+    # Sumar atendidos sin cita previa a los conteos clínicos
+    atendidos_sin_cita = (
+        consultas.filter(cita__isnull=True).count()
+        + procedimientos_qs.filter(cita__isnull=True).count()
+    )
+    stats_citas['atendidas'] += atendidos_sin_cita
+    stats_citas['total'] += atendidos_sin_cita
+    stats_citas['tasa_asistencia'] = round(
+        stats_citas['atendidas'] / stats_citas['total'] * 100, 1
+    ) if stats_citas['total'] > 0 else 0
+
     total_ingresos_proc = procedimientos_qs.filter(
         pagado=True
     ).aggregate(total=Sum('precio_usd'))['total'] or 0
@@ -709,8 +720,15 @@ def estadisticas_pdf(request):
     ))
     elementos.append(Spacer(1, 0.3*cm))
 
-    total_citas = citas.count()
-    atendidas = citas.filter(estado='atendida').count()
+    from consultas.models import Procedimiento as _Procedimiento
+    _proc_sin_cita = _Procedimiento.objects.filter(
+        tenant=_tenant, fecha__range=[fecha_desde, fecha_hasta], cita__isnull=True
+    ).count()
+    _cons_sin_cita = consultas.filter(cita__isnull=True).count()
+    atendidos_sin_cita_pdf = _cons_sin_cita + _proc_sin_cita
+
+    total_citas = citas.count() + atendidos_sin_cita_pdf
+    atendidas = citas.filter(estado='atendida').count() + atendidos_sin_cita_pdf
     tasa = round(atendidas / total_citas * 100, 1) if total_citas > 0 else 0
 
     total_ingresos = ConsultaServicio.objects.filter(
@@ -748,8 +766,8 @@ def estadisticas_pdf(request):
     elementos.append(Paragraph('RESUMEN GENERAL', e_seccion))
     resumen = [
         ['Total pacientes registrados', str(pacientes.count())],
-        ['Total citas en el período', str(total_citas)],
-        ['Citas atendidas', f'{atendidas} ({tasa}%)'],
+        ['Total atenciones en el período', str(total_citas)],
+        ['Atendidas (con y sin cita)', f'{atendidas} ({tasa}%)'],
         ['Citas canceladas', str(citas.filter(estado='cancelada').count())],
         ['Citas no asistidas', str(citas.filter(estado='no_asistio').count())],
         ['Consultas registradas', str(consultas.count())],

@@ -47,13 +47,6 @@ def agenda_dia(request, fecha):
     dia_anterior = (fecha_obj - timedelta(days=1)).isoformat()
     dia_siguiente = (fecha_obj + timedelta(days=1)).isoformat()
 
-    resumen = {
-        'total':      citas.count(),
-        'atendidas':  citas.filter(estado='atendida').count(),
-        'pendientes': citas.filter(estado__in=['programada', 'confirmada', 'tentativa']).count(),
-        'canceladas': citas.filter(estado__in=['cancelada', 'no_asistio']).count(),
-    }
-
     from consultas.models import Consulta, Procedimiento
     from servicios.models import Servicio
 
@@ -93,6 +86,14 @@ def agenda_dia(request, fecha):
     procedimientos_sin_cita = Procedimiento.objects.filter(
         tenant=tenant, fecha=fecha_obj, cita__isnull=True,
     ).select_related('paciente', 'servicio', 'medico')
+
+    atendidos_sin_cita = consultas_sin_cita.count() + procedimientos_sin_cita.count()
+    resumen = {
+        'total':      citas.count() + atendidos_sin_cita,
+        'atendidas':  citas.filter(estado='atendida').count() + atendidos_sin_cita,
+        'pendientes': citas.filter(estado__in=['programada', 'confirmada', 'tentativa']).count(),
+        'canceladas': citas.filter(estado__in=['cancelada', 'no_asistio']).count(),
+    }
 
     servicios_disponibles = Servicio.objects.filter(tenant=tenant, activo=True)
 
