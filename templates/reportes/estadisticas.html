@@ -21,10 +21,18 @@
 <div class="mb-4">
   <span class="badge rounded-pill text-bg-light border fw-normal fs-6 px-3 py-2">
     <i class="bi bi-calendar-range me-1 text-muted"></i>
-    <span class="text-muted">Período:</span>
-    <strong class="ms-1">{{ fecha_desde|date:"d/m/Y" }}</strong>
-    <span class="text-muted mx-1">—</span>
-    <strong>{{ fecha_hasta|date:"d/m/Y" }}</strong>
+    {% if filtro_activo %}
+      <span class="text-muted">Período:</span>
+      <strong class="ms-1">{{ fecha_desde|date:"d/m/Y" }}</strong>
+      <span class="text-muted mx-1">—</span>
+      <strong>{{ fecha_hasta|date:"d/m/Y" }}</strong>
+    {% else %}
+      <span class="text-muted">Toda la data:</span>
+      <strong class="ms-1">{{ fecha_desde|date:"d/m/Y" }}</strong>
+      <span class="text-muted mx-1">—</span>
+      <strong>{{ fecha_hasta|date:"d/m/Y" }}</strong>
+      <span class="badge bg-secondary ms-2" style="font-size:.65rem">sin filtro</span>
+    {% endif %}
   </span>
 </div>
 
@@ -34,11 +42,11 @@
     <form method="get" class="row g-3 align-items-end">
       <div class="col-md-3">
         <label class="form-label small text-muted">Desde</label>
-        <input type="date" name="desde" value="{{ fecha_desde }}" class="form-control">
+        <input type="date" name="desde" value="{% if filtro_activo %}{{ fecha_desde }}{% endif %}" class="form-control">
       </div>
       <div class="col-md-3">
         <label class="form-label small text-muted">Hasta</label>
-        <input type="date" name="hasta" value="{{ fecha_hasta }}" class="form-control">
+        <input type="date" name="hasta" value="{% if filtro_activo %}{{ fecha_hasta }}{% endif %}" class="form-control">
       </div>
       <div class="col-md-4">
         <label class="form-label small text-muted">Médico</label>

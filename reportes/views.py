@@ -379,16 +379,28 @@ def estadisticas(request):
     from accounts.models import Usuario
 
     hoy = date.today()
-    fecha_desde_str = request.GET.get('desde', (hoy - timedelta(days=365)).isoformat())
-    fecha_hasta_str = request.GET.get('hasta', hoy.isoformat())
+    fecha_desde_str = request.GET.get('desde', '').strip()
+    fecha_hasta_str = request.GET.get('hasta', '').strip()
     medico_id = request.GET.get('medico', '')
 
+    # Si ambos campos están vacíos (sin filtro), mostrar toda la data
+    filtro_activo = bool(fecha_desde_str or fecha_hasta_str)
+
     try:
-        fecha_desde = date.fromisoformat(fecha_desde_str)
-        fecha_hasta = date.fromisoformat(fecha_hasta_str)
+        fecha_desde = date.fromisoformat(fecha_desde_str) if fecha_desde_str else None
+        fecha_hasta = date.fromisoformat(fecha_hasta_str) if fecha_hasta_str else hoy
     except ValueError:
-        fecha_desde = hoy - timedelta(days=365)
+        fecha_desde = None
         fecha_hasta = hoy
+
+    if fecha_desde is None:
+        # Buscar la fecha más antigua entre citas y consultas del tenant
+        from agenda.models import Cita as _Cita
+        from consultas.models import Consulta as _Consulta
+        primera_cita = _Cita.objects.filter(tenant=_tenant).order_by('fecha').values_list('fecha', flat=True).first()
+        primera_consulta = _Consulta.objects.filter(tenant=_tenant).order_by('fecha').values_list('fecha', flat=True).first()
+        candidatos = [d for d in [primera_cita, primera_consulta] if d is not None]
+        fecha_desde = min(candidatos) if candidatos else hoy
 
     medicos = Usuario.objects.filter(tenant=_tenant, rol='medico')
     medico_seleccionado = None
@@ -642,6 +654,7 @@ def estadisticas(request):
         'medicos': medicos,
         'medico_id': medico_id,
         'medico_seleccionado': medico_seleccionado,
+        'filtro_activo': filtro_activo,
     })
 
 
