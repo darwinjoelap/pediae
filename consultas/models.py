@@ -819,7 +819,11 @@ class Medicamento(models.Model):
             '{{DURACION}}':     duracion_txt,
             '{{PESO}}':         f'{peso_kg} kg' if peso_kg is not None else '',
         }
-        texto = self.indicaciones
+        texto = self.indicaciones or ''
+        if not texto:
+            # Sin plantilla: construir texto básico con los datos disponibles
+            partes = [p for p in [dosis_txt or dosis_mg_txt, frecuencia_txt, duracion_txt] if p]
+            texto = ' '.join(partes)
         for token, valor in reemplazos.items():
             texto = texto.replace(token, valor)
         return texto
