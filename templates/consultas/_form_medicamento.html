@@ -57,10 +57,19 @@
         <label class="form-label mb-1" for="{{ prefix }}_unidad_dosis_kg">Unidad de dosis/kg</label>
         <select id="{{ prefix }}_unidad_dosis_kg" name="unidad_dosis_kg"
                 class="form-select form-select-sm">
-          <option value="mg">mg/kg</option>
-          <option value="mcg">mcg/kg</option>
-          <option value="UI">UI/kg</option>
-          <option value="g">g/kg</option>
+          <optgroup label="Unidades directas (sin concentración)">
+            <option value="mL">mL/kg</option>
+            <option value="gotas">gotas/kg</option>
+            <option value="tableta">tabletas/kg</option>
+            <option value="sobre">sobres/kg</option>
+            <option value="puff">puffs/kg</option>
+            <option value="aplicacion">aplicaciones/kg</option>
+          </optgroup>
+          <optgroup label="Unidades de masa (con concentración)">
+            <option value="mg" selected>mg/kg</option>
+            <option value="mcg">mcg/kg</option>
+            <option value="UI">UI/kg</option>
+          </optgroup>
         </select>
       </div>
     </div>
@@ -95,44 +104,46 @@
       </div>
     </div>
 
-    <!-- Concentración (solo modo peso) -->
-    <h6 class="fw-semibold text-uppercase mb-1" style="font-size:0.7rem;letter-spacing:1px;color:#6c757d">
-      <i class="bi bi-eyedropper me-1"></i>Concentración
-      <span class="badge bg-light text-muted border fw-normal ms-1" style="font-size:0.65rem">dosis → mL / tabletas</span>
-    </h6>
-    <p class="text-muted small mb-2">
-      Para expresar <code>&#123;&#123;DOSIS&#125;&#125;</code> en mL, tabletas, etc.
-      Ej: Amoxicilina susp. 250 mg / 5 mL.
-    </p>
-    <div class="row g-2 mb-2">
-      <div class="col-5 col-md-3">
-        <label class="form-label mb-1" for="{{ prefix }}_concentracion_mg">Activo</label>
-        <input type="number" id="{{ prefix }}_concentracion_mg" name="concentracion_mg"
-               class="form-control form-control-sm" step="0.001" min="0" placeholder="250">
-        <div class="form-text">mg (o unidad)</div>
+    <!-- Concentración (solo unidades de masa: mg/kg, mcg/kg, UI/kg) -->
+    <div class="section-concentracion">
+      <h6 class="fw-semibold text-uppercase mb-1" style="font-size:0.7rem;letter-spacing:1px;color:#6c757d">
+        <i class="bi bi-eyedropper me-1"></i>Concentración
+        <span class="badge bg-light text-muted border fw-normal ms-1" style="font-size:0.65rem">mg → mL / tabletas</span>
+      </h6>
+      <p class="text-muted small mb-2">
+        Para convertir <code>&#123;&#123;DOSIS&#125;&#125;</code> a mL, tabletas, etc.
+        Ej: Amoxicilina susp. 250 mg / 5 mL.
+      </p>
+      <div class="row g-2 mb-2">
+        <div class="col-5 col-md-3">
+          <label class="form-label mb-1" for="{{ prefix }}_concentracion_mg">Activo</label>
+          <input type="number" id="{{ prefix }}_concentracion_mg" name="concentracion_mg"
+                 class="form-control form-control-sm" step="0.001" min="0" placeholder="250">
+          <div class="form-text">mg (o unidad)</div>
+        </div>
+        <div class="col-5 col-md-3">
+          <label class="form-label mb-1" for="{{ prefix }}_volumen_ml">Volumen base</label>
+          <input type="number" id="{{ prefix }}_volumen_ml" name="volumen_ml"
+                 class="form-control form-control-sm" step="0.01" min="0" placeholder="5">
+          <div class="form-text">mL (vacío=tabletas)</div>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label mb-1" for="{{ prefix }}_unidad_resultado">Unidad resultado</label>
+          <select id="{{ prefix }}_unidad_resultado" name="unidad_resultado"
+                  class="form-select form-select-sm">
+            <option value="">— Sin unidad —</option>
+            <option value="mL">mL (jarabe / gotas)</option>
+            <option value="tableta">Tableta / cápsula</option>
+            <option value="puff">Puff / inhalación</option>
+            <option value="aplicacion">Aplicación</option>
+            <option value="sobre">Sobre</option>
+            <option value="mg">mg directo</option>
+            <option value="UI">Unidades internacionales</option>
+            <option value="gotas">Gotas</option>
+          </select>
+        </div>
       </div>
-      <div class="col-5 col-md-3">
-        <label class="form-label mb-1" for="{{ prefix }}_volumen_ml">Volumen base</label>
-        <input type="number" id="{{ prefix }}_volumen_ml" name="volumen_ml"
-               class="form-control form-control-sm" step="0.01" min="0" placeholder="5">
-        <div class="form-text">mL (vacío=tabletas)</div>
-      </div>
-      <div class="col-12 col-md-6">
-        <label class="form-label mb-1" for="{{ prefix }}_unidad_resultado">Unidad resultado</label>
-        <select id="{{ prefix }}_unidad_resultado" name="unidad_resultado"
-                class="form-select form-select-sm">
-          <option value="">— Sin unidad —</option>
-          <option value="mL">mL (jarabe / gotas)</option>
-          <option value="tableta">Tableta / cápsula</option>
-          <option value="puff">Puff / inhalación</option>
-          <option value="aplicacion">Aplicación</option>
-          <option value="sobre">Sobre</option>
-          <option value="mg">mg directo</option>
-          <option value="UI">Unidades internacionales</option>
-          <option value="gotas">Gotas</option>
-        </select>
-      </div>
-    </div>
+    </div><!-- /.section-concentracion -->
   </div>
 
   <!-- ③b MODO FIJA ───────────────────────────────────────────────────── -->

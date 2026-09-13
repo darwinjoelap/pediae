@@ -427,11 +427,21 @@ class Medicamento(models.Model):
     ]
 
     UNIDAD_DOSIS_KG_CHOICES = [
-        ('mg',  'mg/kg'),
-        ('mcg', 'mcg/kg'),
-        ('UI',  'UI/kg'),
-        ('g',   'g/kg'),
+        # ── Unidades directas: factor × peso = cantidad final ──────────────
+        ('mL',         'mL/kg'),
+        ('gotas',      'gotas/kg'),
+        ('tableta',    'tabletas/kg'),
+        ('sobre',      'sobres/kg'),
+        ('puff',       'puffs/kg'),
+        ('aplicacion', 'aplicaciones/kg'),
+        # ── Unidades de masa: requieren concentración ──────────────────────
+        ('mg',         'mg/kg'),
+        ('mcg',        'mcg/kg'),
+        ('UI',         'UI/kg'),
     ]
+
+    # Unidades directas: factor × peso ya da la cantidad final (sin concentración)
+    UNIDADES_DIRECTAS_KG = frozenset({'mL', 'gotas', 'tableta', 'sobre', 'puff', 'aplicacion'})
 
     tenant = models.ForeignKey(
         'tenant.Tenant', on_delete=models.CASCADE,
@@ -469,24 +479,24 @@ class Medicamento(models.Model):
 
     # ── Dosificación por peso ────────────────────────────────────────────────
     unidad_dosis_kg = models.CharField(
-        max_length=5,
+        max_length=10,                    # 'aplicacion' = 9 chars
         choices=UNIDAD_DOSIS_KG_CHOICES,
         default='mg',
         blank=True,
         verbose_name='Unidad de dosis/kg',
     )
 
-    # ── Dosificación pediátrica (mg/kg) ────────────────────────────────────
+    # ── Dosificación pediátrica (por kg) ───────────────────────────────────
     dosis_mg_kg_min = models.DecimalField(
         max_digits=7, decimal_places=3,
         null=True, blank=True,
-        verbose_name='Dosis mínima (mg/kg/dosis)',
+        verbose_name='Dosis mínima (por kg/dosis)',
         help_text='Si no hay rango, usar solo este campo como dosis fija.',
     )
     dosis_mg_kg_max = models.DecimalField(
         max_digits=7, decimal_places=3,
         null=True, blank=True,
-        verbose_name='Dosis máxima (mg/kg/dosis)',
+        verbose_name='Dosis máxima (por kg/dosis)',
         help_text='Completar solo si hay rango (leve / severo). Dejar vacío para dosis fija.',
     )
     frecuencia_horas = models.PositiveSmallIntegerField(
@@ -510,7 +520,7 @@ class Medicamento(models.Model):
         max_digits=8, decimal_places=3,
         null=True, blank=True,
         verbose_name='Concentración (mg)',
-        help_text='mg del principio activo en la unidad de medida base.',
+        help_text='mg del principio activo en la unidad de medida base. Solo para unidades de masa.',
     )
     volumen_ml = models.DecimalField(
         max_digits=6, decimal_places=2,
@@ -522,6 +532,7 @@ class Medicamento(models.Model):
     unidad_resultado = models.CharField(
         max_length=10, choices=UNIDAD_CHOICES, blank=True,
         verbose_name='Unidad del resultado',
+        help_text='Solo para unidades de masa (mg/kg, mcg/kg, UI/kg).',
     )
 
     # ── Dosificación por rango de edad ──────────────────────────────────────
@@ -559,7 +570,7 @@ class Medicamento(models.Model):
         max_digits=8, decimal_places=2,
         null=True, blank=True,
         verbose_name='Dosis máxima absoluta (mg/dosis)',
-        help_text='Techo del adulto. La dosis calculada nunca superará este valor.',
+        help_text='Techo del adulto. Solo aplica a unidades de masa. La dosis calculada nunca superará este valor.',
     )
     edad_min_meses = models.PositiveSmallIntegerField(
         null=True, blank=True,
@@ -594,7 +605,11 @@ class Medicamento(models.Model):
         if self.modo_calculo == 'edad':
             return bool(self.rango1_dosis or self.rango2_dosis or self.rango3_dosis)
         # modo_calculo == 'peso'
-        return bool(self.dosis_mg_kg_min and self.concentracion_mg and self.unidad_resultado)
+        if not self.dosis_mg_kg_min:
+            return False
+        if self.unidad_dosis_kg in self.UNIDADES_DIRECTAS_KG:
+            return True  # unidad directa: no necesita concentración
+        return bool(self.concentracion_mg and self.unidad_resultado)
 
     @property
     def tiene_rango(self):
@@ -662,7 +677,6 @@ class Medicamento(models.Model):
 
         # ── Modo: por peso ─────────────────────────────────────────────────────
         if not self.tiene_calculo:
-            # Sin datos de dosificación → devolver plantilla sin resolver
             resultado['texto'] = self._resolver_tokens(
                 peso_kg=peso_kg, dosis_mg=None, cantidad=None
             )
@@ -694,7 +708,7 @@ class Medicamento(models.Model):
                 'msg': f'⚠️ Peso por debajo del mínimo recomendado ({self.peso_min_kg} kg).',
             })
 
-        # ── Calcular dosis en mg ───────────────────────────────────────────
+        # ── Calcular factor y dosis raw ────────────────────────────────────
         if self.tiene_rango:
             d_min = float(self.dosis_mg_kg_min)
             d_max = float(self.dosis_mg_kg_max)
@@ -707,9 +721,28 @@ class Medicamento(models.Model):
         else:
             factor = float(self.dosis_mg_kg_min)
 
-        dosis_mg = factor * float(peso_kg)
+        dosis_raw = factor * float(peso_kg)
 
-        # ── Aplicar techo absoluto ─────────────────────────────────────────
+        # ── Unidades directas: sin concentración ───────────────────────────
+        if self.unidad_dosis_kg in self.UNIDADES_DIRECTAS_KG:
+            unid = self.unidad_dosis_kg
+            if unid == 'tableta':
+                cantidad = round(dosis_raw * 2) / 2   # redondear a medias
+            elif unid == 'mL':
+                cantidad = round(dosis_raw, 1)
+            else:
+                cantidad = round(dosis_raw)
+            resultado['dosis_mg'] = round(dosis_raw, 1)
+            resultado['dosis_display'] = f'{cantidad} {unid}'
+            resultado['texto'] = self._resolver_tokens(
+                peso_kg=peso_kg,
+                dosis_mg=round(dosis_raw, 1),
+                cantidad=cantidad,
+            )
+            return resultado
+
+        # ── Unidades de masa: aplicar techo y convertir ────────────────────
+        dosis_mg = dosis_raw
         if self.dosis_max_absoluta and dosis_mg > float(self.dosis_max_absoluta):
             alertas.append({
                 'tipo': 'info',
@@ -720,13 +753,11 @@ class Medicamento(models.Model):
             })
             dosis_mg = float(self.dosis_max_absoluta)
 
-        # ── Convertir a unidad de resultado ───────────────────────────────
         conc = float(self.concentracion_mg)
         if self.unidad_resultado == 'mL' and self.volumen_ml:
             cantidad = round((dosis_mg / conc) * float(self.volumen_ml), 1)
         elif self.unidad_resultado == 'tableta':
             raw = dosis_mg / conc
-            # Redondear a mitades (0.5) para tabletas partibles
             cantidad = round(raw * 2) / 2
         elif self.unidad_resultado == 'gotas':
             cantidad = round((dosis_mg / conc) * float(self.volumen_ml or 1), 0)
@@ -752,15 +783,20 @@ class Medicamento(models.Model):
             f'por {self.duracion_dias} día{"s" if self.duracion_dias != 1 else ""}'
             if self.duracion_dias else ''
         )
-        # {{DOSIS}} — cantidad en unidad de resultado (mL, tableta, puff…)
-        if cantidad is not None and self.unidad_resultado and self.modo_calculo == 'peso':
-            dosis_txt = f'{cantidad} {self.unidad_resultado}'
-        elif cantidad is not None:
-            # edad o fija mode: cantidad ya es el string completo
-            dosis_txt = str(cantidad)
+        # {{DOSIS}} — cantidad en la unidad de resultado
+        if cantidad is not None:
+            if self.unidad_dosis_kg in self.UNIDADES_DIRECTAS_KG:
+                # Unidad directa: mostrar cantidad + unidad_dosis_kg
+                dosis_txt = f'{cantidad} {self.unidad_dosis_kg}'
+            elif self.unidad_resultado and self.modo_calculo == 'peso':
+                # Unidad de masa: mostrar cantidad + unidad_resultado (mL, tableta…)
+                dosis_txt = f'{cantidad} {self.unidad_resultado}'
+            else:
+                # edad o fija: cantidad ya es el string completo
+                dosis_txt = str(cantidad)
         else:
             dosis_txt = ''
-        # {{DOSIS_MG}} — dosis en la unidad por kg (mg, mcg, UI, g)
+        # {{DOSIS_MG}} — dosis en la unidad/kg (mg, mcg, UI, mL, gotas…)
         unidad_kg = self.unidad_dosis_kg or 'mg'
         dosis_mg_txt = f'{dosis_mg} {unidad_kg}' if dosis_mg is not None else ''
         reemplazos = {

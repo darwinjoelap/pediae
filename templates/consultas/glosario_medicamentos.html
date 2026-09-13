@@ -220,6 +220,11 @@
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════
+   Unidades directas: factor × peso = cantidad final (sin concentración)
+═══════════════════════════════════════════════════════════════════ */
+const UNIDADES_DIRECTAS = ['mL', 'gotas', 'tableta', 'sobre', 'puff', 'aplicacion'];
+
+/* ═══════════════════════════════════════════════════════════════════
    Editar: pre-llenar campos del modal con datos del medicamento
 ═══════════════════════════════════════════════════════════════════ */
 document.getElementById('modalEditarMed').addEventListener('show.bs.modal', function(e) {
@@ -251,6 +256,16 @@ document.getElementById('modalEditarMed').addEventListener('show.bs.modal', func
   set('editar_concentracion_mg', d.conc);
   set('editar_volumen_ml',       d.vol);
   set('editar_unidad_resultado', d.unidad);
+
+  // Aplicar visibilidad de concentración según la unidad seleccionada
+  (function() {
+    var unid = d.unidadDosisKg || 'mg';
+    var body = document.querySelector('#modalEditarMed [data-prefix]');
+    if (body) {
+      var secConc = body.querySelector('.section-concentracion');
+      if (secConc) secConc.style.display = UNIDADES_DIRECTAS.indexOf(unid) >= 0 ? 'none' : '';
+    }
+  })();
 
   // ── Modo fija ──────────────────────────────────────────────────────
   set('editar_dosis_fija',         d.dosisFija);
@@ -382,18 +397,32 @@ function actualizarPreview(prefix) {
     var factor = dosisMin ? (dosisMax ? (dosisMin + dosisMax) / 2 : dosisMin) : 0;
     dosis_mg_val = factor * pesoDemoKg;
 
-    if (dosis_mg_val > 0 && conc > 0 && unidad) {
-      var cantidad = 0;
-      if (unidad === 'mL' && vol > 0) {
-        cantidad = Math.round((dosis_mg_val / conc) * vol * 10) / 10;
-      } else if (unidad === 'tableta') {
-        cantidad = Math.round((dosis_mg_val / conc) * 2) / 2;
-      } else if (unidad === 'gotas') {
-        cantidad = Math.round((dosis_mg_val / conc) * (vol || 1));
-      } else {
-        cantidad = Math.round(dosis_mg_val * 10) / 10;
+    if (dosis_mg_val > 0) {
+      if (UNIDADES_DIRECTAS.indexOf(unidKg) >= 0) {
+        // Unidad directa: factor × peso = cantidad final (sin concentración)
+        var cantidad;
+        if (unidKg === 'tableta') {
+          cantidad = Math.round(dosis_mg_val * 2) / 2;  // redondear a medias
+        } else if (unidKg === 'mL') {
+          cantidad = Math.round(dosis_mg_val * 10) / 10;
+        } else {
+          cantidad = Math.round(dosis_mg_val);
+        }
+        dosis_display = cantidad + ' ' + unidKg;
+      } else if (conc > 0 && unidad) {
+        // Unidad de masa: convertir mediante concentración
+        var cantidad = 0;
+        if (unidad === 'mL' && vol > 0) {
+          cantidad = Math.round((dosis_mg_val / conc) * vol * 10) / 10;
+        } else if (unidad === 'tableta') {
+          cantidad = Math.round((dosis_mg_val / conc) * 2) / 2;
+        } else if (unidad === 'gotas') {
+          cantidad = Math.round((dosis_mg_val / conc) * (vol || 1));
+        } else {
+          cantidad = Math.round(dosis_mg_val * 10) / 10;
+        }
+        dosis_display = cantidad + ' ' + unidad;
       }
-      dosis_display = cantidad + ' ' + unidad;
     }
   }
 
@@ -453,6 +482,30 @@ document.addEventListener('click', function(e) {
 });
 
 /* ═══════════════════════════════════════════════════════════════════
+   Unidad directa vs. masa: mostrar/ocultar sección de concentración
+═══════════════════════════════════════════════════════════════════ */
+function bindUnitSwitch(prefix) {
+  var select = document.getElementById(prefix + '_unidad_dosis_kg');
+  if (!select) return;
+
+  function applyUnit() {
+    var unid = select.value;
+    var body = select.closest('[data-prefix]');
+    if (!body) return;
+    var secConc = body.querySelector('.section-concentracion');
+    if (secConc) {
+      secConc.style.display = UNIDADES_DIRECTAS.indexOf(unid) >= 0 ? 'none' : '';
+    }
+    actualizarPreview(prefix);
+  }
+
+  select.removeEventListener('change', select._unitListener);
+  select._unitListener = applyUnit;
+  select.addEventListener('change', applyUnit);
+  applyUnit(); // aplicar estado inicial
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    Bind todos los eventos al abrir un modal
 ═══════════════════════════════════════════════════════════════════ */
 document.getElementById('modalNuevoMed').addEventListener('shown.bs.modal', function() {
@@ -483,8 +536,9 @@ function bindPreviewEvents(prefix) {
     }
   });
 
-  // Activar lógica de modo
+  // Activar lógica de modo y de unidad
   bindModeSwitch(prefix);
+  bindUnitSwitch(prefix);
   actualizarPreview(prefix);
 }
 </script>
