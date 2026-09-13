@@ -191,29 +191,54 @@
 </div>
 
 <script>
-/* ── Editar: pre-llenar campos ─────────────────────────────────────── */
+/* ── Editar: pre-llenar campos y abrir paneles con datos ───────────── */
 document.getElementById('modalEditarMed').addEventListener('show.bs.modal', function(e) {
   var btn = e.relatedTarget;
   var d = btn.dataset;
+
+  function set(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.value = val || '';
+  }
+
   // Datos básicos
-  document.getElementById('editar_nombre').value       = d.nombre;
-  document.getElementById('editar_indicaciones').value = d.indicaciones;
-  document.getElementById('editar_orden').value        = d.orden;
+  set('editar_nombre',       d.nombre);
+  set('editar_indicaciones', d.indicaciones);
+  set('editar_orden',        d.orden);
+
   // Dosificación
-  document.getElementById('editar_dosis_mg_kg_min').value  = d.dosisMin;
-  document.getElementById('editar_dosis_mg_kg_max').value  = d.dosisMax;
-  document.getElementById('editar_frecuencia_horas').value = d.frecuencia;
-  document.getElementById('editar_duracion_dias').value    = d.duracion;
+  set('editar_dosis_mg_kg_min',  d.dosisMin);
+  set('editar_dosis_mg_kg_max',  d.dosisMax);
+  set('editar_frecuencia_horas', d.frecuencia);
+  set('editar_duracion_dias',    d.duracion);
+
   // Presentación
-  document.getElementById('editar_presentacion').value     = d.presentacion;
-  document.getElementById('editar_concentracion_mg').value = d.conc;
-  document.getElementById('editar_volumen_ml').value       = d.vol;
-  document.getElementById('editar_unidad_resultado').value = d.unidad;
+  set('editar_presentacion',     d.presentacion);
+  set('editar_concentracion_mg', d.conc);
+  set('editar_volumen_ml',       d.vol);
+  set('editar_unidad_resultado', d.unidad);
+
   // Límites
-  document.getElementById('editar_dosis_max_absoluta').value = d.dosisMaxAbs;
-  document.getElementById('editar_edad_min_meses').value     = d.edadMin;
-  document.getElementById('editar_edad_max_meses').value     = d.edadMax;
-  document.getElementById('editar_peso_min_kg').value        = d.pesoMin;
+  set('editar_dosis_max_absoluta', d.dosisMaxAbs);
+  set('editar_edad_min_meses',     d.edadMin);
+  set('editar_edad_max_meses',     d.edadMax);
+  set('editar_peso_min_kg',        d.pesoMin);
+
+  // Auto-expandir paneles que tienen datos
+  function expandIf(panelId, hasData) {
+    var el = document.getElementById(panelId);
+    if (!el) return;
+    if (hasData) {
+      var bsCol = bootstrap.Collapse.getOrCreateInstance(el, {toggle: false});
+      bsCol.show();
+    } else {
+      var bsCol2 = bootstrap.Collapse.getOrCreateInstance(el, {toggle: false});
+      bsCol2.hide();
+    }
+  }
+  expandIf('acc_editar_dosis', !!(d.dosisMin || d.frecuencia || d.duracion));
+  expandIf('acc_editar_pres',  !!(d.presentacion || d.conc || d.unidad));
+  expandIf('acc_editar_lim',   !!(d.edadMin || d.edadMax || d.pesoMin || d.dosisMaxAbs));
 
   document.getElementById('formEditarMed').action =
     '{{ TENANT_PREFIX }}/consultas/medicamentos/' + d.pk + '/editar/';
