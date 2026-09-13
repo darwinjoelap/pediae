@@ -58,55 +58,96 @@
 
 <!-- KPIs -->
 <div class="row g-3 mb-4">
-  <div class="col-6 col-md-2">
+
+  {# Fila 1 — Actividad clínica #}
+  <div class="col-6 col-md-3 col-lg-2">
     <div class="card border-0 shadow-sm text-center py-3">
       <div class="fs-2 fw-bold" style="color:var(--color-primary)">{{ total_pacientes }}</div>
       <div class="text-muted small">Pacientes</div>
     </div>
   </div>
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md-3 col-lg-2">
     <div class="card border-0 shadow-sm text-center py-3">
       <div class="fs-2 fw-bold">{{ stats_citas.total }}</div>
-      <div class="text-muted small">Citas</div>
+      <div class="text-muted small">Citas agendadas</div>
     </div>
   </div>
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md-3 col-lg-2">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fs-2 fw-bold text-success">{{ stats_citas.total_atendidos }}</div>
+      <div class="text-muted small">Atendidos</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-lg-2">
+    <div class="card border-0 shadow-sm text-center py-3">
+      <div class="fs-2 fw-bold" style="color:#fd7e14">{{ stats_citas.atendidos_sin_cita }}</div>
+      <div class="text-muted small">Sin cita previa</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-lg-2">
     <div class="card border-0 shadow-sm text-center py-3">
       <div class="fs-2 fw-bold text-success">{{ stats_citas.tasa_asistencia }}%</div>
-      <div class="text-muted small">Asistencia</div>
+      <div class="text-muted small">Tasa asistencia
+        <span data-bs-toggle="tooltip" title="Citas atendidas / citas que cerraron (excluye pendientes)">
+          <i class="bi bi-info-circle text-muted" style="font-size:.7rem"></i>
+        </span>
+      </div>
     </div>
   </div>
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md-3 col-lg-2">
     <div class="card border-0 shadow-sm text-center py-3">
       <div class="fs-2 fw-bold text-info">{{ stats_consultas.total }}</div>
       <div class="text-muted small">Consultas</div>
     </div>
   </div>
-  <div class="col-6 col-md-2">
+
+  {# Fila 2 — Finanzas #}
+  <div class="col-6 col-md-3 col-lg-2">
     <div class="card border-0 shadow-sm text-center py-3">
       <div class="fs-2 fw-bold text-success">${{ total_ingresos_usd|floatformat:2 }}</div>
       <div class="text-muted small">Cobrado USD</div>
     </div>
   </div>
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md-3 col-lg-2">
     <div class="card border-0 shadow-sm text-center py-3">
       <div class="fs-2 fw-bold text-danger">${{ total_costo_adquisicion|floatformat:2 }}</div>
       <div class="text-muted small">Costo adquisición</div>
     </div>
   </div>
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md-3 col-lg-2">
     <div class="card border-0 shadow-sm text-center py-3">
       <div class="fs-2 fw-bold text-primary">${{ ingreso_real_usd|floatformat:2 }}</div>
       <div class="text-muted small">Ingreso real USD</div>
     </div>
   </div>
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md-3 col-lg-2">
     <div class="card border-0 shadow-sm text-center py-3">
       <div class="fs-2 fw-bold text-warning">${{ ingresos_pendientes|floatformat:2 }}</div>
       <div class="text-muted small">Pendiente USD</div>
     </div>
   </div>
+
 </div>
+
+{# Desglose rápido de citas #}
+{% if stats_citas.total > 0 %}
+<div class="row g-2 mb-4">
+  <div class="col">
+    <div class="card border-0 shadow-sm px-3 py-2">
+      <div class="d-flex flex-wrap gap-3 align-items-center">
+        <span class="text-muted small fw-semibold">Citas agendadas:</span>
+        <span class="badge bg-success">✓ Atendidas {{ stats_citas.atendidas }}</span>
+        <span class="badge bg-danger">✗ Canceladas {{ stats_citas.canceladas }}</span>
+        <span class="badge bg-warning text-dark">↩ No asistió {{ stats_citas.no_asistio }}</span>
+        <span class="badge bg-secondary">⏳ Pendientes {{ stats_citas.pendientes }}</span>
+        {% if stats_citas.atendidos_sin_cita > 0 %}
+        <span class="badge" style="background:#fd7e14">+ {{ stats_citas.atendidos_sin_cita }} sin cita previa</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <div class="row g-4">
 
@@ -285,5 +326,10 @@ barChart('nutricion', C.nutricion.labels, C.nutricion.data, 'Consultas', 'rgba(2
 barChart('antecedentes', C.antecedentes.labels, C.antecedentes.data, 'Pacientes', 'rgba(251,146,60,0.7)');
 barChart('diasSemana', C.dias_semana.labels, C.dias_semana.data, 'Citas', 'rgba(139,92,246,0.7)');
 lineChart('pacientesNuevos', C.pacientes_nuevos.labels, C.pacientes_nuevos.data, 'Nuevos');
+
+// Tooltips Bootstrap
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
+  new bootstrap.Tooltip(el)
+);
 </script>
 {% endblock %}

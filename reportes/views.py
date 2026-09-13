@@ -406,39 +406,12 @@ def estadisticas(request):
         consultas = consultas.filter(medico=medico_seleccionado)
         citas = citas.filter(creado_por=medico_seleccionado)
 
-    # Actividad clínica
-    stats_citas = {
-        'total': citas.count(),
-        'atendidas': citas.filter(estado='atendida').count(),
-        'canceladas': citas.filter(estado='cancelada').count(),
-        'no_asistio': citas.filter(estado='no_asistio').count(),
-        'programadas': citas.filter(estado__in=['programada', 'confirmada']).count(),
-    }
-    stats_citas['tasa_asistencia'] = round(
-        stats_citas['atendidas'] / stats_citas['total'] * 100, 1
-    ) if stats_citas['total'] > 0 else 0
-
-    # Consultas por tipo (pediátrico)
-    tipos_consulta = consultas.values('tipo_consulta').annotate(
-        total=Count('id')
-    ).order_by('-total')
-    tipos_dict = {t['tipo_consulta']: t['total'] for t in tipos_consulta}
-
-    # Usar get_tipo_consulta_display equivalente — mapear los choices manualmente
-    TIPO_LABELS = {
-        'control': 'Control',
-        'enfermedad': 'Enfermedad',
-        'urgencia': 'Urgencia',
-        'procedimiento': 'Procedimiento',
-        'otro': 'Otro',
-    }
-    stats_consultas = {
-        'total': consultas.count(),
-        'por_tipo': [
-            {'tipo': TIPO_LABELS.get(k, k), 'total': v}
-            for k, v in tipos_dict.items()
-        ],
-    }
+    # ── Actividad clínica ─────────────────────────────────────────────────────
+    _atendidas_con_cita = citas.filter(estado='atendida').count()
+    _canceladas         = citas.filter(estado='cancelada').count()
+    _no_asistio         = citas.filter(estado='no_asistio').count()
+    _pendientes         = citas.filter(estado__in=['programada', 'confirmada', 'tentativa']).count()
+    _citas_finalizadas  = _atendidas_con_cita + _canceladas + _no_asistio
 
     # Ingresos
     consultas_ids = consultas.values_list('id', flat=True)
@@ -460,16 +433,41 @@ def estadisticas(request):
     if medico_seleccionado:
         procedimientos_qs = procedimientos_qs.filter(medico=medico_seleccionado)
 
-    # Sumar atendidos sin cita previa a los conteos clínicos
-    atendidos_sin_cita = (
-        consultas.filter(cita__isnull=True).count()
-        + procedimientos_qs.filter(cita__isnull=True).count()
-    )
-    stats_citas['atendidas'] += atendidos_sin_cita
-    stats_citas['total'] += atendidos_sin_cita
-    stats_citas['tasa_asistencia'] = round(
-        stats_citas['atendidas'] / stats_citas['total'] * 100, 1
-    ) if stats_citas['total'] > 0 else 0
+    # Atendidos sin cita previa
+    _cons_sin_cita      = consultas.filter(cita__isnull=True).count()
+    _proc_sin_cita      = procedimientos_qs.filter(cita__isnull=True).count()
+    _atendidos_sin_cita = _cons_sin_cita + _proc_sin_cita
+    _total_atendidos    = _atendidas_con_cita + _atendidos_sin_cita
+
+    stats_citas = {
+        'total':              citas.count(),
+        'atendidas':          _atendidas_con_cita,
+        'atendidos_sin_cita': _atendidos_sin_cita,
+        'total_atendidos':    _total_atendidos,
+        'canceladas':         _canceladas,
+        'no_asistio':         _no_asistio,
+        'pendientes':         _pendientes,
+        'tasa_asistencia':    round(_atendidas_con_cita / _citas_finalizadas * 100, 1)
+                              if _citas_finalizadas > 0 else 0,
+    }
+
+    # Consultas por tipo — labels alineados con choices del modelo
+    TIPO_LABELS = {
+        'control_sano': 'Control sano',
+        'enfermedad':   'Enfermedad',
+        'seguimiento':  'Seguimiento',
+    }
+    tipos_consulta = consultas.values('tipo_consulta').annotate(
+        total=Count('id')
+    ).order_by('-total')
+    tipos_dict = {t['tipo_consulta']: t['total'] for t in tipos_consulta}
+    stats_consultas = {
+        'total': consultas.count(),
+        'por_tipo': [
+            {'tipo': TIPO_LABELS.get(k, k), 'total': v}
+            for k, v in tipos_dict.items()
+        ],
+    }
 
     total_ingresos_proc = procedimientos_qs.filter(
         pagado=True
@@ -556,14 +554,12 @@ def estadisticas(request):
     ).order_by('-total')
 
     NUTRICION_LABELS = {
-        'normal': 'Normal',
-        'desnutricion_leve': 'Desnutrición leve',
-        'desnutricion_moderada': 'Desnutrición moderada',
-        'desnutricion_severa': 'Desnutrición severa',
-        'sobrepeso': 'Sobrepeso',
-        'obesidad': 'Obesidad',
-        'talla_baja': 'Talla baja',
-        'macrosomia': 'Macrosomía',
+        'desnutricion_severa':  'Desnutrición severa (<p3)',
+        'desnutricion':         'Desnutrición (p3-p10)',
+        'riesgo_desnutricion':  'Riesgo de desnutrición (p10-p15)',
+        'eutrofico':            'Eutrófico (p15-p85)',
+        'sobrepeso':            'Sobrepeso (p85-p97)',
+        'obesidad':             'Obesidad (>p97)',
     }
 
     # Antecedentes familiares pediátricos
@@ -753,11 +749,9 @@ def estadisticas_pdf(request):
 
     # Consultas por tipo
     TIPO_LABELS = {
-        'control': 'Control',
-        'enfermedad': 'Enfermedad',
-        'urgencia': 'Urgencia',
-        'procedimiento': 'Procedimiento',
-        'otro': 'Otro',
+        'control_sano': 'Control sano',
+        'enfermedad':   'Enfermedad',
+        'seguimiento':  'Seguimiento',
     }
     tipos_consulta = consultas.values('tipo_consulta').annotate(
         total=Count('id')
