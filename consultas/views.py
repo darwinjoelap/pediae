@@ -777,8 +777,20 @@ def editar_medicamento(request, pk):
         med.rango3_edad_min     = _int('rango3_edad_min')
         med.rango3_edad_max     = _int('rango3_edad_max')
         med.rango3_dosis        = request.POST.get('rango3_dosis', '').strip()
-        med.save()
-        messages.success(request, 'Medicamento actualizado.')
+        # DEBUG TEMPORAL — ver en la terminal del runserver qué llega en el POST
+        import sys
+        print('=== DEBUG editar_medicamento POST ===', file=sys.stderr)
+        for k in ['modo_calculo','dosis_mg_kg_min','dosis_mg_kg_max',
+                  'frecuencia_horas','duracion_dias','concentracion_mg','volumen_ml']:
+            print(f'  {k} = {request.POST.get(k, "<AUSENTE>")!r}', file=sys.stderr)
+        print('=====================================', file=sys.stderr)
+        # FIN DEBUG
+        try:
+            med.save()
+            messages.success(request, 'Medicamento actualizado.')
+        except Exception as e:
+            messages.error(request, f'Error al guardar: {e}')
+            import traceback; traceback.print_exc()
     return _r(request, '/consultas/medicamentos/')
 
 
