@@ -644,17 +644,29 @@ def medicamentos_json(request):
         tenant=request.tenant, activo=True
     ).order_by('orden', 'nombre').values(
         'pk', 'nombre', 'indicaciones',
+        'modo_calculo', 'unidad_dosis_kg', 'dosis_fija',
         'dosis_mg_kg_min', 'dosis_mg_kg_max',
         'frecuencia_horas', 'duracion_dias',
         'presentacion', 'concentracion_mg', 'volumen_ml',
         'unidad_resultado', 'dosis_max_absoluta',
     ))
     # Serialize Decimal → str for JSON
+    UNIDADES_DIRECTAS_KG = frozenset({'mL', 'gotas', 'tableta', 'sobre', 'puff', 'aplicacion'})
     for m in meds:
         for k in ('dosis_mg_kg_min','dosis_mg_kg_max','concentracion_mg',
                   'volumen_ml','dosis_max_absoluta'):
             m[k] = str(m[k]) if m[k] is not None else None
-        m['tiene_calculo'] = bool(m['dosis_mg_kg_min'] and m['concentracion_mg'] and m['unidad_resultado'])
+        modo = m.get('modo_calculo', 'peso')
+        if modo == 'fija':
+            m['tiene_calculo'] = bool(m.get('dosis_fija'))
+        elif modo == 'edad':
+            m['tiene_calculo'] = True  # simplificado; el servidor calcula
+        else:  # modo peso
+            udkg = m.get('unidad_dosis_kg', 'mg')
+            if udkg in UNIDADES_DIRECTAS_KG:
+                m['tiene_calculo'] = bool(m['dosis_mg_kg_min'])
+            else:
+                m['tiene_calculo'] = bool(m['dosis_mg_kg_min'] and m['concentracion_mg'] and m['unidad_resultado'])
         m['tiene_rango'] = bool(m['dosis_mg_kg_min'] and m['dosis_mg_kg_max'])
     return JsonResponse({'medicamentos': meds})
 
@@ -684,6 +696,9 @@ def nuevo_medicamento(request):
                 nombre=nombre,
                 indicaciones=indicaciones,
                 orden=orden,
+                modo_calculo=request.POST.get('modo_calculo', 'peso') or 'peso',
+                unidad_dosis_kg=request.POST.get('unidad_dosis_kg', 'mg') or 'mg',
+                dosis_fija=request.POST.get('dosis_fija', '').strip(),
                 dosis_mg_kg_min=_dec('dosis_mg_kg_min'),
                 dosis_mg_kg_max=_dec('dosis_mg_kg_max'),
                 frecuencia_horas=_int('frecuencia_horas'),
@@ -693,9 +708,18 @@ def nuevo_medicamento(request):
                 volumen_ml=_dec('volumen_ml'),
                 unidad_resultado=request.POST.get('unidad_resultado', '').strip(),
                 dosis_max_absoluta=_dec('dosis_max_absoluta'),
+                peso_min_kg=_dec('peso_min_kg'),
                 edad_min_meses=_int('edad_min_meses'),
                 edad_max_meses=_int('edad_max_meses'),
-                peso_min_kg=_dec('peso_min_kg'),
+                rango1_edad_min=_int('rango1_edad_min'),
+                rango1_edad_max=_int('rango1_edad_max'),
+                rango1_dosis=request.POST.get('rango1_dosis', '').strip(),
+                rango2_edad_min=_int('rango2_edad_min'),
+                rango2_edad_max=_int('rango2_edad_max'),
+                rango2_dosis=request.POST.get('rango2_dosis', '').strip(),
+                rango3_edad_min=_int('rango3_edad_min'),
+                rango3_edad_max=_int('rango3_edad_max'),
+                rango3_dosis=request.POST.get('rango3_dosis', '').strip(),
             )
             messages.success(request, f'Medicamento "{nombre}" agregado.')
     return _r(request, '/consultas/medicamentos/')
@@ -720,6 +744,9 @@ def editar_medicamento(request, pk):
         med.nombre              = request.POST.get('nombre', med.nombre).strip()
         med.indicaciones        = request.POST.get('indicaciones', med.indicaciones).strip()
         med.orden               = int(request.POST.get('orden', med.orden) or 0)
+        med.modo_calculo        = request.POST.get('modo_calculo', 'peso') or 'peso'
+        med.unidad_dosis_kg     = request.POST.get('unidad_dosis_kg', 'mg') or 'mg'
+        med.dosis_fija          = request.POST.get('dosis_fija', '').strip()
         med.dosis_mg_kg_min     = _dec('dosis_mg_kg_min')
         med.dosis_mg_kg_max     = _dec('dosis_mg_kg_max')
         med.frecuencia_horas    = _int('frecuencia_horas')
@@ -729,9 +756,18 @@ def editar_medicamento(request, pk):
         med.volumen_ml          = _dec('volumen_ml')
         med.unidad_resultado    = request.POST.get('unidad_resultado', '').strip()
         med.dosis_max_absoluta  = _dec('dosis_max_absoluta')
+        med.peso_min_kg         = _dec('peso_min_kg')
         med.edad_min_meses      = _int('edad_min_meses')
         med.edad_max_meses      = _int('edad_max_meses')
-        med.peso_min_kg         = _dec('peso_min_kg')
+        med.rango1_edad_min     = _int('rango1_edad_min')
+        med.rango1_edad_max     = _int('rango1_edad_max')
+        med.rango1_dosis        = request.POST.get('rango1_dosis', '').strip()
+        med.rango2_edad_min     = _int('rango2_edad_min')
+        med.rango2_edad_max     = _int('rango2_edad_max')
+        med.rango2_dosis        = request.POST.get('rango2_dosis', '').strip()
+        med.rango3_edad_min     = _int('rango3_edad_min')
+        med.rango3_edad_max     = _int('rango3_edad_max')
+        med.rango3_dosis        = request.POST.get('rango3_dosis', '').strip()
         med.save()
         messages.success(request, 'Medicamento actualizado.')
     return _r(request, '/consultas/medicamentos/')
