@@ -126,7 +126,8 @@
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <form method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/nuevo/">
+      <form method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/nuevo/"
+            style="display:flex;flex-direction:column;flex:1 1 auto;overflow:hidden;min-height:0">
         {% csrf_token %}
         {% include 'consultas/_form_medicamento.html' with prefix="nuevo" %}
         <div class="modal-footer">
@@ -152,7 +153,8 @@
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form id="formEditarMed" method="post" action="">
+      <form id="formEditarMed" method="post" action=""
+            style="display:flex;flex-direction:column;flex:1 1 auto;overflow:hidden;min-height:0">
         {% csrf_token %}
         {% include 'consultas/_form_medicamento.html' with prefix="editar" %}
         <div class="modal-footer">

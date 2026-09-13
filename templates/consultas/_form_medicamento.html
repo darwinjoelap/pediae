@@ -1,4 +1,4 @@
-<div class="modal-body" data-prefix="{{ prefix }}">
+<div class="modal-body" data-prefix="{{ prefix }}" style="flex:1 1 auto;overflow-y:auto;min-height:0">
 
   <!-- ① Datos básicos ─────────────────────────────────────────────────── -->
   <h6 class="fw-semibold text-uppercase mb-2" style="font-size:0.7rem;letter-spacing:1px;color:#2AACA8">
@@ -79,14 +79,14 @@
           Dosis mínima <span class="text-muted fw-normal small">(por kg)</span>
         </label>
         <input type="number" id="{{ prefix }}_dosis_mg_kg_min" name="dosis_mg_kg_min"
-               class="form-control form-control-sm" step="0.001" min="0" placeholder="25">
+               class="form-control form-control-sm" step="0.001" min="0" placeholder="ej: 25">
       </div>
       <div class="col-6 col-md-3">
         <label class="form-label mb-1" for="{{ prefix }}_dosis_mg_kg_max">
           Dosis máxima <span class="text-muted fw-normal small">(por kg)</span>
         </label>
         <input type="number" id="{{ prefix }}_dosis_mg_kg_max" name="dosis_mg_kg_max"
-               class="form-control form-control-sm" step="0.001" min="0" placeholder="45">
+               class="form-control form-control-sm" step="0.001" min="0" placeholder="ej: 45">
         <div class="form-text">Solo si hay rango</div>
       </div>
       <div class="col-6 col-md-3">
@@ -94,13 +94,13 @@
           Frecuencia <span class="text-muted fw-normal small">(h)</span>
         </label>
         <input type="number" id="{{ prefix }}_frecuencia_horas" name="frecuencia_horas"
-               class="form-control form-control-sm" min="1" placeholder="8">
+               class="form-control form-control-sm" min="1" placeholder="ej: 8">
         <div class="form-text">Cada cuántas horas</div>
       </div>
       <div class="col-6 col-md-3">
         <label class="form-label mb-1" for="{{ prefix }}_duracion_dias">Días</label>
         <input type="number" id="{{ prefix }}_duracion_dias" name="duracion_dias"
-               class="form-control form-control-sm" min="1" placeholder="7">
+               class="form-control form-control-sm" min="1" placeholder="ej: 7">
       </div>
     </div>
 
@@ -118,13 +118,13 @@
         <div class="col-5 col-md-3">
           <label class="form-label mb-1" for="{{ prefix }}_concentracion_mg">Activo</label>
           <input type="number" id="{{ prefix }}_concentracion_mg" name="concentracion_mg"
-                 class="form-control form-control-sm" step="0.001" min="0" placeholder="250">
+                 class="form-control form-control-sm" step="0.001" min="0" placeholder="ej: 250">
           <div class="form-text">mg (o unidad)</div>
         </div>
         <div class="col-5 col-md-3">
           <label class="form-label mb-1" for="{{ prefix }}_volumen_ml">Volumen base</label>
           <input type="number" id="{{ prefix }}_volumen_ml" name="volumen_ml"
-                 class="form-control form-control-sm" step="0.01" min="0" placeholder="5">
+                 class="form-control form-control-sm" step="0.01" min="0" placeholder="ej: 5">
           <div class="form-text">mL (vacío=tabletas)</div>
         </div>
         <div class="col-12 col-md-6">
@@ -163,13 +163,13 @@
           Frecuencia <span class="text-muted fw-normal small">(h)</span>
         </label>
         <input type="number" id="{{ prefix }}_frecuencia_horas_f" name="frecuencia_horas_fija"
-               class="form-control form-control-sm" min="1" placeholder="8">
+               class="form-control form-control-sm" min="1" placeholder="ej: 8">
         <div class="form-text">Cada cuántas horas</div>
       </div>
       <div class="col-6">
         <label class="form-label mb-1" for="{{ prefix }}_duracion_dias_f">Días</label>
         <input type="number" id="{{ prefix }}_duracion_dias_f" name="duracion_dias_fija"
-               class="form-control form-control-sm" min="1" placeholder="7">
+               class="form-control form-control-sm" min="1" placeholder="ej: 7">
       </div>
     </div>
   </div>
@@ -192,27 +192,27 @@
         <tbody>
           <tr>
             <td><input type="number" id="{{ prefix }}_rango1_edad_min" name="rango1_edad_min"
-                       class="form-control form-control-sm" min="0" placeholder="0"></td>
+                       class="form-control form-control-sm" min="0" placeholder="ej: 0"></td>
             <td><input type="number" id="{{ prefix }}_rango1_edad_max" name="rango1_edad_max"
-                       class="form-control form-control-sm" min="0" placeholder="23"></td>
+                       class="form-control form-control-sm" min="0" placeholder="ej: 23"></td>
             <td><input type="text" id="{{ prefix }}_rango1_dosis" name="rango1_dosis"
-                       class="form-control form-control-sm" placeholder="1/2 sobre"></td>
+                       class="form-control form-control-sm" placeholder="ej: 1/2 sobre"></td>
           </tr>
           <tr>
             <td><input type="number" id="{{ prefix }}_rango2_edad_min" name="rango2_edad_min"
-                       class="form-control form-control-sm" min="0" placeholder="24"></td>
+                       class="form-control form-control-sm" min="0" placeholder="ej: 24"></td>
             <td><input type="number" id="{{ prefix }}_rango2_edad_max" name="rango2_edad_max"
-                       class="form-control form-control-sm" min="0" placeholder="71"></td>
+                       class="form-control form-control-sm" min="0" placeholder="ej: 71"></td>
             <td><input type="text" id="{{ prefix }}_rango2_dosis" name="rango2_dosis"
-                       class="form-control form-control-sm" placeholder="1 sobre"></td>
+                       class="form-control form-control-sm" placeholder="ej: 1 sobre"></td>
           </tr>
           <tr>
             <td><input type="number" id="{{ prefix }}_rango3_edad_min" name="rango3_edad_min"
-                       class="form-control form-control-sm" min="0" placeholder="72"></td>
+                       class="form-control form-control-sm" min="0" placeholder="ej: 72"></td>
             <td><input type="number" id="{{ prefix }}_rango3_edad_max" name="rango3_edad_max"
-                       class="form-control form-control-sm" min="0" placeholder="144"></td>
+                       class="form-control form-control-sm" min="0" placeholder="ej: 144"></td>
             <td><input type="text" id="{{ prefix }}_rango3_dosis" name="rango3_dosis"
-                       class="form-control form-control-sm" placeholder="2 sobres"></td>
+                       class="form-control form-control-sm" placeholder="ej: 2 sobres"></td>
           </tr>
         </tbody>
       </table>
@@ -223,13 +223,13 @@
           Frecuencia <span class="text-muted fw-normal small">(h)</span>
         </label>
         <input type="number" id="{{ prefix }}_frecuencia_horas_e" name="frecuencia_horas_edad"
-               class="form-control form-control-sm" min="1" placeholder="8">
+               class="form-control form-control-sm" min="1" placeholder="ej: 8">
         <div class="form-text">Cada cuántas horas</div>
       </div>
       <div class="col-6">
         <label class="form-label mb-1" for="{{ prefix }}_duracion_dias_e">Días</label>
         <input type="number" id="{{ prefix }}_duracion_dias_e" name="duracion_dias_edad"
-               class="form-control form-control-sm" min="1" placeholder="7">
+               class="form-control form-control-sm" min="1" placeholder="ej: 7">
       </div>
     </div>
   </div>
@@ -307,7 +307,7 @@
             Máx. absoluta <span class="text-muted fw-normal">(mg/dosis)</span>
           </label>
           <input type="number" id="{{ prefix }}_dosis_max_absoluta" name="dosis_max_absoluta"
-                 class="form-control form-control-sm" step="0.01" min="0" placeholder="500">
+                 class="form-control form-control-sm" step="0.01" min="0" placeholder="ej: 500">
           <div class="form-text">Techo adulto</div>
         </div>
         <div class="col-6 col-md-3">
@@ -315,21 +315,21 @@
             Peso mínimo <span class="text-muted fw-normal">(kg)</span>
           </label>
           <input type="number" id="{{ prefix }}_peso_min_kg" name="peso_min_kg"
-                 class="form-control form-control-sm" step="0.01" min="0" placeholder="3">
+                 class="form-control form-control-sm" step="0.01" min="0" placeholder="ej: 3">
         </div>
         <div class="col-6 col-md-3">
           <label class="form-label mb-1" for="{{ prefix }}_edad_min_meses">
             Edad mínima <span class="text-muted fw-normal">(meses)</span>
           </label>
           <input type="number" id="{{ prefix }}_edad_min_meses" name="edad_min_meses"
-                 class="form-control form-control-sm" min="0" placeholder="0">
+                 class="form-control form-control-sm" min="0" placeholder="ej: 0">
         </div>
         <div class="col-6 col-md-3">
           <label class="form-label mb-1" for="{{ prefix }}_edad_max_meses">
             Edad máxima <span class="text-muted fw-normal">(meses)</span>
           </label>
           <input type="number" id="{{ prefix }}_edad_max_meses" name="edad_max_meses"
-                 class="form-control form-control-sm" min="0" placeholder="144">
+                 class="form-control form-control-sm" min="0" placeholder="ej: 144">
           <div class="form-text">144 = 12 años</div>
         </div>
       </div>
