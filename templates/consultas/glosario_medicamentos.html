@@ -35,6 +35,15 @@
               <i class="bi bi-calculator me-1"></i>Cálculo automático
             </span>
             {% endif %}
+            {% if med.modo_calculo == 'edad' %}
+            <span class="badge bg-info text-dark" style="font-size:0.65rem">
+              <i class="bi bi-people me-1"></i>Por edad
+            </span>
+            {% elif med.modo_calculo == 'fija' %}
+            <span class="badge bg-secondary" style="font-size:0.65rem">
+              <i class="bi bi-pin-angle me-1"></i>Dosis fija
+            </span>
+            {% endif %}
             {% if med.orden %}
             <span class="badge bg-light text-muted border" style="font-size:0.65rem">Orden {{ med.orden }}</span>
             {% endif %}
@@ -42,11 +51,20 @@
           {% if med.presentacion %}
           <div class="text-muted small">{{ med.presentacion }}</div>
           {% endif %}
-          {% if med.dosis_mg_kg_min %}
+          {% if med.modo_calculo == 'peso' and med.dosis_mg_kg_min %}
           <div class="text-muted small">
-            Dosis: {{ med.dosis_mg_kg_min }}{% if med.dosis_mg_kg_max %}–{{ med.dosis_mg_kg_max }}{% endif %} mg/kg/dosis
+            Dosis: {{ med.dosis_mg_kg_min }}{% if med.dosis_mg_kg_max %}–{{ med.dosis_mg_kg_max }}{% endif %} {{ med.unidad_dosis_kg|default:"mg" }}/kg/dosis
             {% if med.frecuencia_horas %}· c/{{ med.frecuencia_horas }}h{% endif %}
             {% if med.duracion_dias %}· {{ med.duracion_dias }} días{% endif %}
+          </div>
+          {% elif med.modo_calculo == 'fija' and med.dosis_fija %}
+          <div class="text-muted small">Dosis fija: {{ med.dosis_fija }}</div>
+          {% elif med.modo_calculo == 'edad' and med.rango1_dosis %}
+          <div class="text-muted small">
+            Por edad:
+            {% if med.rango1_dosis %}{{ med.rango1_edad_min|default:"0" }}–{{ med.rango1_edad_max|default:"?" }}m → {{ med.rango1_dosis }}{% endif %}
+            {% if med.rango2_dosis %} / {{ med.rango2_edad_min|default:"?" }}–{{ med.rango2_edad_max|default:"?" }}m → {{ med.rango2_dosis }}{% endif %}
+            {% if med.rango3_dosis %} / {{ med.rango3_edad_min|default:"?" }}–{{ med.rango3_edad_max|default:"?" }}m → {{ med.rango3_dosis }}{% endif %}
           </div>
           {% endif %}
           {% if med.indicaciones %}
@@ -71,6 +89,8 @@
                   data-indicaciones="{{ med.indicaciones|escapejs }}"
                   data-orden="{{ med.orden }}"
                   data-presentacion="{{ med.presentacion|escapejs }}"
+                  data-modo="{{ med.modo_calculo }}"
+                  data-unidad-dosis-kg="{{ med.unidad_dosis_kg|default:'mg' }}"
                   data-dosis-min="{{ med.dosis_mg_kg_min|default:'' }}"
                   data-dosis-max="{{ med.dosis_mg_kg_max|default:'' }}"
                   data-frecuencia="{{ med.frecuencia_horas|default:'' }}"
@@ -78,11 +98,20 @@
                   data-conc="{{ med.concentracion_mg|default:'' }}"
                   data-vol="{{ med.volumen_ml|default:'' }}"
                   data-unidad="{{ med.unidad_resultado }}"
+                  data-dosis-fija="{{ med.dosis_fija|escapejs }}"
+                  data-rango1-min="{{ med.rango1_edad_min|default:'' }}"
+                  data-rango1-max="{{ med.rango1_edad_max|default:'' }}"
+                  data-rango1-dosis="{{ med.rango1_dosis|escapejs }}"
+                  data-rango2-min="{{ med.rango2_edad_min|default:'' }}"
+                  data-rango2-max="{{ med.rango2_edad_max|default:'' }}"
+                  data-rango2-dosis="{{ med.rango2_dosis|escapejs }}"
+                  data-rango3-min="{{ med.rango3_edad_min|default:'' }}"
+                  data-rango3-max="{{ med.rango3_edad_max|default:'' }}"
+                  data-rango3-dosis="{{ med.rango3_dosis|escapejs }}"
                   data-dosis-max-abs="{{ med.dosis_max_absoluta|default:'' }}"
                   data-edad-min="{{ med.edad_min_meses|default:'' }}"
                   data-edad-max="{{ med.edad_max_meses|default:'' }}"
                   data-peso-min="{{ med.peso_min_kg|default:'' }}"
-                  data-dosis-fija="{{ med.dosis_fija|escapejs }}"
                   title="Editar">
             <i class="bi bi-pencil"></i>
           </button>
@@ -114,27 +143,27 @@
 
 <!-- ══════════════════════════════════════════════════════════════
      MODAL: Nuevo medicamento
+     <form class="modal-content"> → Bootstrap modal-dialog-scrollable
+     requiere .modal-content > .modal-body (hijo directo).
 ══════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalNuevoMed" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
+    <form method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/nuevo/" class="modal-content">
+      {% csrf_token %}
       <div class="modal-header" style="background:#2AACA8">
         <h5 class="modal-title text-white">
           <i class="bi bi-capsule-pill me-1"></i> Nuevo medicamento
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <form method="post" action="{{ TENANT_PREFIX }}/consultas/medicamentos/nuevo/">
-        {% csrf_token %}
-        {% include 'consultas/_form_medicamento.html' with prefix="nuevo" %}
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i> Guardar
-          </button>
-        </div>
-      </form>
-    </div>
+      {% include 'consultas/_form_medicamento.html' with prefix="nuevo" %}
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-plus-lg me-1"></i> Guardar
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -143,24 +172,22 @@
 ══════════════════════════════════════════════════════════════ -->
 <div class="modal fade" id="modalEditarMed" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-    <div class="modal-content">
+    <form id="formEditarMed" method="post" action="" class="modal-content">
+      {% csrf_token %}
       <div class="modal-header">
         <h5 class="modal-title fw-bold">
           <i class="bi bi-pencil me-1"></i> Editar medicamento
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form id="formEditarMed" method="post" action="">
-        {% csrf_token %}
-        {% include 'consultas/_form_medicamento.html' with prefix="editar" %}
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-lg me-1"></i> Guardar cambios
-          </button>
-        </div>
-      </form>
-    </div>
+      {% include 'consultas/_form_medicamento.html' with prefix="editar" %}
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-lg me-1"></i> Guardar cambios
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -192,55 +219,71 @@
 </div>
 
 <script>
-/* ── Editar: pre-llenar campos y abrir paneles con datos ───────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   Editar: pre-llenar campos del modal con datos del medicamento
+═══════════════════════════════════════════════════════════════════ */
 document.getElementById('modalEditarMed').addEventListener('show.bs.modal', function(e) {
   var btn = e.relatedTarget;
-  var d = btn.dataset;
+  var d   = btn.dataset;
 
   function set(id, val) {
     var el = document.getElementById(id);
     if (el) el.value = val || '';
   }
 
-  // Datos básicos
+  // ── Datos básicos ──────────────────────────────────────────────────
   set('editar_nombre',       d.nombre);
   set('editar_indicaciones', d.indicaciones);
   set('editar_orden',        d.orden);
+  set('editar_presentacion', d.presentacion);
 
-  // Dosificación
+  // ── Modo de dosificación ───────────────────────────────────────────
+  var modoVal   = d.modo || 'peso';
+  var modoRadio = document.getElementById('editar_modo_' + modoVal);
+  if (modoRadio) modoRadio.checked = true;
+
+  // ── Modo peso ──────────────────────────────────────────────────────
+  set('editar_unidad_dosis_kg',  d.unidadDosisKg || 'mg');
   set('editar_dosis_mg_kg_min',  d.dosisMin);
   set('editar_dosis_mg_kg_max',  d.dosisMax);
   set('editar_frecuencia_horas', d.frecuencia);
   set('editar_duracion_dias',    d.duracion);
-
-  // Presentación
-  set('editar_presentacion',     d.presentacion);
   set('editar_concentracion_mg', d.conc);
   set('editar_volumen_ml',       d.vol);
   set('editar_unidad_resultado', d.unidad);
 
-  // Límites
+  // ── Modo fija ──────────────────────────────────────────────────────
+  set('editar_dosis_fija',         d.dosisFija);
+  set('editar_frecuencia_horas_f', d.frecuencia);
+  set('editar_duracion_dias_f',    d.duracion);
+
+  // ── Modo edad ──────────────────────────────────────────────────────
+  set('editar_rango1_edad_min', d.rango1Min);
+  set('editar_rango1_edad_max', d.rango1Max);
+  set('editar_rango1_dosis',    d.rango1Dosis);
+  set('editar_rango2_edad_min', d.rango2Min);
+  set('editar_rango2_edad_max', d.rango2Max);
+  set('editar_rango2_dosis',    d.rango2Dosis);
+  set('editar_rango3_edad_min', d.rango3Min);
+  set('editar_rango3_edad_max', d.rango3Max);
+  set('editar_rango3_dosis',    d.rango3Dosis);
+  set('editar_frecuencia_horas_e', d.frecuencia);
+  set('editar_duracion_dias_e',    d.duracion);
+
+  // ── Límites ────────────────────────────────────────────────────────
   set('editar_dosis_max_absoluta', d.dosisMaxAbs);
   set('editar_edad_min_meses',     d.edadMin);
   set('editar_edad_max_meses',     d.edadMax);
   set('editar_peso_min_kg',        d.pesoMin);
-  set('editar_dosis_fija',         d.dosisFija);
 
-  // Auto-expandir paneles que tienen datos
+  // Expandir límites si tienen datos
   function expandIf(panelId, hasData) {
     var el = document.getElementById(panelId);
     if (!el) return;
-    if (hasData) {
-      var bsCol = bootstrap.Collapse.getOrCreateInstance(el, {toggle: false});
-      bsCol.show();
-    } else {
-      var bsCol2 = bootstrap.Collapse.getOrCreateInstance(el, {toggle: false});
-      bsCol2.hide();
-    }
+    var bsCol = bootstrap.Collapse.getOrCreateInstance(el, {toggle: false});
+    if (hasData) bsCol.show(); else bsCol.hide();
   }
-  expandIf('acc_editar_dosis', !!(d.dosisMin || d.frecuencia || d.duracion));
-  expandIf('acc_editar_pres',  !!(d.presentacion || d.conc || d.unidad));
-  expandIf('acc_editar_lim',   !!(d.edadMin || d.edadMax || d.pesoMin || d.dosisMaxAbs));
+  expandIf('acc_editar_lim', !!(d.edadMin || d.edadMax || d.pesoMin || d.dosisMaxAbs));
 
   document.getElementById('formEditarMed').action =
     '{{ TENANT_PREFIX }}/consultas/medicamentos/' + d.pk + '/editar/';
@@ -256,86 +299,151 @@ document.getElementById('modalEliminarMed').addEventListener('show.bs.modal', fu
     '{{ TENANT_PREFIX }}/consultas/medicamentos/' + btn.dataset.pk + '/eliminar/';
 });
 
-/* ── Preview en vivo: resuelve tokens con peso ficticio ────────────── */
-const TOKENS_HELP = {
-  '{{NOMBRE}}':       '→ nombre del medicamento',
-  '{{PRESENTACION}}': '→ presentación (ej: susp. 250 mg/5 mL)',
-  '{{DOSIS}}':        '→ dosis calculada (ej: 5 mL)',
-  '{{DOSIS_MG}}':     '→ dosis en mg (ej: 125 mg)',
-  '{{FRECUENCIA}}':   '→ ej: cada 8 horas',
-  '{{DURACION}}':     '→ ej: por 7 días',
-  '{{PESO}}':         '→ peso del paciente',
-};
+/* ═══════════════════════════════════════════════════════════════════
+   Modo de dosificación: mostrar/ocultar secciones
+═══════════════════════════════════════════════════════════════════ */
+function bindModeSwitch(prefix) {
+  var radios = [
+    document.getElementById(prefix + '_modo_peso'),
+    document.getElementById(prefix + '_modo_fija'),
+    document.getElementById(prefix + '_modo_edad'),
+  ].filter(Boolean);
+
+  function applyMode() {
+    var checked = radios.find(r => r.checked) || radios[0];
+    if (!checked) return;
+    var modo  = checked.value;
+    var body  = checked.closest('[data-prefix]');
+    if (!body) return;
+    body.querySelectorAll('.med-section').forEach(function(el) {
+      el.style.display = 'none';
+    });
+    var active = body.querySelector('.section-' + modo);
+    if (active) active.style.display = '';
+    actualizarPreview(prefix);
+  }
+
+  radios.forEach(function(r) {
+    r.removeEventListener('change', r._modoListener);
+    r._modoListener = applyMode;
+    r.addEventListener('change', r._modoListener);
+  });
+
+  applyMode(); // aplicar el estado inicial
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Preview en vivo: resuelve tokens con valores demo
+═══════════════════════════════════════════════════════════════════ */
+function getVal(id) { return (document.getElementById(id)?.value || '').trim(); }
+function getNum(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
+function getInt(id) { return parseInt(document.getElementById(id)?.value)   || 0; }
 
 function actualizarPreview(prefix) {
-  var nombre       = (document.getElementById(prefix+'_nombre')?.value || '').trim();
-  var indicaciones = (document.getElementById(prefix+'_indicaciones')?.value || '');
-  var dosisMin     = parseFloat(document.getElementById(prefix+'_dosis_mg_kg_min')?.value) || 0;
-  var dosisMax     = parseFloat(document.getElementById(prefix+'_dosis_mg_kg_max')?.value) || 0;
-  var frecHoras    = parseInt(document.getElementById(prefix+'_frecuencia_horas')?.value) || 0;
-  var durDias      = parseInt(document.getElementById(prefix+'_duracion_dias')?.value) || 0;
-  var presentacion = (document.getElementById(prefix+'_presentacion')?.value || '').trim();
-  var conc         = parseFloat(document.getElementById(prefix+'_concentracion_mg')?.value) || 0;
-  var vol          = parseFloat(document.getElementById(prefix+'_volumen_ml')?.value) || 0;
-  var unidad       = (document.getElementById(prefix+'_unidad_resultado')?.value || '');
+  var nombre       = getVal(prefix + '_nombre');
+  var indicaciones = document.getElementById(prefix + '_indicaciones')?.value || '';
+  var presentacion = getVal(prefix + '_presentacion');
 
-  var dosisFija    = (document.getElementById(prefix+'_dosis_fija')?.value || '').trim();
+  // Determinar modo activo
+  var radios = [
+    document.getElementById(prefix + '_modo_peso'),
+    document.getElementById(prefix + '_modo_fija'),
+    document.getElementById(prefix + '_modo_edad'),
+  ].filter(Boolean);
+  var checked = radios.find(r => r.checked) || radios[0];
+  var modo = checked ? checked.value : 'peso';
 
-  // Ejemplo con peso ficticio de 15 kg
-  var pesoDemoKg = 15;
+  var pesoDemoKg  = 15;
+  var edadDemoMes = 24;
   var dosis_display = '';
+  var dosis_mg_val  = 0;
 
-  if (dosisFija) {
-    dosis_display = dosisFija;
+  if (modo === 'fija') {
+    dosis_display = getVal(prefix + '_dosis_fija') || '[dosis fija]';
+
+  } else if (modo === 'edad') {
+    // Usar primer rango con dosis definida
+    var rangos = [
+      getVal(prefix + '_rango1_dosis'),
+      getVal(prefix + '_rango2_dosis'),
+      getVal(prefix + '_rango3_dosis'),
+    ];
+    dosis_display = rangos.find(function(d) { return d; }) || '[dosis según edad]';
+
   } else {
-    var factor = dosisMin ? (dosisMax ? (dosisMin + dosisMax)/2 : dosisMin) : 0;
-    var dosis_mg = factor * pesoDemoKg;
-    var cantidad = 0;
+    // Modo peso
+    var dosisMin  = getNum(prefix + '_dosis_mg_kg_min');
+    var dosisMax  = getNum(prefix + '_dosis_mg_kg_max');
+    var conc      = getNum(prefix + '_concentracion_mg');
+    var vol       = getNum(prefix + '_volumen_ml');
+    var unidad    = getVal(prefix + '_unidad_resultado');
+    var unidKg    = getVal(prefix + '_unidad_dosis_kg') || 'mg';
 
-  if (dosis_mg > 0 && conc > 0 && unidad) {
-    if (unidad === 'mL' && vol > 0) {
-      cantidad = Math.round((dosis_mg / conc) * vol * 10) / 10;
-    } else if (unidad === 'tableta') {
-      var raw = dosis_mg / conc;
-      cantidad = Math.round(raw * 2) / 2;
-    } else if (unidad === 'gotas') {
-      cantidad = Math.round((dosis_mg / conc) * (vol || 1));
-    } else {
-      cantidad = Math.round(dosis_mg * 10) / 10;
+    var factor = dosisMin ? (dosisMax ? (dosisMin + dosisMax) / 2 : dosisMin) : 0;
+    dosis_mg_val = factor * pesoDemoKg;
+
+    if (dosis_mg_val > 0 && conc > 0 && unidad) {
+      var cantidad = 0;
+      if (unidad === 'mL' && vol > 0) {
+        cantidad = Math.round((dosis_mg_val / conc) * vol * 10) / 10;
+      } else if (unidad === 'tableta') {
+        cantidad = Math.round((dosis_mg_val / conc) * 2) / 2;
+      } else if (unidad === 'gotas') {
+        cantidad = Math.round((dosis_mg_val / conc) * (vol || 1));
+      } else {
+        cantidad = Math.round(dosis_mg_val * 10) / 10;
+      }
+      dosis_display = cantidad + ' ' + unidad;
     }
-    dosis_display = cantidad + ' ' + unidad;
   }
-  } // end else (dosis_fija vacía)
 
-  var frecTxt = frecHoras ? 'cada ' + frecHoras + ' horas' : '';
-  var durTxt  = durDias ? 'por ' + durDias + ' día' + (durDias !== 1 ? 's' : '') : '';
+  // Frecuencia y duración (buscar en el modo activo o el campo compartido)
+  function getFrec() {
+    if (modo === 'fija') return getInt(prefix + '_frecuencia_horas_f');
+    if (modo === 'edad') return getInt(prefix + '_frecuencia_horas_e');
+    return getInt(prefix + '_frecuencia_horas');
+  }
+  function getDur() {
+    if (modo === 'fija') return getInt(prefix + '_duracion_dias_f');
+    if (modo === 'edad') return getInt(prefix + '_duracion_dias_e');
+    return getInt(prefix + '_duracion_dias');
+  }
+
+  var frecHoras = getFrec();
+  var durDias   = getDur();
+  var frecTxt   = frecHoras ? 'cada ' + frecHoras + ' horas' : '';
+  var durTxt    = durDias   ? 'por ' + durDias + ' día' + (durDias !== 1 ? 's' : '') : '';
+  var unidKg2   = getVal(prefix + '_unidad_dosis_kg') || 'mg';
+  var dosisMgTxt = dosis_mg_val > 0 ? (Math.round(dosis_mg_val * 10) / 10) + ' ' + unidKg2 : '';
 
   var texto = indicaciones
-    .replace(/\{\{NOMBRE\}\}/g, nombre || '[Nombre]')
+    .replace(/\{\{NOMBRE\}\}/g,       nombre       || '[Nombre]')
     .replace(/\{\{PRESENTACION\}\}/g, presentacion || '[Presentación]')
-    .replace(/\{\{DOSIS\}\}/g, dosis_display || (dosis_mg > 0 ? '— (faltan datos de presentación)' : '[Dosis]'))
-    .replace(/\{\{DOSIS_MG\}\}/g, dosis_mg > 0 ? (Math.round(dosis_mg*10)/10 + ' mg') : '[Dosis mg]')
-    .replace(/\{\{FRECUENCIA\}\}/g, frecTxt || '[Frecuencia]')
-    .replace(/\{\{DURACION\}\}/g, durTxt || '[Duración]')
-    .replace(/\{\{PESO\}\}/g, pesoDemoKg + ' kg');
+    .replace(/\{\{DOSIS\}\}/g,        dosis_display || '[Dosis]')
+    .replace(/\{\{DOSIS_MG\}\}/g,     dosisMgTxt    || '[Dosis ' + unidKg2 + ']')
+    .replace(/\{\{FRECUENCIA\}\}/g,   frecTxt       || '[Frecuencia]')
+    .replace(/\{\{DURACION\}\}/g,     durTxt        || '[Duración]')
+    .replace(/\{\{PESO\}\}/g,         pesoDemoKg + ' kg');
 
-  var previewEl = document.getElementById(prefix+'_preview');
+  var previewEl = document.getElementById(prefix + '_preview');
   if (previewEl) {
     previewEl.textContent = texto || '(escribe la plantilla arriba y usa los botones para insertar variables)';
     previewEl.style.color = texto ? '#333' : '#999';
   }
 }
 
-/* ── Insertar token via delegación en data-token buttons ───────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   Insertar token en textarea via delegación (.med-token)
+═══════════════════════════════════════════════════════════════════ */
 document.addEventListener('click', function(e) {
   var btn = e.target.closest('.med-token');
   if (!btn) return;
   var token  = btn.dataset.token;
   var bar    = btn.closest('[data-prefix]');
-  if (!bar) return;
+  if (!bar)  return;
   var prefix = bar.dataset.prefix;
-  var ta = document.getElementById(prefix+'_indicaciones');
-  if (!ta) return;
+  var ta     = document.getElementById(prefix + '_indicaciones');
+  if (!ta)   return;
   var start = ta.selectionStart;
   var end   = ta.selectionEnd;
   ta.value  = ta.value.slice(0, start) + token + ta.value.slice(end);
@@ -344,19 +452,9 @@ document.addEventListener('click', function(e) {
   actualizarPreview(prefix);
 });
 
-/* ── Insertar token en textarea (helper para uso directo) ──────────── */
-function insertarToken(prefix, token) {
-  var ta = document.getElementById(prefix+'_indicaciones');
-  if (!ta) return;
-  var start = ta.selectionStart;
-  var end   = ta.selectionEnd;
-  ta.value  = ta.value.slice(0, start) + token + ta.value.slice(end);
-  ta.selectionStart = ta.selectionEnd = start + token.length;
-  ta.focus();
-  actualizarPreview(prefix);
-}
-
-/* ── Bind eventos de preview para nuevo modal ──────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   Bind todos los eventos al abrir un modal
+═══════════════════════════════════════════════════════════════════ */
 document.getElementById('modalNuevoMed').addEventListener('shown.bs.modal', function() {
   bindPreviewEvents('nuevo');
 });
@@ -365,17 +463,28 @@ document.getElementById('modalEditarMed').addEventListener('shown.bs.modal', fun
 });
 
 function bindPreviewEvents(prefix) {
-  var campos = ['nombre','indicaciones','dosis_fija','dosis_mg_kg_min','dosis_mg_kg_max',
-                'frecuencia_horas','duracion_dias','presentacion',
-                'concentracion_mg','volumen_ml','unidad_resultado'];
+  // Campos que afectan el preview
+  var campos = [
+    'nombre', 'indicaciones', 'presentacion',
+    'dosis_fija',
+    'unidad_dosis_kg',
+    'dosis_mg_kg_min', 'dosis_mg_kg_max',
+    'frecuencia_horas', 'frecuencia_horas_f', 'frecuencia_horas_e',
+    'duracion_dias',    'duracion_dias_f',    'duracion_dias_e',
+    'concentracion_mg', 'volumen_ml', 'unidad_resultado',
+    'rango1_dosis', 'rango2_dosis', 'rango3_dosis',
+  ];
   campos.forEach(function(c) {
-    var el = document.getElementById(prefix+'_'+c);
+    var el = document.getElementById(prefix + '_' + c);
     if (el) {
       el.removeEventListener('input', el._previewListener);
       el._previewListener = function() { actualizarPreview(prefix); };
       el.addEventListener('input', el._previewListener);
     }
   });
+
+  // Activar lógica de modo
+  bindModeSwitch(prefix);
   actualizarPreview(prefix);
 }
 </script>

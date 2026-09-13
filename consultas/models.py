@@ -420,6 +420,19 @@ class Medicamento(models.Model):
         ('sobre',      'Sobre'),
     ]
 
+    MODO_CALCULO_CHOICES = [
+        ('peso', 'Por peso (mg/kg)'),
+        ('fija', 'Dosis fija (puffs, inhalaciones…)'),
+        ('edad', 'Por rango de edad'),
+    ]
+
+    UNIDAD_DOSIS_KG_CHOICES = [
+        ('mg',  'mg/kg'),
+        ('mcg', 'mcg/kg'),
+        ('UI',  'UI/kg'),
+        ('g',   'g/kg'),
+    ]
+
     tenant = models.ForeignKey(
         'tenant.Tenant', on_delete=models.CASCADE,
         related_name='medicamentos', verbose_name='Tenant'
@@ -439,15 +452,28 @@ class Medicamento(models.Model):
         ),
     )
 
-    # ── Dosis fija (no depende del peso) ───────────────────────────────────
+    # ── Modo de cálculo ─────────────────────────────────────────────────────
+    modo_calculo = models.CharField(
+        max_length=10,
+        choices=MODO_CALCULO_CHOICES,
+        default='peso',
+        verbose_name='Modo de cálculo',
+    )
+
+    # ── Dosis fija (puffs, inhalaciones…) ──────────────────────────────────
     dosis_fija = models.CharField(
         max_length=50, blank=True,
         verbose_name='Dosis fija',
-        help_text=(
-            'Para medicamentos donde la dosis NO depende del peso. '
-            'Ej: 2 puffs, 1 inhalación, 3 gotas. '
-            'Si se completa, ignora los campos mg/kg y se usa directamente como {{DOSIS}}.'
-        ),
+        help_text='Ej: 2 puffs, 1 inhalación, 1 sobre. Se usa como {{DOSIS}} sin calcular por kg.',
+    )
+
+    # ── Dosificación por peso ────────────────────────────────────────────────
+    unidad_dosis_kg = models.CharField(
+        max_length=5,
+        choices=UNIDAD_DOSIS_KG_CHOICES,
+        default='mg',
+        blank=True,
+        verbose_name='Unidad de dosis/kg',
     )
 
     # ── Dosificación pediátrica (mg/kg) ────────────────────────────────────
@@ -498,6 +524,36 @@ class Medicamento(models.Model):
         verbose_name='Unidad del resultado',
     )
 
+    # ── Dosificación por rango de edad ──────────────────────────────────────
+    rango1_edad_min = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Rango 1 - edad mínima (meses)'
+    )
+    rango1_edad_max = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Rango 1 - edad máxima (meses)'
+    )
+    rango1_dosis = models.CharField(
+        max_length=100, blank=True, verbose_name='Rango 1 - dosis',
+        help_text='Ej: 1/2 sobre, 5 mL, 1 comprimido'
+    )
+    rango2_edad_min = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Rango 2 - edad mínima (meses)'
+    )
+    rango2_edad_max = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Rango 2 - edad máxima (meses)'
+    )
+    rango2_dosis = models.CharField(
+        max_length=100, blank=True, verbose_name='Rango 2 - dosis'
+    )
+    rango3_edad_min = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Rango 3 - edad mínima (meses)'
+    )
+    rango3_edad_max = models.PositiveSmallIntegerField(
+        null=True, blank=True, verbose_name='Rango 3 - edad máxima (meses)'
+    )
+    rango3_dosis = models.CharField(
+        max_length=100, blank=True, verbose_name='Rango 3 - dosis'
+    )
+
     # ── Límites y alertas ───────────────────────────────────────────────────
     dosis_max_absoluta = models.DecimalField(
         max_digits=8, decimal_places=2,
@@ -533,8 +589,11 @@ class Medicamento(models.Model):
     @property
     def tiene_calculo(self):
         """True si el medicamento tiene datos suficientes para calcular/resolver dosis."""
-        if self.dosis_fija:
-            return True
+        if self.modo_calculo == 'fija' or (self.modo_calculo == 'peso' and self.dosis_fija):
+            return bool(self.dosis_fija)
+        if self.modo_calculo == 'edad':
+            return bool(self.rango1_dosis or self.rango2_dosis or self.rango3_dosis)
+        # modo_calculo == 'peso'
         return bool(self.dosis_mg_kg_min and self.concentracion_mg and self.unidad_resultado)
 
     @property
@@ -544,8 +603,8 @@ class Medicamento(models.Model):
 
     def calcular_dosis(self, peso_kg, edad_meses=None, nivel='estandar'):
         """
-        Calcula la dosis para un paciente dado su peso.
-        nivel: 'minimo' | 'estandar' | 'maximo'
+        Calcula la dosis para un paciente dado su peso y/o edad.
+        nivel: 'minimo' | 'estandar' | 'maximo'  (solo aplica a modo peso)
         Retorna dict con texto (plantilla resuelta), alertas y valores crudos.
         """
         alertas = []
@@ -557,14 +616,51 @@ class Medicamento(models.Model):
             'tiene_rango': self.tiene_rango,
         }
 
-        # ── Dosis fija (puffs, inhalaciones, gotas óticas…) ──────────────────
-        if self.dosis_fija:
+        # ── Modo: dosis fija (puffs, inhalaciones…) ───────────────────────────
+        if self.modo_calculo == 'fija' or self.dosis_fija:
             resultado['dosis_display'] = self.dosis_fija
             resultado['texto'] = self._resolver_tokens(
                 peso_kg=peso_kg, dosis_mg=None, cantidad=self.dosis_fija
             )
             return resultado
 
+        # ── Modo: por rango de edad ────────────────────────────────────────────
+        if self.modo_calculo == 'edad':
+            dosis_encontrada = None
+            rangos = [
+                (self.rango1_edad_min, self.rango1_edad_max, self.rango1_dosis),
+                (self.rango2_edad_min, self.rango2_edad_max, self.rango2_dosis),
+                (self.rango3_edad_min, self.rango3_edad_max, self.rango3_dosis),
+            ]
+            for r_min, r_max, r_dosis in rangos:
+                if not r_dosis:
+                    continue
+                age_ok = True
+                if edad_meses is not None:
+                    if r_min is not None and edad_meses < r_min:
+                        age_ok = False
+                    if r_max is not None and edad_meses > r_max:
+                        age_ok = False
+                if age_ok:
+                    dosis_encontrada = r_dosis
+                    break
+            if dosis_encontrada:
+                resultado['dosis_display'] = dosis_encontrada
+                resultado['texto'] = self._resolver_tokens(
+                    peso_kg=peso_kg, dosis_mg=None, cantidad=dosis_encontrada
+                )
+            else:
+                resultado['texto'] = self._resolver_tokens(
+                    peso_kg=peso_kg, dosis_mg=None, cantidad='[sin rango para esta edad]'
+                )
+                if edad_meses is not None:
+                    alertas.append({
+                        'tipo': 'warning',
+                        'msg': f'⚠️ No hay rango de dosis definido para {edad_meses} meses.',
+                    })
+            return resultado
+
+        # ── Modo: por peso ─────────────────────────────────────────────────────
         if not self.tiene_calculo:
             # Sin datos de dosificación → devolver plantilla sin resolver
             resultado['texto'] = self._resolver_tokens(
@@ -656,15 +752,22 @@ class Medicamento(models.Model):
             f'por {self.duracion_dias} día{"s" if self.duracion_dias != 1 else ""}'
             if self.duracion_dias else ''
         )
-        dosis_txt = (
-            f'{cantidad} {self.unidad_resultado}'
-            if cantidad is not None else ''
-        )
+        # {{DOSIS}} — cantidad en unidad de resultado (mL, tableta, puff…)
+        if cantidad is not None and self.unidad_resultado and self.modo_calculo == 'peso':
+            dosis_txt = f'{cantidad} {self.unidad_resultado}'
+        elif cantidad is not None:
+            # edad o fija mode: cantidad ya es el string completo
+            dosis_txt = str(cantidad)
+        else:
+            dosis_txt = ''
+        # {{DOSIS_MG}} — dosis en la unidad por kg (mg, mcg, UI, g)
+        unidad_kg = self.unidad_dosis_kg or 'mg'
+        dosis_mg_txt = f'{dosis_mg} {unidad_kg}' if dosis_mg is not None else ''
         reemplazos = {
             '{{NOMBRE}}':       self.nombre,
             '{{PRESENTACION}}': self.presentacion or '',
             '{{DOSIS}}':        dosis_txt,
-            '{{DOSIS_MG}}':     f'{dosis_mg} mg' if dosis_mg is not None else '',
+            '{{DOSIS_MG}}':     dosis_mg_txt,
             '{{FRECUENCIA}}':   frecuencia_txt,
             '{{DURACION}}':     duracion_txt,
             '{{PESO}}':         f'{peso_kg} kg' if peso_kg is not None else '',
