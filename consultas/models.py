@@ -753,6 +753,17 @@ class Medicamento(models.Model):
             })
             dosis_mg = float(self.dosis_max_absoluta)
 
+        if not self.concentracion_mg:
+            # Sin concentración no se puede convertir: retornar dosis en mg
+            resultado['texto'] = self._resolver_tokens(
+                peso_kg=peso_kg, dosis_mg=round(dosis_mg, 1), cantidad=None
+            )
+            resultado['dosis_mg'] = round(dosis_mg, 1)
+            resultado['alertas'].append({
+                'tipo': 'warning',
+                'msg': '⚠️ Concentración no configurada — indica la concentración del medicamento en el glosario.',
+            })
+            return resultado
         conc = float(self.concentracion_mg)
         if self.unidad_resultado == 'mL' and self.volumen_ml:
             cantidad = round((dosis_mg / conc) * float(self.volumen_ml), 1)

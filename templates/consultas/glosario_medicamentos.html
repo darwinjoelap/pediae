@@ -203,7 +203,9 @@ document.getElementById('modalEditarMed').addEventListener('show.bs.modal', func
 
   function set(id, val) {
     var el = document.getElementById(id);
-    if (el) el.value = val || '';
+    if (!el) return;
+    if (el.type === 'number' && val) val = String(val).replace(',', '.');
+    el.value = val || '';
   }
 
   // Datos básicos
