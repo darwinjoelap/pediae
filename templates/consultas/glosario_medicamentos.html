@@ -275,12 +275,7 @@ function setModoSection(prefix, modo) {
   ['peso', 'fija', 'edad'].forEach(function(m) {
     var sec = modal.querySelector('.section-' + m);
     if (!sec) return;
-    var activa = (m === modo);
-    sec.style.display = activa ? '' : 'none';
-    sec.querySelectorAll('input, select').forEach(function(el) {
-      if (activa) { el.removeAttribute('disabled'); }
-      else        { el.setAttribute('disabled', 'disabled'); }
-    });
+    sec.style.display = (m === modo) ? '' : 'none';
   });
 }
 
