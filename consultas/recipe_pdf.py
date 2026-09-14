@@ -30,7 +30,7 @@ SEP    = 0.8 * cm
 COL_W  = (PAGE_W - 2 * MARGIN - SEP) / 2
 
 # Altura reservada para la firma al pie (espacio que el contenido no debe pisar)
-FIRMA_H = 4.0 * cm   # imagen firma + línea + nombre + especialidad + mpps + teléfono
+FIRMA_H = 3.8 * cm   # imagen firma + línea + nombre + especialidad + mpps + teléfono
 
 # ── Estilos ───────────────────────────────────────────────────────────────────
 _ctr = [0]
