@@ -284,6 +284,17 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   /* ── Availability panel ─────────────────────────────────────── */
+  function mostrarErrorPanel(msg) {
+    const panel = document.getElementById('panel-disponibilidad');
+    const slots = document.getElementById('panel-slots');
+    const sinHora = document.getElementById('panel-sin-hora');
+    if (!panel || !slots) return;
+    sinHora && sinHora.classList.add('d-none');
+    slots.innerHTML = `<div class="p-3 text-danger small"><i class="bi bi-exclamation-circle me-1"></i>${msg}</div>`;
+    panel.classList.remove('d-none');
+    panelVisible = true;
+  }
+
   function buildPanel(data, fecha) {
     const slotsDiv    = document.getElementById('panel-slots');
     const sinHoraDiv  = document.getElementById('panel-sin-hora');
@@ -297,6 +308,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const d = new Date(fecha + 'T00:00:00');
         fechaLabel.textContent = d.toLocaleDateString('es-VE', { weekday:'short', day:'numeric', month:'short' });
       } catch(e) { fechaLabel.textContent = fecha; }
+    }
+
+    // Aviso fallback (horario de config no disponible aún)
+    const avisoFallback = slotsDiv.parentElement?.querySelector('.panel-fallback-aviso');
+    if (data._fallback) {
+      if (!avisoFallback) {
+        const av = document.createElement('div');
+        av.className = 'panel-fallback-aviso px-3 pt-2 pb-1 text-warning small';
+        av.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i> Horario real no disponible — configura el horario en Configuración. Mostrando 7am–6pm por defecto.';
+        slotsDiv.parentElement.insertBefore(av, slotsDiv);
+      }
+    } else {
+      avisoFallback && avisoFallback.remove();
     }
 
     // Sin hora
@@ -382,9 +406,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btn-ver-disponibilidad').addEventListener('click', async () => {
       const fecha = document.getElementById('id_fecha')?.value;
-      if (!fecha) { alert('Selecciona primero una fecha.'); return; }
+      if (!fecha) {
+        mostrarErrorPanel('Selecciona primero una fecha.');
+        return;
+      }
+      const btn = document.getElementById('btn-ver-disponibilidad');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Cargando…';
       const data = await fetchCitas(fecha);
-      if (!data) { alert('No se pudo obtener la disponibilidad.'); return; }
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-calendar2-check me-1"></i> Ver disponibilidad del día';
+      if (!data) {
+        // Fallback: mostrar panel con slots genéricos y aviso
+        buildPanel({
+          citas: [],
+          horario_inicio: '07:00',
+          horario_fin: '18:00',
+          duracion_default: 30,
+          _fallback: true,
+        }, fecha);
+        return;
+      }
       buildPanel(data, fecha);
     });
 
