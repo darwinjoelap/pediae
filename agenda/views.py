@@ -377,3 +377,43 @@ def eliminar_cita(request, pk):
         messages.success(request, 'Cita eliminada.')
         return _r(request, f'/agenda/{fecha}/')
     return _r(request, f'/agenda/{cita.fecha.isoformat()}/')
+
+
+@login_required
+def api_citas_dia(request):
+    """API: devuelve citas de un día + configuración de agenda del consultorio."""
+    fecha_str = request.GET.get('fecha')
+    try:
+        from datetime import date as _date
+        fecha = _date.fromisoformat(fecha_str)
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'fecha inválida'}, status=400)
+
+    excluir_id = request.GET.get('excluir')  # pk de la cita que se está editando
+
+    citas_qs = Cita.objects.filter(
+        tenant=request.tenant, fecha=fecha,
+        estado__in=['programada', 'confirmada', 'tentativa']
+    ).select_related('paciente').order_by('hora_inicio')
+
+    if excluir_id:
+        citas_qs = citas_qs.exclude(pk=excluir_id)
+
+    citas_data = [
+        {
+            'id': c.pk,
+            'paciente': c.paciente.nombre_completo,
+            'hora_inicio': c.hora_inicio.strftime('%H:%M') if c.hora_inicio else None,
+            'hora_fin':    c.hora_fin.strftime('%H:%M')    if c.hora_fin    else None,
+            'sin_hora':    c.hora_inicio is None,
+        }
+        for c in citas_qs
+    ]
+
+    config = getattr(request.tenant, 'config', None)
+    return JsonResponse({
+        'citas': citas_data,
+        'horario_inicio':   config.horario_inicio.strftime('%H:%M')  if config and config.horario_inicio  else '07:00',
+        'horario_fin':      config.horario_fin.strftime('%H:%M')     if config and config.horario_fin     else '18:00',
+        'duracion_default': config.duracion_cita_minutos             if config                            else 30,
+    })

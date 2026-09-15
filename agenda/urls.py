@@ -17,4 +17,5 @@ urlpatterns = [
     path('<str:fecha>/', views.agenda_dia, name='dia'),
     path('lugares/<int:pk>/editar/', views.editar_lugar, name='lugar_editar'),
     path('citas/<int:pk>/eliminar/', views.eliminar_cita, name='cita_eliminar'),
+    path('api/citas/', views.api_citas_dia, name='api_citas'),
 ]

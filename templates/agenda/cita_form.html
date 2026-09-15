@@ -52,6 +52,29 @@
 
       {% crispy form %}
 
+      <!-- Aviso de conflicto (no bloqueante) -->
+      <div id="conflicto-aviso" class="alert alert-warning d-none mt-2 mb-3 py-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span id="conflicto-texto"></span>
+      </div>
+
+      <!-- Panel de disponibilidad -->
+      <div id="panel-disponibilidad" class="d-none mb-4 border rounded shadow-sm bg-white">
+        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
+             style="background:#f8f9fa;">
+          <strong class="small">
+            <i class="bi bi-clock me-1" style="color:var(--color-primary)"></i>
+            Disponibilidad del día — <span id="panel-fecha-label"></span>
+          </strong>
+          <button type="button" class="btn-close" id="btn-cerrar-panel" aria-label="Cerrar"></button>
+        </div>
+        <div id="panel-slots" class="p-2 d-flex flex-wrap gap-2"></div>
+        <div id="panel-sin-hora" class="px-3 pb-2 text-muted small d-none">
+          <i class="bi bi-clock-history me-1"></i>
+          <span id="panel-sin-hora-count"></span> cita(s) sin hora asignada
+        </div>
+      </div>
+
       {% if servicios_disponibles %}
       <div class="mb-4 mt-2">
         <label class="form-label fw-bold">
@@ -89,6 +112,7 @@
 
 {% block extra_js %}
 <script>
+/* ─── Patient search ─────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
   const buscador = document.getElementById('buscador-paciente');
   const resultados = document.getElementById('resultados-paciente');
@@ -100,12 +124,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (!buscador || !select) return;
 
-  // Guardar opciones originales (excluye el primer item vacío)
   const opciones = Array.from(select.options)
     .filter(opt => opt.value !== '')
     .map(opt => ({ value: opt.value, text: opt.text }));
 
-  // Si hay paciente preseleccionado mostrarlo
   if (select.value) {
     const opt = opciones.find(o => o.value === select.value);
     if (opt) mostrarSeleccionado(opt);
@@ -115,10 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const q = this.value.trim().toLowerCase();
     resultados.innerHTML = '';
 
-    if (!q) {
-      resultados.style.display = 'none';
-      return;
-    }
+    if (!q) { resultados.style.display = 'none'; return; }
 
     const filtradas = opciones.filter(opt => opt.text.toLowerCase().includes(q));
 
@@ -133,7 +152,6 @@ document.addEventListener('DOMContentLoaded', function() {
         div.addEventListener('click', () => seleccionarPaciente(opt));
         resultados.appendChild(div);
       });
-
       if (filtradas.length > 8) {
         const mas = document.createElement('div');
         mas.className = 'px-3 py-2 text-muted small text-center';
@@ -152,7 +170,6 @@ document.addEventListener('DOMContentLoaded', function() {
         </a>`;
       resultados.appendChild(div);
     }
-
     resultados.style.display = 'block';
   });
 
@@ -172,7 +189,6 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function mostrarSeleccionado(opt) {
-    // Extraer nombre y cédula del texto "Nombre (V-xxxx)"
     const match = opt.text.match(/^(.+?)\s*\((.+?)\)$/);
     pacienteNombre.textContent = match ? match[1] : opt.text;
     pacienteCedula.textContent = match ? match[2] : '';
@@ -186,12 +202,253 @@ document.addEventListener('DOMContentLoaded', function() {
     buscador.focus();
   };
 
-  // Cerrar resultados al hacer clic fuera
   document.addEventListener('click', function(e) {
     if (!buscador.contains(e.target) && !resultados.contains(e.target)) {
       resultados.style.display = 'none';
     }
   });
 });
+
+/* ─── Conflict detection + Availability panel ───────────────── */
+(function() {
+  const TENANT_PREFIX = '{{ TENANT_PREFIX }}';
+  const CITA_ID = '{{ cita.pk|default:"" }}';  // vacío si es nueva cita
+
+  let citasCache = {};       // fecha → { citas, horario_inicio, horario_fin, duracion_default }
+  let panelVisible = false;
+
+  /* Helpers */
+  function toMin(hhmm) {
+    if (!hhmm) return null;
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  function toHhmm(min) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  function fmt12(hhmm) {
+    if (!hhmm) return '';
+    const [h, m] = hhmm.split(':').map(Number);
+    const period = h < 12 ? 'am' : 'pm';
+    const h12 = ((h % 12) || 12);
+    return h12 + ':' + String(m).padStart(2, '0') + ' ' + period;
+  }
+
+  /* Fetch citas for a date, caching the result */
+  async function fetchCitas(fecha) {
+    if (citasCache[fecha]) return citasCache[fecha];
+    const excl = CITA_ID ? `&excluir=${CITA_ID}` : '';
+    try {
+      const resp = await fetch(`${TENANT_PREFIX}/agenda/api/citas/?fecha=${fecha}${excl}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      citasCache[fecha] = data;
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* ── Conflict check ──────────────────────────────────────────── */
+  function checkConflict(data, horaIni, horaFin) {
+    const avisoDiv  = document.getElementById('conflicto-aviso');
+    const avisoText = document.getElementById('conflicto-texto');
+    if (!avisoDiv || !data) return;
+
+    if (!horaIni) { avisoDiv.classList.add('d-none'); return; }
+
+    const ini = toMin(horaIni);
+    const fin = horaFin ? toMin(horaFin) : ini + 1;   // si no hay fin, punto exacto +1
+
+    const conflictos = data.citas.filter(c => {
+      if (c.sin_hora || !c.hora_inicio) return false;
+      const cIni = toMin(c.hora_inicio);
+      const cFin = c.hora_fin ? toMin(c.hora_fin) : cIni + data.duracion_default;
+      // Hay solapamiento si los intervalos se cruzan
+      return ini < cFin && fin > cIni;
+    });
+
+    if (conflictos.length === 0) {
+      avisoDiv.classList.add('d-none');
+    } else {
+      const nombres = conflictos.map(c => `<strong>${c.paciente}</strong> (${fmt12(c.hora_inicio)}${c.hora_fin ? '–' + fmt12(c.hora_fin) : ''})`).join(', ');
+      avisoText.innerHTML = `Conflicto de horario con: ${nombres}`;
+      avisoDiv.classList.remove('d-none');
+    }
+  }
+
+  /* ── Availability panel ─────────────────────────────────────── */
+  function buildPanel(data, fecha) {
+    const slotsDiv    = document.getElementById('panel-slots');
+    const sinHoraDiv  = document.getElementById('panel-sin-hora');
+    const sinHoraCnt  = document.getElementById('panel-sin-hora-count');
+    const fechaLabel  = document.getElementById('panel-fecha-label');
+    if (!slotsDiv) return;
+
+    // Título
+    if (fechaLabel && fecha) {
+      try {
+        const d = new Date(fecha + 'T00:00:00');
+        fechaLabel.textContent = d.toLocaleDateString('es-VE', { weekday:'short', day:'numeric', month:'short' });
+      } catch(e) { fechaLabel.textContent = fecha; }
+    }
+
+    // Sin hora
+    const sinHora = data.citas.filter(c => c.sin_hora).length;
+    if (sinHora > 0) {
+      sinHoraCnt.textContent = sinHora;
+      sinHoraDiv.classList.remove('d-none');
+    } else {
+      sinHoraDiv.classList.add('d-none');
+    }
+
+    // Occupied map: minuto_inicio → nombre
+    const ocupados = {};
+    data.citas.filter(c => !c.sin_hora && c.hora_inicio).forEach(c => {
+      const cIni = toMin(c.hora_inicio);
+      const cFin = c.hora_fin ? toMin(c.hora_fin) : cIni + data.duracion_default;
+      for (let m = cIni; m < cFin; m += data.duracion_default) {
+        ocupados[m] = c.paciente;
+      }
+    });
+
+    // Generate slots
+    slotsDiv.innerHTML = '';
+    const start  = toMin(data.horario_inicio);
+    const end    = toMin(data.horario_fin);
+    const step   = data.duracion_default;
+
+    for (let m = start; m < end; m += step) {
+      const slotHhmm = toHhmm(m);
+      const isOcup   = m in ocupados;
+      const btn      = document.createElement('button');
+      btn.type       = 'button';
+      btn.className  = 'btn btn-sm ' + (isOcup ? 'btn-danger' : 'btn-outline-success');
+      btn.style.cssText = 'min-width:80px; font-size:0.8rem;';
+      btn.textContent = fmt12(slotHhmm);
+      if (isOcup) {
+        btn.title   = ocupados[m];
+        btn.disabled = false;  // permite ver el tooltip pero NO rellena
+        btn.style.cursor = 'default';
+        btn.style.opacity = '0.75';
+      } else {
+        btn.title = 'Asignar este horario';
+        btn.addEventListener('click', () => asignarSlot(slotHhmm, step));
+      }
+      slotsDiv.appendChild(btn);
+    }
+
+    document.getElementById('panel-disponibilidad').classList.remove('d-none');
+    panelVisible = true;
+  }
+
+  function asignarSlot(horaIni, duracion) {
+    const campoIni = document.getElementById('id_hora_inicio');
+    const campoFin = document.getElementById('id_hora_fin');
+    if (campoIni) {
+      campoIni.value = horaIni;
+      campoIni.dispatchEvent(new Event('change'));
+    }
+    if (campoFin) {
+      const finMin = toMin(horaIni) + duracion;
+      campoFin.value = toHhmm(finMin);
+      campoFin.dispatchEvent(new Event('change'));
+    }
+  }
+
+  /* ── Inject "Ver disponibilidad" button ─────────────────────── */
+  function injectDisponibilidadBtn() {
+    const campoFecha = document.getElementById('id_fecha');
+    if (!campoFecha) return;
+
+    // Find the parent .row to append the button after the time cols
+    const rowEl = campoFecha.closest('.row') || campoFecha.closest('.form-group');
+    if (!rowEl) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'col-12 mt-1';
+    wrapper.innerHTML = `
+      <button type="button" id="btn-ver-disponibilidad"
+        class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-calendar2-check me-1"></i> Ver disponibilidad del día
+      </button>`;
+    rowEl.appendChild(wrapper);
+
+    document.getElementById('btn-ver-disponibilidad').addEventListener('click', async () => {
+      const fecha = document.getElementById('id_fecha')?.value;
+      if (!fecha) { alert('Selecciona primero una fecha.'); return; }
+      const data = await fetchCitas(fecha);
+      if (!data) { alert('No se pudo obtener la disponibilidad.'); return; }
+      buildPanel(data, fecha);
+    });
+
+    // Cerrar panel
+    document.getElementById('btn-cerrar-panel')?.addEventListener('click', () => {
+      document.getElementById('panel-disponibilidad').classList.add('d-none');
+      panelVisible = false;
+    });
+  }
+
+  /* ── Watch date/time fields for conflict ───────────────────── */
+  async function onHoraChange() {
+    const fecha   = document.getElementById('id_fecha')?.value;
+    const horaIni = document.getElementById('id_hora_inicio')?.value;
+    const horaFin = document.getElementById('id_hora_fin')?.value;
+    if (!fecha || !horaIni) {
+      document.getElementById('conflicto-aviso')?.classList.add('d-none');
+      return;
+    }
+    // Invalidate cache entry so panel rebuilds with fresh data on next open
+    delete citasCache[fecha];
+    const data = await fetchCitas(fecha);
+    checkConflict(data, horaIni, horaFin);
+    // If panel is open, refresh it
+    if (panelVisible && data) buildPanel(data, fecha);
+  }
+
+  async function onFechaChange() {
+    const fecha = document.getElementById('id_fecha')?.value;
+    if (!fecha) return;
+    delete citasCache[fecha];   // force fresh fetch
+    // Silently pre-fetch; conflict check happens on hora change
+    const horaIni = document.getElementById('id_hora_inicio')?.value;
+    const horaFin = document.getElementById('id_hora_fin')?.value;
+    if (horaIni) {
+      const data = await fetchCitas(fecha);
+      checkConflict(data, horaIni, horaFin);
+    }
+    if (panelVisible) {
+      const data = await fetchCitas(fecha);
+      if (data) buildPanel(data, fecha);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    injectDisponibilidadBtn();
+
+    const campoFecha = document.getElementById('id_fecha');
+    const campoIni   = document.getElementById('id_hora_inicio');
+    const campoFin   = document.getElementById('id_hora_fin');
+
+    campoFecha?.addEventListener('change', onFechaChange);
+    campoIni?.addEventListener('change', onHoraChange);
+    campoFin?.addEventListener('change', onHoraChange);
+
+    // Initial check if editing an existing cita
+    const fecha   = campoFecha?.value;
+    const horaIni = campoIni?.value;
+    if (fecha && horaIni) {
+      fetchCitas(fecha).then(data => {
+        checkConflict(data, horaIni, campoFin?.value);
+      });
+    }
+  });
+})();
 </script>
 {% endblock %}
