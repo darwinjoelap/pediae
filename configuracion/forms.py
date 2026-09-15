@@ -15,10 +15,13 @@ class ConfigConsultorioForm(forms.ModelForm):
             'direccion', 'telefono', 'email',
             'whatsapp_numero', 'whatsapp_mensaje',
             'color_primario', 'color_sidebar',
+            'horario_inicio', 'horario_fin', 'duracion_cita_minutos',
         ]
         widgets = {
             'whatsapp_mensaje': forms.Textarea(attrs={'rows': 3}),
             'direccion': forms.Textarea(attrs={'rows': 2}),
             'color_primario': forms.TextInput(attrs={'type': 'color'}),
             'color_sidebar': forms.TextInput(attrs={'type': 'color'}),
+            'horario_inicio': forms.TimeInput(attrs={'type': 'time'}, format='%H:%M'),
+            'horario_fin': forms.TimeInput(attrs={'type': 'time'}, format='%H:%M'),
         }

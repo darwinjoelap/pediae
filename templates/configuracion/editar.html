@@ -93,7 +93,7 @@
         </div>
       </div>
 
-      <div class="card border-0 shadow-sm mb-4">
+      <div class="card border-0 shadow-sm mb-3">
         <div class="card-header bg-transparent fw-semibold">
           <i class="bi bi-palette me-1"></i> Apariencia
         </div>
@@ -113,6 +113,29 @@
               style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:8px;font-size:0.85rem;color:#fff;font-weight:600;transition:background 0.2s">
               <i class="bi bi-layout-sidebar"></i> Vista previa del sidebar
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent fw-semibold">
+          <i class="bi bi-calendar-week me-1"></i> Agenda
+        </div>
+        <div class="card-body row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label">{{ form.horario_inicio.label }}</label>
+            {{ form.horario_inicio }}
+            <div class="form-text">{{ form.horario_inicio.help_text }}</div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">{{ form.horario_fin.label }}</label>
+            {{ form.horario_fin }}
+            <div class="form-text">{{ form.horario_fin.help_text }}</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">{{ form.duracion_cita_minutos.label }}</label>
+            {{ form.duracion_cita_minutos }}
+            <div class="form-text">Duración que se asigna al elegir una franja disponible.</div>
           </div>
         </div>
       </div>

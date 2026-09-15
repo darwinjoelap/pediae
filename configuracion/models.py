@@ -45,6 +45,32 @@ class ConfigConsultorio(models.Model):
         verbose_name='Color de la barra lateral',
         help_text='Fondo del menú lateral')
 
+    # Agenda
+    DURACION_CHOICES = [
+        (15,  '15 min'),
+        (30,  '30 min'),
+        (45,  '45 min'),
+        (60,  '1 hora'),
+        (75,  '1 h 15 min'),
+        (90,  '1 h 30 min'),
+        (120, '2 horas'),
+    ]
+    horario_inicio = models.TimeField(
+        null=True, blank=True,
+        verbose_name='Inicio de jornada',
+        help_text='Hora de apertura del consultorio (ej: 07:00)',
+    )
+    horario_fin = models.TimeField(
+        null=True, blank=True,
+        verbose_name='Fin de jornada',
+        help_text='Hora de cierre del consultorio (ej: 18:00)',
+    )
+    duracion_cita_minutos = models.PositiveSmallIntegerField(
+        default=30,
+        choices=DURACION_CHOICES,
+        verbose_name='Duración predeterminada de cita',
+    )
+
     actualizado_en = models.DateTimeField(auto_now=True)
 
     class Meta:
