@@ -58,23 +58,6 @@
         <span id="conflicto-texto"></span>
       </div>
 
-      <!-- Panel de disponibilidad -->
-      <div id="panel-disponibilidad" class="d-none mb-4 border rounded shadow-sm bg-white">
-        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
-             style="background:#f8f9fa;">
-          <strong class="small">
-            <i class="bi bi-clock me-1" style="color:var(--color-primary)"></i>
-            Disponibilidad del día — <span id="panel-fecha-label"></span>
-          </strong>
-          <button type="button" class="btn-close" id="btn-cerrar-panel" aria-label="Cerrar"></button>
-        </div>
-        <div id="panel-slots" class="p-2 d-flex flex-wrap gap-2"></div>
-        <div id="panel-sin-hora" class="px-3 pb-2 text-muted small d-none">
-          <i class="bi bi-clock-history me-1"></i>
-          <span id="panel-sin-hora-count"></span> cita(s) sin hora asignada
-        </div>
-      </div>
-
       {% if servicios_disponibles %}
       <div class="mb-4 mt-2">
         <label class="form-label fw-bold">
@@ -342,13 +325,21 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
-    // Generate slots
+    // Generate slots — skip past slots when fecha is today
     slotsDiv.innerHTML = '';
     const start  = toMin(data.horario_inicio);
     const end    = toMin(data.horario_fin);
     const step   = data.duracion_default;
 
+    const today = new Date().toISOString().split('T')[0];
+    const isHoy = fecha === today;
+    const now   = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+
     for (let m = start; m < end; m += step) {
+      // Skip slots that have already passed when viewing today
+      if (isHoy && m <= nowMin) continue;
+
       const slotHhmm = toHhmm(m);
       const isOcup   = m in ocupados;
       const btn      = document.createElement('button');
@@ -403,6 +394,24 @@ document.addEventListener('DOMContentLoaded', function() {
         <i class="bi bi-calendar2-check me-1"></i> Ver disponibilidad del día
       </button>`;
     rowEl.appendChild(wrapper);
+
+    // Inject panel right after the row (directly below the button)
+    rowEl.insertAdjacentHTML('afterend', `
+      <div id="panel-disponibilidad" class="d-none mb-4 border rounded shadow-sm bg-white">
+        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
+             style="background:#f8f9fa;">
+          <strong class="small">
+            <i class="bi bi-clock me-1" style="color:var(--color-primary)"></i>
+            Disponibilidad del día — <span id="panel-fecha-label"></span>
+          </strong>
+          <button type="button" class="btn-close" id="btn-cerrar-panel" aria-label="Cerrar"></button>
+        </div>
+        <div id="panel-slots" class="p-2 d-flex flex-wrap gap-2"></div>
+        <div id="panel-sin-hora" class="px-3 pb-2 text-muted small d-none">
+          <i class="bi bi-clock-history me-1"></i>
+          <span id="panel-sin-hora-count"></span> cita(s) sin hora asignada
+        </div>
+      </div>`);
 
     document.getElementById('btn-ver-disponibilidad').addEventListener('click', async () => {
       const fecha = document.getElementById('id_fecha')?.value;
