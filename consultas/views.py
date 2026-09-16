@@ -324,7 +324,6 @@ def adjuntar_archivo(request, pk):
 
     return render(request, 'consultas/adjuntar.html', {'form': form, 'consulta': consulta})
 
-
 @login_required
 def imprimir_consulta(request, pk):
     if not request.user.es_medico:
@@ -333,11 +332,7 @@ def imprimir_consulta(request, pk):
         Consulta.objects.select_related('paciente', 'lugar'),
         pk=pk, tenant=request.tenant
     )
-    from xhtml2pdf import pisa
-    from django.template.loader import render_to_string
-    from django.http import HttpResponse
     from datetime import date
-    import io
 
     tenant = request.tenant
     try:
@@ -352,7 +347,6 @@ def imprimir_consulta(request, pk):
         especialidad = telefono = email = logo_url = ''
 
     contacto = ' · '.join(filter(None, [telefono, email]))
-
     ctx = {
         'consulta':      consulta,
         'nombre_medico': nombre_medico,
@@ -362,19 +356,8 @@ def imprimir_consulta(request, pk):
         'logo_url':      logo_url,
         'hoy':           date.today().strftime('%d/%m/%Y'),
     }
+    return render(request, 'consultas/imprimir_consulta.html', ctx)
 
-    html_str = render_to_string('consultas/imprimir_consulta.html', ctx, request=request)
-    pdf_buffer = io.BytesIO()
-    html_str = render_to_string('consultas/imprimir_consulta.html', ctx, request=request)
-    pdf_buffer = io.BytesIO()
-    pisa.CreatePDF(io.StringIO(html_str), dest=pdf_buffer, encoding='utf-8')
-    pdf_buffer.seek(0)
-
-    p = consulta.paciente
-    nombre_archivo = f'consulta_{p.cedula}_{consulta.fecha.isoformat()}.pdf'
-    response = HttpResponse(pdf_buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="{nombre_archivo}"'
-    return response
 @login_required
 def toggle_pago(request, pk):
     from django.http import JsonResponse
