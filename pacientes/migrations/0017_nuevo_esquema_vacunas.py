@@ -46,7 +46,6 @@ NEW_VACUNAS = [
     ('Fiebre Amarilla',            'Fiebre Amarilla',                             1, 12, None, 100, '12 meses'),
     ('Hepatitis A',                'Hepatitis A',                                 1, 12, 18,  110, '12 meses'),
     ('Varicela',                   'Varicela',                                    1, 12, 15,  120, '12 meses'),
-    ('Neumococo PCV13',            'Enfermedad neumocócica (refuerzo)',            4, 12, 15,   50, '12 meses'),
     ('Meningococo conjugada',      'Enfermedad meningocócica',                    2, 12, 15,   80, '12 meses'),
 
     # ── 18 meses ───────────────────────────────────────────────────────────────
@@ -54,6 +53,7 @@ NEW_VACUNAS = [
     ('Polio (VPI / bVPO)',         'Poliomielitis (1.er refuerzo)',               4, 18, 24,  40, '18 meses'),
     ('Triple Viral (SRP)',         'Sarampión, Rubéola, Parotiditis',             2, 18, 24,  90, '18 meses'),
     ('Hepatitis A',                'Hepatitis A (6 m después de la 1.ª dosis)',   2, 18, 30, 110, '18 meses'),
+    ('Neumococo PCV13',            'Enfermedad neumocócica (refuerzo)',            4, 18, 24,   50, '18 meses'),
 
     # ── 4 a 6 años ─────────────────────────────────────────────────────────────
     ('DPT',                        'Difteria, Tétanos, Tos ferina (2.º refuerzo)', 5, 48, 72, 130, '4 a 6 años'),
