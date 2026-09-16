@@ -328,20 +328,12 @@ def imprimir_consulta(request, pk):
     if not request.user.es_medico:
         return _r(request, '/agenda/')
     consulta = get_object_or_404(
-        Consulta.objects.select_related(
-            'paciente', 'lugar'
-        ).prefetch_related('servicios_usados__servicio'),
+        Consulta.objects.select_related('paciente', 'lugar'),
         pk=pk, tenant=request.tenant
     )
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import cm
-    from reportlab.lib import colors
-    from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table,
-        TableStyle, HRFlowable
-    )
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from weasyprint import HTML, CSS
+    from django.template.loader import render_to_string
+    from django.http import HttpResponse
     from datetime import date
     import io
 
@@ -349,294 +341,34 @@ def imprimir_consulta(request, pk):
     try:
         config = tenant.config
         nombre_medico = config.nombre_medico or tenant.nombre
-        especialidad = config.especialidad or ''
-        telefono = config.telefono or tenant.telefono or ''
-        email = config.email or ''
-        logo_url = config.get_logo_url()
+        especialidad  = config.especialidad or ''
+        telefono      = config.telefono or tenant.telefono or ''
+        email         = config.email or ''
+        logo_url      = config.get_logo_url()
     except Exception:
         nombre_medico = tenant.nombre
-        especialidad = telefono = email = ''
-        logo_url = None
+        especialidad = telefono = email = logo_url = ''
 
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, pagesize=letter,
-        rightMargin=2*cm, leftMargin=2*cm,
-        topMargin=1.5*cm, bottomMargin=2*cm,
-    )
-
-    styles = getSampleStyleSheet()
-    teal       = colors.HexColor('#2AACA8')
-    gris       = colors.HexColor('#6B7280')
-    oscuro     = colors.HexColor('#1F2937')
-    borde_gris = colors.HexColor('#D1D5DB')
-    fondo_gris = colors.HexColor('#F3F4F6')
-
-    e_nombre  = ParagraphStyle('n',   parent=styles['Normal'], fontSize=14, fontName='Helvetica-Bold', textColor=oscuro, spaceAfter=2)
-    e_sub     = ParagraphStyle('s',   parent=styles['Normal'], fontSize=9,  textColor=gris, spaceAfter=2)
-    e_seccion = ParagraphStyle('sec', parent=styles['Normal'], fontSize=8,  fontName='Helvetica-Bold', textColor=teal, spaceBefore=10, spaceAfter=3)
-    e_normal  = ParagraphStyle('nor', parent=styles['Normal'], fontSize=9.5, textColor=oscuro, spaceAfter=4, leading=14)
-    e_pie     = ParagraphStyle('pie', parent=styles['Normal'], fontSize=7.5, textColor=gris, alignment=TA_CENTER, spaceBefore=4)
-    e_firma   = ParagraphStyle('firma', parent=styles['Normal'], fontSize=9, textColor=oscuro, alignment=TA_CENTER)
-    e_centro  = ParagraphStyle('ctr', parent=styles['Normal'], fontSize=9,  textColor=oscuro, alignment=TA_CENTER)
-    e_mini    = ParagraphStyle('mini', parent=styles['Normal'], fontSize=7,  textColor=gris, alignment=TA_CENTER)
-    e_chip    = ParagraphStyle('chip', parent=styles['Normal'], fontSize=8.5, textColor=oscuro)
-
-    elementos = []
-
-    # ── Membrete ──────────────────────────────────────────────────────────────
-    logo_img = None
-    if logo_url:
-        try:
-            import urllib.request as ur
-            data = ur.urlopen(logo_url).read()
-            from reportlab.platypus import Image
-            logo_img = Image(io.BytesIO(data), width=2.5*cm, height=2.5*cm)
-        except Exception:
-            logo_img = None
-
-    info = [Paragraph(nombre_medico, e_nombre)]
-    if especialidad:
-        info.append(Paragraph(especialidad, e_sub))
     contacto = ' · '.join(filter(None, [telefono, email]))
-    if contacto:
-        info.append(Paragraph(contacto, e_sub))
 
-    if logo_img:
-        t = Table([[logo_img, info]], colWidths=[3*cm, 13*cm])
-        t.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('LEFTPADDING', (0,0), (0,0), 0),
-            ('RIGHTPADDING', (0,0), (0,0), 8),
-        ]))
-        elementos.append(t)
-    else:
-        for l in info:
-            elementos.append(l)
+    ctx = {
+        'consulta':      consulta,
+        'nombre_medico': nombre_medico,
+        'especialidad':  especialidad,
+        'telefono':      telefono,
+        'contacto':      contacto,
+        'logo_url':      logo_url,
+        'hoy':           date.today().strftime('%d/%m/%Y'),
+    }
 
-    elementos.append(Spacer(1, 0.2*cm))
-    elementos.append(HRFlowable(width='100%', thickness=2, color=teal))
-    elementos.append(Spacer(1, 0.3*cm))
+    html_str = render_to_string('consultas/imprimir_consulta.html', ctx, request=request)
+    pdf_buffer = io.BytesIO()
+    HTML(string=html_str, base_url=request.build_absolute_uri('/')).write_pdf(pdf_buffer)
+    pdf_buffer.seek(0)
 
-    # ── Encabezado: paciente + tipo + fecha + lugar ───────────────────────────
     p = consulta.paciente
-    tipo_label = consulta.get_tipo_consulta_display() if consulta.tipo_consulta else ''
-    edad_str   = p.get_edad_detallada() if p.fecha_nacimiento else ''
-    lugar_str  = consulta.lugar.nombre if consulta.lugar else ''
-
-    meta_parts = [f'<b>{p.nombre_completo}</b>']
-    if edad_str:
-        meta_parts.append(edad_str)
-    if lugar_str:
-        meta_parts.append(lugar_str)
-    elementos.append(Paragraph(' · '.join(meta_parts), e_normal))
-
-    # Tipo de consulta + fecha en una línea
-    header_row = [
-        Paragraph(f'<b>{consulta.fecha.strftime("%d/%m/%Y")}</b>', e_normal),
-        Paragraph(tipo_label, ParagraphStyle('tipo', parent=styles['Normal'],
-            fontSize=9, fontName='Helvetica-Bold', textColor=teal)),
-    ]
-    t_head = Table([header_row], colWidths=[4*cm, 13*cm])
-    t_head.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-    ]))
-    elementos.append(t_head)
-    elementos.append(Spacer(1, 0.2*cm))
-    elementos.append(HRFlowable(width='100%', thickness=0.5, color=borde_gris))
-    elementos.append(Spacer(1, 0.3*cm))
-
-    # ── Antropometría — bloques visuales (como los cards del detalle) ─────────
-    tiene_antrop = any([consulta.peso, consulta.talla, consulta.perimetro_cefalico,
-                        consulta.clasificacion_nutricional])
-    if tiene_antrop:
-        elementos.append(Paragraph('ANTROPOMETRÍA', e_seccion))
-
-        bloques = []
-
-        def bloque_medida(valor, unidad, etiqueta, percentil):
-            """Devuelve el contenido de una celda tipo card."""
-            val_str = f'<b>{valor}</b> <font size="8" color="#6B7280">{unidad}</font>'
-            pct_str = f' P{percentil}' if percentil else ''
-            return [
-                Paragraph(val_str, ParagraphStyle('bv', parent=styles['Normal'],
-                    fontSize=12, alignment=TA_CENTER, textColor=oscuro)),
-                Paragraph(f'{etiqueta}{pct_str}', ParagraphStyle('be', parent=styles['Normal'],
-                    fontSize=7, alignment=TA_CENTER, textColor=gris)),
-            ]
-
-        celdas = []
-        anchos = []
-        if consulta.peso:
-            celdas.append(bloque_medida(consulta.peso, 'kg', 'Peso', consulta.percentil_peso))
-            anchos.append(3.5*cm)
-        if consulta.talla:
-            celdas.append(bloque_medida(consulta.talla, 'cm', 'Talla', consulta.percentil_talla))
-            anchos.append(3.5*cm)
-        if consulta.perimetro_cefalico:
-            celdas.append(bloque_medida(consulta.perimetro_cefalico, 'cm', 'PC', consulta.percentil_pc))
-            anchos.append(3.5*cm)
-        if consulta.clasificacion_nutricional:
-            COLORES_CLASIF = {
-                'normal':             '#16A34A',
-                'obesidad':           '#DC2626',
-                'desnutricion_severa':'#DC2626',
-                'sobrepeso':          '#D97706',
-                'desnutricion':       '#D97706',
-                'bajo_peso':          '#D97706',
-            }
-            color_hex = COLORES_CLASIF.get(consulta.clasificacion_nutricional, '#6B7280')
-            celdas.append([
-                Paragraph(
-                    f'<b>{consulta.get_clasificacion_nutricional_display()}</b>',
-                    ParagraphStyle('clasif', parent=styles['Normal'],
-                        fontSize=9, alignment=TA_CENTER,
-                        textColor=colors.HexColor(color_hex))
-                ),
-                Paragraph('Estado nutricional', e_mini),
-            ])
-            anchos.append(4.5*cm)
-
-        if celdas:
-            t_antrop = Table([celdas], colWidths=anchos)
-            estilo_antrop = [
-                ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
-                ('ALIGN',        (0,0), (-1,-1), 'CENTER'),
-                ('BOTTOMPADDING',(0,0), (-1,-1), 6),
-                ('TOPPADDING',   (0,0), (-1,-1), 6),
-                ('LEFTPADDING',  (0,0), (-1,-1), 4),
-                ('RIGHTPADDING', (0,0), (-1,-1), 4),
-            ]
-            for i in range(len(celdas)):
-                estilo_antrop += [
-                    ('BOX',        (i,0), (i,0), 0.5, borde_gris),
-                    ('ROUNDEDCORNERS', [4]),
-                ]
-            t_antrop.setStyle(TableStyle(estilo_antrop))
-            elementos.append(t_antrop)
-            elementos.append(Spacer(1, 0.3*cm))
-
-    # ── Signos vitales — chips horizontales ───────────────────────────────────
-    sv_items = []
-    if consulta.frecuencia_cardiaca:
-        sv_items.append(f'♥ {consulta.frecuencia_cardiaca} lpm')
-    if consulta.frecuencia_respiratoria:
-        sv_items.append(f'~ {consulta.frecuencia_respiratoria} rpm')
-    if consulta.temperatura:
-        sv_items.append(f'T° {consulta.temperatura} °C')
-    if consulta.saturacion_oxigeno:
-        sv_items.append(f'SatO₂ {consulta.saturacion_oxigeno}%')
-    if consulta.tension_arterial:
-        sv_items.append(f'TA {consulta.tension_arterial}')
-
-    if sv_items:
-        elementos.append(Paragraph('SIGNOS VITALES', e_seccion))
-        chip_celdas = [[Paragraph(sv, e_chip) for sv in sv_items]]
-        ancho_chip = 17*cm / len(sv_items)
-        t_sv = Table(chip_celdas, colWidths=[ancho_chip]*len(sv_items))
-        t_sv.setStyle(TableStyle([
-            ('BACKGROUND',   (0,0), (-1,-1), fondo_gris),
-            ('BOX',          (0,0), (-1,-1), 0.5, borde_gris),
-            ('INNERGRID',    (0,0), (-1,-1), 0.5, borde_gris),
-            ('FONTSIZE',     (0,0), (-1,-1), 8.5),
-            ('ALIGN',        (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING',   (0,0), (-1,-1), 5),
-            ('BOTTOMPADDING',(0,0), (-1,-1), 5),
-        ]))
-        elementos.append(t_sv)
-        elementos.append(Spacer(1, 0.3*cm))
-
-    # ── Secciones clínicas (mismo orden que detalle.html) ────────────────────
-    def seccion(titulo, texto):
-        if texto and texto.strip():
-            elementos.append(Paragraph(titulo, e_seccion))
-            elementos.append(Paragraph(texto.replace('\n', '<br/>'), e_normal))
-
-    seccion('MOTIVO', consulta.motivo_consulta)
-    seccion('SÍNTOMAS', getattr(consulta, 'sintomas_actuales', None))
-    seccion('EXAMEN FÍSICO', getattr(consulta, 'examen_fisico', None))
-    seccion('DESARROLLO PSICOMOTOR', getattr(consulta, 'desarrollo_psicomotor', None))
-
-    # Diagnóstico (siempre presente)
-    elementos.append(Paragraph('DIAGNÓSTICO', e_seccion))
-    elementos.append(Paragraph((consulta.diagnostico or '').replace('\n', '<br/>'), e_normal))
-
-    seccion('TRATAMIENTO', consulta.tratamiento)
-    seccion('INDICACIONES', getattr(consulta, 'indicaciones', None))
-    seccion('LABORATORIO / PARACLÍNICOS', consulta.laboratorio)
-    seccion('OBSERVACIONES', consulta.observaciones)
-
-    if consulta.proxima_cita:
-        elementos.append(Spacer(1, 0.2*cm))
-        elementos.append(HRFlowable(width='100%', thickness=0.5, color=borde_gris))
-        elementos.append(Spacer(1, 0.2*cm))
-        elementos.append(Paragraph(
-            f'<b>Próxima cita:</b> {consulta.proxima_cita.strftime("%d/%m/%Y")}',
-            e_normal
-        ))
-
-    # ── Servicios prestados (bloque administrativo al final) ─────────────────
-    servicios = consulta.servicios_usados.all()
-    if servicios:
-        elementos.append(Spacer(1, 0.3*cm))
-        elementos.append(HRFlowable(width='100%', thickness=0.5, color=borde_gris))
-        elementos.append(Paragraph('SERVICIOS PRESTADOS', e_seccion))
-        srv_data = [['Servicio', 'USD', 'Bs']]
-        for cs in servicios:
-            srv_data.append([
-                cs.servicio.nombre,
-                f'${cs.precio_usd}',
-                f'Bs {cs.precio_bs}' if cs.precio_bs else '—',
-            ])
-        srv_data.append(['TOTAL', f'${consulta.total_usd}',
-            f'Bs {consulta.total_bs}' if consulta.total_bs else '—'])
-        tabla_srv = Table(srv_data, colWidths=[10.5*cm, 3.25*cm, 3.25*cm])
-        tabla_srv.setStyle(TableStyle([
-            ('FONTSIZE',    (0,0), (-1,-1), 8.5),
-            ('FONTNAME',    (0,0), (-1,0),  'Helvetica-Bold'),
-            ('BACKGROUND',  (0,0), (-1,0),  fondo_gris),
-            ('FONTNAME',    (0,-1),(-1,-1), 'Helvetica-Bold'),
-            ('LINEBELOW',   (0,0), (-1,0),  0.5, borde_gris),
-            ('LINEABOVE',   (0,-1),(-1,-1), 0.5, teal),
-            ('TEXTCOLOR',   (0,-1),(-1,-1), teal),
-            ('BOTTOMPADDING',(0,0),(-1,-1), 4),
-            ('TOPPADDING',  (0,0), (-1,-1), 4),
-        ]))
-        elementos.append(tabla_srv)
-        color_pago = colors.HexColor('#16A34A') if consulta.pagado else colors.HexColor('#D97706')
-        estado_pago = 'PAGADO' if consulta.pagado else 'PAGO PENDIENTE'
-        elementos.append(Paragraph(
-            f'<b>{estado_pago}</b>' + (f' — {consulta.notas_pago}' if consulta.notas_pago else ''),
-            ParagraphStyle('pago', parent=styles['Normal'],
-                fontSize=8.5, textColor=color_pago, spaceBefore=3, spaceAfter=4)
-        ))
-
-    # ── Firma ────────────────────────────────────────────────────────────────
-    elementos.append(Spacer(1, 1.5*cm))
-    elementos.append(HRFlowable(width=8*cm, thickness=0.5, color=oscuro, hAlign='CENTER'))
-    elementos.append(Spacer(1, 0.2*cm))
-    elementos.append(Paragraph(nombre_medico, e_firma))
-    if especialidad:
-        elementos.append(Paragraph(especialidad,
-            ParagraphStyle('esp', parent=styles['Normal'],
-                fontSize=8, textColor=gris, alignment=TA_CENTER)))
-
-    # ── Pie de página ────────────────────────────────────────────────────────
-    elementos.append(Spacer(1, 0.5*cm))
-    elementos.append(HRFlowable(width='100%', thickness=0.5, color=borde_gris))
-    pie_parts = [f'Fecha de emisión: {date.today().strftime("%d/%m/%Y")}']
-    if telefono:
-        pie_parts.append(f'Tel: {telefono}')
-    elementos.append(Paragraph(' · '.join(pie_parts), e_pie))
-
-    doc.build(elementos)
-    buffer.seek(0)
-
-    from django.http import HttpResponse
     nombre_archivo = f'consulta_{p.cedula}_{consulta.fecha.isoformat()}.pdf'
-    response = HttpResponse(buffer, content_type='application/pdf')
+    response = HttpResponse(pdf_buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{nombre_archivo}"'
     return response
 @login_required
