@@ -60,10 +60,11 @@ class PacienteAdmin(admin.ModelAdmin):
 
 @admin.register(Vacuna)
 class VacunaAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'dosis_numero', 'edad_display', 'edad_max_meses', 'es_pai', 'activa', 'tenant', 'orden')
-    list_filter = ('es_pai', 'activa', 'tenant')
+    list_display = ('nombre', 'dosis_numero', 'edad_display', 'edad_max_meses', 'es_pai', 'es_anual', 'activa', 'tenant', 'orden')
+    list_filter = ('es_pai', 'es_anual', 'activa', 'tenant')
     search_fields = ('nombre', 'enfermedad')
     ordering = ('orden', 'edad_recomendada_meses', 'dosis_numero')
+    list_editable = ('es_anual', 'activa', 'orden')
 
     def edad_display(self, obj):
         return obj.edad_display()
