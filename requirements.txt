@@ -28,7 +28,7 @@ pyparsing==3.3.2
 python-dateutil==2.9.0
 python-decouple==3.8
 reportlab==4.2.5
-weasyprint
+xhtml2pdf==0.2.16
 requests==2.34.2
 rsa==4.9.1
 scipy==1.18.0

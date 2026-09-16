@@ -1,3 +1,5 @@
+import io
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
@@ -331,7 +333,7 @@ def imprimir_consulta(request, pk):
         Consulta.objects.select_related('paciente', 'lugar'),
         pk=pk, tenant=request.tenant
     )
-    from weasyprint import HTML, CSS
+    from xhtml2pdf import pisa
     from django.template.loader import render_to_string
     from django.http import HttpResponse
     from datetime import date
@@ -363,7 +365,9 @@ def imprimir_consulta(request, pk):
 
     html_str = render_to_string('consultas/imprimir_consulta.html', ctx, request=request)
     pdf_buffer = io.BytesIO()
-    HTML(string=html_str, base_url=request.build_absolute_uri('/')).write_pdf(pdf_buffer)
+    html_str = render_to_string('consultas/imprimir_consulta.html', ctx, request=request)
+    pdf_buffer = io.BytesIO()
+    pisa.CreatePDF(io.StringIO(html_str), dest=pdf_buffer, encoding='utf-8')
     pdf_buffer.seek(0)
 
     p = consulta.paciente
