@@ -124,7 +124,7 @@
               <button class="btn btn-link btn-sm p-0 text-secondary"
                 style="font-size:0.72rem"
                 data-bs-toggle="collapse"
-                data-bs-target="#hist-{{ e.vacuna.pk }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}"
+                data-bs-target="#hist-{{ e.vacuna.pk }}"
                 aria-expanded="false">
                 <i class="bi bi-clock-history"></i> Ver historial ({{ e.total_aplicaciones }})
               </button>
@@ -252,7 +252,7 @@
 
           </tr>
           {% if e.vacuna.es_anual and e.total_aplicaciones > 1 %}
-          <tr class="collapse" id="hist-{{ e.vacuna.pk }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+          <tr class="collapse" id="hist-{{ e.vacuna.pk }}">
             <td colspan="{% if request.user.es_medico %}6{% else %}5{% endif %}" class="p-0">
               <div class="bg-light border-start border-4 border-info px-3 py-2">
                 <p class="mb-2 small fw-semibold text-secondary">
@@ -283,7 +283,7 @@
                       <td class="text-end">
                         <form method="post"
                           action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/{{ dosis.pk }}/eliminar/"
-                          onsubmit="return confirm('¿Eliminar esta dosis del {{ dosis.fecha|date:'d/m/Y'|default:'sin fecha' }}?');"
+                          onsubmit="return confirm('¿Eliminar esta dosis?');"
                           style="display:inline">
                           {% csrf_token %}
                           <button type="submit" class="btn btn-sm btn-outline-danger py-0" title="Eliminar esta dosis">
