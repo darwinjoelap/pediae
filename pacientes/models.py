@@ -511,6 +511,11 @@ class Vacuna(models.Model):
         verbose_name='Grupo etario',
         help_text='Ej: Recién nacido (0-28 días), 2 meses, 12 meses, Adolescentes',
     )
+    es_anual = models.BooleanField(
+        default=False,
+        verbose_name='Vacuna anual',
+        help_text='Permite registrar múltiples aplicaciones año a año (ej: Influenza).',
+    )
 
     class Meta:
         verbose_name = 'Vacuna'
@@ -562,8 +567,7 @@ class VacunaAplicada(models.Model):
     class Meta:
         verbose_name = 'Vacuna aplicada'
         verbose_name_plural = 'Vacunas aplicadas'
-        ordering = ['fecha']
-        unique_together = [['paciente', 'vacuna']]
+        ordering = ['vacuna__orden', 'fecha']
 
     def __str__(self):
         return f'{self.paciente} — {self.vacuna.nombre} d{self.vacuna.dosis_numero} ({self.fecha})'

@@ -553,16 +553,30 @@ def _estado_esquema(paciente, tenant):
         _m.Q(tenant=None) | _m.Q(tenant=tenant)
     ).order_by('orden', 'edad_recomendada_meses', 'dosis_numero')
 
-    aplicadas_map = {
-        va.vacuna_id: va
-        for va in VacunaAplicada.objects.filter(
-            paciente=paciente, tenant=tenant
-        ).select_related('vacuna')
+    # Para anuales: tomamos la aplicación más reciente por vacuna
+    aplicadas_qs = (
+        VacunaAplicada.objects
+        .filter(paciente=paciente, tenant=tenant)
+        .select_related('vacuna')
+        .order_by('vacuna_id', '-fecha', '-creado_en')
+    )
+    aplicadas_map = {}          # vacuna_id → última aplicación
+    for va in aplicadas_qs:
+        if va.vacuna_id not in aplicadas_map:
+            aplicadas_map[va.vacuna_id] = va
+
+    from django.db.models import Count as _Count
+    conteos = {
+        row['vacuna_id']: row['n']
+        for row in VacunaAplicada.objects
+        .filter(paciente=paciente, tenant=tenant)
+        .values('vacuna_id').annotate(n=_Count('id'))
     }
 
     resultado = []
     for v in vacunas:
         aplicada = aplicadas_map.get(v.pk)
+        total_aplicaciones = conteos.get(v.pk, 0)
         if aplicada:
             estado = 'aplicada'
         elif edad_meses is None:
@@ -573,7 +587,12 @@ def _estado_esquema(paciente, tenant):
             estado = 'pendiente'
         else:
             estado = 'futura'
-        resultado.append({'vacuna': v, 'estado': estado, 'aplicada': aplicada})
+        resultado.append({
+            'vacuna': v,
+            'estado': estado,
+            'aplicada': aplicada,
+            'total_aplicaciones': total_aplicaciones,
+        })
 
     return resultado
 
@@ -632,32 +651,46 @@ def registrar_vacuna(request, pk):
         lote = request.POST.get('lote', '').strip()
         obs  = request.POST.get('observaciones', '').strip()
 
-        obj, created = VacunaAplicada.objects.get_or_create(
-            paciente=paciente,
-            vacuna=vacuna,
-            defaults=dict(
+        if vacuna.es_anual:
+            # Vacuna anual: siempre crear un nuevo registro (una por año/aplicación)
+            VacunaAplicada.objects.create(
+                paciente=paciente,
+                vacuna=vacuna,
                 tenant=request.tenant,
                 fecha=fecha,
                 lote=lote,
                 observaciones=obs,
                 aplicada_por=request.user,
-            ),
-        )
-        if not created:
-            # Actualizar sólo los campos que llegaron en el POST
-            if fecha:
-                obj.fecha = fecha
-            if lote:
-                obj.lote = lote
-            if obs:
-                obj.observaciones = obs
-            obj.aplicada_por = request.user
-            obj.save()
-
-        if created:
-            messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) registrada.')
+            )
+            total = VacunaAplicada.objects.filter(paciente=paciente, vacuna=vacuna).count()
+            messages.success(request, f'✓ {vacuna.nombre} registrada (aplicación n° {total}).')
         else:
-            messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) actualizada.')
+            obj, created = VacunaAplicada.objects.get_or_create(
+                paciente=paciente,
+                vacuna=vacuna,
+                defaults=dict(
+                    tenant=request.tenant,
+                    fecha=fecha,
+                    lote=lote,
+                    observaciones=obs,
+                    aplicada_por=request.user,
+                ),
+            )
+            if not created:
+                # Actualizar sólo los campos que llegaron en el POST
+                if fecha:
+                    obj.fecha = fecha
+                if lote:
+                    obj.lote = lote
+                if obs:
+                    obj.observaciones = obs
+                obj.aplicada_por = request.user
+                obj.save()
+
+            if created:
+                messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) registrada.')
+            else:
+                messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) actualizada.')
 
     return _r(request, f'/pacientes/{pk}/vacunas/')
 
@@ -682,21 +715,34 @@ def marcar_vacunado(request, pk):
             messages.error(request, 'Vacuna no encontrada.')
             return _r(request, f'/pacientes/{pk}/vacunas/')
 
-        obj, created = VacunaAplicada.objects.get_or_create(
-            paciente=paciente,
-            vacuna=vacuna,
-            defaults=dict(
+        if vacuna.es_anual:
+            VacunaAplicada.objects.create(
+                paciente=paciente,
+                vacuna=vacuna,
                 tenant=request.tenant,
-                fecha=None,        # marcado rápido: sin fecha
+                fecha=None,
                 lote='',
                 observaciones='',
                 aplicada_por=request.user,
-            ),
-        )
-        if created:
-            messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) marcada como aplicada.')
+            )
+            total = VacunaAplicada.objects.filter(paciente=paciente, vacuna=vacuna).count()
+            messages.success(request, f'✓ {vacuna.nombre} marcada como aplicada (n° {total}).')
         else:
-            messages.info(request, f'{vacuna.nombre} ya estaba registrada.')
+            obj, created = VacunaAplicada.objects.get_or_create(
+                paciente=paciente,
+                vacuna=vacuna,
+                defaults=dict(
+                    tenant=request.tenant,
+                    fecha=None,        # marcado rápido: sin fecha
+                    lote='',
+                    observaciones='',
+                    aplicada_por=request.user,
+                ),
+            )
+            if created:
+                messages.success(request, f'✓ {vacuna.nombre} (d{vacuna.dosis_numero}) marcada como aplicada.')
+            else:
+                messages.info(request, f'{vacuna.nombre} ya estaba registrada.')
 
     return _r(request, f'/pacientes/{pk}/vacunas/')
 
