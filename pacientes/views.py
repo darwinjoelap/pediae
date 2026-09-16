@@ -553,30 +553,26 @@ def _estado_esquema(paciente, tenant):
         _m.Q(tenant=None) | _m.Q(tenant=tenant)
     ).order_by('orden', 'edad_recomendada_meses', 'dosis_numero')
 
-    # Para anuales: tomamos la aplicación más reciente por vacuna
-    aplicadas_qs = (
+    # Cargar todas las aplicaciones de una vez
+    todas_qs = list(
         VacunaAplicada.objects
         .filter(paciente=paciente, tenant=tenant)
-        .select_related('vacuna')
+        .select_related('aplicada_por')
         .order_by('vacuna_id', '-fecha', '-creado_en')
     )
-    aplicadas_map = {}          # vacuna_id → última aplicación
-    for va in aplicadas_qs:
+
+    aplicadas_map = {}   # vacuna_id → última aplicación
+    historial_map = {}   # vacuna_id → [todas las aplicaciones, más reciente primero]
+    for va in todas_qs:
         if va.vacuna_id not in aplicadas_map:
             aplicadas_map[va.vacuna_id] = va
-
-    from django.db.models import Count as _Count
-    conteos = {
-        row['vacuna_id']: row['n']
-        for row in VacunaAplicada.objects
-        .filter(paciente=paciente, tenant=tenant)
-        .values('vacuna_id').annotate(n=_Count('id'))
-    }
+        historial_map.setdefault(va.vacuna_id, []).append(va)
 
     resultado = []
     for v in vacunas:
         aplicada = aplicadas_map.get(v.pk)
-        total_aplicaciones = conteos.get(v.pk, 0)
+        historial = historial_map.get(v.pk, [])
+        total_aplicaciones = len(historial)
         if aplicada:
             estado = 'aplicada'
         elif edad_meses is None:
@@ -591,6 +587,7 @@ def _estado_esquema(paciente, tenant):
             'vacuna': v,
             'estado': estado,
             'aplicada': aplicada,
+            'historial': historial,
             'total_aplicaciones': total_aplicaciones,
         })
 
