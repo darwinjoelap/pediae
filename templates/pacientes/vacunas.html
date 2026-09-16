@@ -145,6 +145,9 @@
                 {% else %}
                   <span class="text-muted fst-italic">Sin fecha</span>
                 {% endif %}
+                {% if e.vacuna.es_anual and e.total_aplicaciones > 1 %}
+                  <br><span class="badge bg-info text-dark" style="font-size:0.65rem">{{ e.total_aplicaciones }} dosis</span>
+                {% endif %}
               {% else %}—{% endif %}
             </td>
 
@@ -186,7 +189,24 @@
                   </button>
 
                 {% else %}
-                  {# Ya aplicada: completar datos si faltan #}
+                  {# Ya aplicada #}
+
+                  {% if e.vacuna.es_anual %}
+                  {# Vacuna anual: botón para agregar la dosis del próximo año #}
+                  <button type="button"
+                    class="btn btn-sm btn-outline-success py-0"
+                    data-bs-toggle="modal" data-bs-target="#modalRegistrar"
+                    data-vacuna-id="{{ e.vacuna.pk }}"
+                    data-vacuna-nombre="{{ e.vacuna.nombre }} (d{{ e.vacuna.dosis_numero }})"
+                    data-fecha=""
+                    data-lote=""
+                    data-obs=""
+                    data-modo="registrar"
+                    title="Registrar nueva dosis anual">
+                    <i class="bi bi-plus-circle"></i> Nueva dosis
+                  </button>
+                  {% else %}
+                  {# No anual: completar datos si faltan #}
                   {% if not e.aplicada.fecha or not e.aplicada.lote %}
                   <button type="button"
                     class="btn btn-sm btn-outline-secondary py-0"
@@ -201,15 +221,16 @@
                     <i class="bi bi-pencil-square"></i>
                   </button>
                   {% endif %}
+                  {% endif %}
 
-                  {# Eliminar #}
+                  {# Eliminar (última aplicación) #}
                   <form method="post"
                     action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/{{ e.aplicada.pk }}/eliminar/"
-                    onsubmit="return confirm('¿Eliminar registro de {{ e.vacuna.nombre }}?');"
+                    onsubmit="return confirm('¿Eliminar este registro de {{ e.vacuna.nombre }}?');"
                     style="display:inline">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-sm btn-outline-danger py-0"
-                      title="Eliminar registro">
+                      title="Eliminar última aplicación">
                       <i class="bi bi-trash"></i>
                     </button>
                   </form>
