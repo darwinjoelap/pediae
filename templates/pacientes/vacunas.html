@@ -119,6 +119,16 @@
               {% if not e.vacuna.es_pai %}
                 <span class="badge bg-info text-dark ms-1" title="Extra consultorio">+</span>
               {% endif %}
+              {% if e.vacuna.es_anual and e.total_aplicaciones > 1 %}
+              <br>
+              <button class="btn btn-link btn-sm p-0 text-secondary"
+                style="font-size:0.72rem"
+                data-bs-toggle="collapse"
+                data-bs-target="#hist-{{ e.vacuna.pk }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}"
+                aria-expanded="false">
+                <i class="bi bi-clock-history"></i> Ver historial ({{ e.total_aplicaciones }})
+              </button>
+              {% endif %}
             </td>
 
             {# Protege contra #}
@@ -241,6 +251,55 @@
             {% endif %}
 
           </tr>
+          {% if e.vacuna.es_anual and e.total_aplicaciones > 1 %}
+          <tr class="collapse" id="hist-{{ e.vacuna.pk }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+            <td colspan="{% if request.user.es_medico %}6{% else %}5{% endif %}" class="p-0">
+              <div class="bg-light border-start border-4 border-info px-3 py-2">
+                <p class="mb-2 small fw-semibold text-secondary">
+                  <i class="bi bi-clock-history"></i> Historial de dosis — {{ e.vacuna.nombre }}
+                </p>
+                <table class="table table-sm table-borderless mb-0 small">
+                  <thead class="text-muted" style="font-size:0.75rem">
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Lote</th>
+                      <th class="d-none d-md-table-cell">Observaciones</th>
+                      <th>Registrada por</th>
+                      {% if request.user.es_medico %}<th class="text-end">Acción</th>{% endif %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for dosis in e.historial %}
+                    <tr>
+                      <td>
+                        {% if dosis.fecha %}{{ dosis.fecha|date:"d/m/Y" }}{% else %}<span class="text-muted fst-italic">Sin fecha</span>{% endif %}
+                      </td>
+                      <td>{{ dosis.lote|default:"—" }}</td>
+                      <td class="d-none d-md-table-cell text-muted">{{ dosis.observaciones|default:"—" }}</td>
+                      <td class="text-muted">
+                        {% if dosis.aplicada_por %}{{ dosis.aplicada_por.get_full_name|default:dosis.aplicada_por.username }}{% else %}—{% endif %}
+                      </td>
+                      {% if request.user.es_medico %}
+                      <td class="text-end">
+                        <form method="post"
+                          action="{{ TENANT_PREFIX }}/pacientes/{{ paciente.pk }}/vacunas/{{ dosis.pk }}/eliminar/"
+                          onsubmit="return confirm('¿Eliminar esta dosis del {{ dosis.fecha|date:'d/m/Y'|default:'sin fecha' }}?');"
+                          style="display:inline">
+                          {% csrf_token %}
+                          <button type="submit" class="btn btn-sm btn-outline-danger py-0" title="Eliminar esta dosis">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </form>
+                      </td>
+                      {% endif %}
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>
