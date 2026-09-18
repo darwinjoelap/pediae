@@ -2,235 +2,480 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consulta — {{ consulta.paciente.nombre_completo }}</title>
 <style>
-  /* ── Variables simuladas ────────────────────────────────────────── */
-  /* xhtml2pdf no soporta var(), se usan valores directos */
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: Helvetica, Arial, sans-serif;
-    font-size: 9.5pt;
-    color: #1F2937;
-    line-height: 1.45;
-    padding: 1.4cm 1.8cm 2cm;
+  /* ─── Tokens ───────────────────────────────────────────────── */
+  :root {
+    --teal:       #0d9488;
+    --teal-light: #ccfbf1;
+    --teal-dark:  #0f766e;
+    --slate-900:  #0f172a;
+    --slate-700:  #334155;
+    --slate-500:  #64748b;
+    --slate-300:  #cbd5e1;
+    --slate-100:  #f1f5f9;
+    --slate-50:   #f8fafc;
+    --green:      #16a34a;
+    --green-bg:   #dcfce7;
+    --amber:      #d97706;
+    --amber-bg:   #fef3c7;
+    --red:        #dc2626;
+    --red-bg:     #fee2e2;
+    --white:      #ffffff;
+    --radius:     8px;
+    --shadow:     0 1px 4px rgba(0,0,0,.08);
   }
 
-  /* ── Membrete ───────────────────────────────────────────────────── */
-  .membrete-tabla { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-  .membrete-logo  { width: 66px; vertical-align: middle; padding-right: 12px; }
-  .membrete-logo img { width: 60px; height: 60px; }
-  .membrete-texto { vertical-align: middle; }
-  .membrete-nombre { font-size: 14pt; font-weight: bold; color: #1F2937; }
-  .membrete-sub    { font-size: 8pt; color: #6B7280; margin-top: 2px; }
+  /* ─── Reset ────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 10pt;
+    color: var(--slate-700);
+    line-height: 1.55;
+    background: var(--white);
+    padding: 1.6cm 2cm 2.2cm;
+    max-width: 21cm;
+    margin: 0 auto;
+  }
 
-  .linea-teal { border-top: 2pt solid #2AACA8; margin: 8px 0 10px; }
-  .linea-gris { border-top: 0.5pt solid #D1D5DB; margin: 8px 0 8px; }
+  /* ─── Membrete ─────────────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 14px;
+  }
+  .header-logo img {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--teal-light);
+  }
+  .header-logo-placeholder {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: var(--teal-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--teal-dark);
+    font-size: 22pt;
+    font-weight: 700;
+  }
+  .header-info { flex: 1; }
+  .header-nombre {
+    font-size: 15pt;
+    font-weight: 700;
+    color: var(--slate-900);
+    letter-spacing: -.3px;
+  }
+  .header-sub {
+    font-size: 8.5pt;
+    color: var(--slate-500);
+    margin-top: 2px;
+  }
+  .header-fecha {
+    text-align: right;
+    font-size: 8.5pt;
+    color: var(--slate-500);
+    line-height: 1.7;
+  }
+  .header-fecha strong {
+    display: block;
+    font-size: 11pt;
+    font-weight: 700;
+    color: var(--slate-900);
+  }
 
-  /* ── Encabezado paciente ────────────────────────────────────────── */
-  .meta-paciente { font-size: 9pt; color: #6B7280; margin-bottom: 4px; }
-  .meta-paciente strong { color: #1F2937; font-size: 10.5pt; }
-  .fecha { font-weight: bold; font-size: 10pt; }
-  .badge-tipo {
-    background: #2AACA8; color: #fff;
-    font-size: 7.5pt; font-weight: bold;
-    padding: 2px 8px; border-radius: 10px;
+  /* ─── Línea decorativa ─────────────────────────────────────── */
+  .divider-teal {
+    height: 3px;
+    background: linear-gradient(90deg, var(--teal) 0%, var(--teal-light) 100%);
+    border-radius: 2px;
+    margin-bottom: 14px;
+  }
+  .divider-light {
+    border: none;
+    border-top: 1px solid var(--slate-200, #e2e8f0);
+    margin: 12px 0;
+  }
+
+  /* ─── Ficha paciente ───────────────────────────────────────── */
+  .paciente-card {
+    background: var(--slate-50);
+    border: 1px solid var(--slate-300);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .paciente-nombre {
+    font-size: 12.5pt;
+    font-weight: 700;
+    color: var(--slate-900);
+  }
+  .paciente-meta {
+    font-size: 8.5pt;
+    color: var(--slate-500);
+    margin-top: 2px;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 7.5pt;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: .3px;
+    vertical-align: middle;
     margin-left: 6px;
   }
+  .badge-teal     { background: var(--teal);       color: var(--white); }
+  .badge-green    { background: var(--green-bg);   color: var(--green); }
+  .badge-amber    { background: var(--amber-bg);   color: var(--amber); }
+  .badge-red      { background: var(--red-bg);     color: var(--red); }
+  .badge-tipo     { background: var(--teal); color: var(--white); }
 
-  /* ── Antropometría (tabla en lugar de flex) ─────────────────────── */
-  .antrop-tabla { border-collapse: separate; border-spacing: 6px 0; margin: 10px 0 6px; }
+  /* ─── Sección título ───────────────────────────────────────── */
+  .sec-label {
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--teal-dark);
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sec-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--teal-light);
+  }
+  .sec-body {
+    font-size: 10pt;
+    color: var(--slate-700);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    margin-bottom: 12px;
+  }
+
+  /* ─── Bloque diagnóstico / tratamiento (destacado) ─────────── */
+  .sec-destacado {
+    background: var(--slate-50);
+    border-left: 3px solid var(--teal);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+
+  /* ─── Antropometría ────────────────────────────────────────── */
+  .antrop-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
   .antrop-card {
-    border: 0.5pt solid #D1D5DB;
-    border-radius: 4px;
-    padding: 6px 14px;
+    background: var(--white);
+    border: 1px solid var(--slate-300);
+    border-radius: var(--radius);
+    padding: 8px 16px;
     text-align: center;
-    min-width: 82px;
+    min-width: 88px;
+    box-shadow: var(--shadow);
+    flex: 1;
+  }
+  .antrop-valor {
+    font-size: 14pt;
+    font-weight: 700;
+    color: var(--slate-900);
+    line-height: 1.2;
+  }
+  .antrop-unidad {
+    font-size: 8pt;
+    font-weight: 400;
+    color: var(--slate-500);
+  }
+  .antrop-label {
+    font-size: 7.5pt;
+    color: var(--slate-500);
+    margin-top: 3px;
+  }
+  .pct-badge {
+    display: inline-block;
+    font-size: 6.5pt;
+    background: var(--slate-700);
+    color: var(--white);
+    padding: 1px 5px;
+    border-radius: 10px;
+    margin-left: 3px;
     vertical-align: middle;
   }
-  .antrop-valor { font-size: 12pt; font-weight: bold; color: #1F2937; }
-  .antrop-unidad { font-size: 8pt; font-weight: normal; color: #6B7280; }
-  .antrop-etiqueta { font-size: 7pt; color: #6B7280; margin-top: 2px; }
-  .badge-pct {
-    font-size: 6pt; background: #4B5563; color: #fff;
-    padding: 1px 4px; border-radius: 8px; margin-left: 2px;
+  .clasif-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--slate-300);
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    min-width: 110px;
+    font-size: 9pt;
+    font-weight: 700;
+    box-shadow: var(--shadow);
+    flex: 1;
+    text-align: center;
   }
+  .clasif-normal  { background: var(--green-bg); color: var(--green); border-color: #86efac; }
+  .clasif-warning { background: var(--amber-bg); color: var(--amber); border-color: #fcd34d; }
+  .clasif-danger  { background: var(--red-bg);   color: var(--red);   border-color: #fca5a5; }
 
-  .badge-clasif {
-    border: 0.5pt solid #D1D5DB; border-radius: 4px;
-    padding: 6px 14px; font-size: 9pt; font-weight: bold;
-    text-align: center; vertical-align: middle; min-width: 82px;
+  /* ─── Signos vitales ───────────────────────────────────────── */
+  .sv-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
   }
-  .clasif-normal  { color: #16A34A; }
-  .clasif-danger  { color: #DC2626; }
-  .clasif-warning { color: #D97706; }
-
-  /* ── Signos vitales (inline-block) ─────────────────────────────── */
   .sv-chip {
-    display: inline-block;
-    background: #F3F4F6; border: 0.5pt solid #D1D5DB;
-    border-radius: 12px; padding: 3px 10px;
-    font-size: 8.5pt; color: #1F2937;
-    margin: 2px 3px;
+    background: var(--slate-50);
+    border: 1px solid var(--slate-300);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 8.5pt;
+    color: var(--slate-700);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
   }
+  .sv-icon { color: var(--teal); font-size: 10pt; }
 
-  /* ── Secciones clínicas ─────────────────────────────────────────── */
-  .seccion-titulo {
-    font-size: 8pt; font-weight: bold; color: #2AACA8;
-    text-transform: uppercase; letter-spacing: 0.4px;
-    margin-top: 12px; margin-bottom: 4px;
-  }
-  .seccion-cuerpo {
-    font-size: 9.5pt; color: #1F2937; line-height: 1.5;
-    white-space: pre-wrap;
-  }
-
-  /* ── Próxima cita ───────────────────────────────────────────────── */
+  /* ─── Próxima cita ─────────────────────────────────────────── */
   .prox-cita {
-    background: #F3F4F6; border: 0.5pt solid #D1D5DB;
-    border-radius: 4px; padding: 7px 12px;
-    margin-top: 12px; font-size: 9pt;
+    background: var(--teal-light);
+    border: 1px solid #5eead4;
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    font-size: 9pt;
+    color: var(--teal-dark);
+    margin-top: 4px;
+    margin-bottom: 14px;
+    font-weight: 600;
   }
 
-  /* ── Firma ──────────────────────────────────────────────────────── */
-  .firma-wrap { margin-top: 40px; text-align: center; }
+  /* ─── Firma ────────────────────────────────────────────────── */
+  .firma-wrap {
+    margin-top: 44px;
+    text-align: center;
+  }
   .firma-linea {
-    width: 180px; border-top: 0.5pt solid #1F2937;
+    width: 200px;
+    border-top: 1px solid var(--slate-700);
     margin: 0 auto 6px;
   }
-  .firma-nombre { font-size: 9pt; font-weight: bold; color: #1F2937; }
-  .firma-esp    { font-size: 8pt; color: #6B7280; }
-
-  /* ── Pie ────────────────────────────────────────────────────────── */
-  .pie {
-    margin-top: 14px; padding-top: 6px;
-    border-top: 0.5pt solid #D1D5DB;
-    text-align: center; font-size: 7.5pt; color: #6B7280;
+  .firma-nombre {
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--slate-900);
+  }
+  .firma-esp {
+    font-size: 8.5pt;
+    color: var(--slate-500);
   }
 
+  /* ─── Pie ──────────────────────────────────────────────────── */
+  .pie {
+    margin-top: 16px;
+    padding-top: 8px;
+    border-top: 1px solid var(--slate-300);
+    text-align: center;
+    font-size: 7.5pt;
+    color: var(--slate-500);
+  }
+
+  /* ─── Print ────────────────────────────────────────────────── */
   @page { size: letter; margin: 1.4cm 1.8cm 2cm; }
+
+  @media print {
+    body { padding: 0; max-width: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .antrop-card, .clasif-card, .sv-chip, .paciente-card,
+    .sec-destacado, .prox-cita { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .antrop-grid, .sv-grid { flex-wrap: wrap; }
+    .badge, .pct-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+
+  /* ─── Vista previa en pantalla (no impresión) ──────────────── */
+  @media screen {
+    body { background: #e5e7eb; padding: 1cm; }
+    .page-wrap {
+      background: var(--white);
+      border-radius: 10px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.12);
+      padding: 1.6cm 2cm 2.2cm;
+      max-width: 21cm;
+      margin: 0 auto;
+    }
+  }
 </style>
 </head>
 <body>
+<div class="page-wrap">
 
 {# ── Membrete ──────────────────────────────────────────────────────── #}
-<table class="membrete-tabla">
-  <tr>
-    {% if logo_url %}
-    <td class="membrete-logo"><img src="{{ logo_url }}" alt="Logo"></td>
-    {% endif %}
-    <td class="membrete-texto">
-      <div class="membrete-nombre">{{ nombre_medico }}</div>
-      {% if especialidad %}<div class="membrete-sub">{{ especialidad }}</div>{% endif %}
-      {% if contacto %}<div class="membrete-sub">{{ contacto }}</div>{% endif %}
-    </td>
-  </tr>
-</table>
-<hr class="linea-teal">
+<div class="header">
+  {% if logo_url %}
+  <div class="header-logo"><img src="{{ logo_url }}" alt="Logo"></div>
+  {% else %}
+  <div class="header-logo">
+    <div class="header-logo-placeholder">
+      {{ nombre_medico|slice:":1"|upper }}
+    </div>
+  </div>
+  {% endif %}
 
-{# ── Encabezado paciente ───────────────────────────────────────────── #}
-<div class="meta-paciente">
-  <strong>{{ consulta.paciente.nombre_completo }}</strong>
-  {% if consulta.paciente.fecha_nacimiento %} &nbsp;·&nbsp; {{ consulta.paciente.get_edad_detallada }}{% endif %}
-  {% if consulta.lugar %} &nbsp;·&nbsp; {{ consulta.lugar.nombre }}{% endif %}
+  <div class="header-info">
+    <div class="header-nombre">{{ nombre_medico }}</div>
+    {% if especialidad %}<div class="header-sub">{{ especialidad }}</div>{% endif %}
+    {% if contacto %}<div class="header-sub">{{ contacto }}</div>{% endif %}
+  </div>
+
+  <div class="header-fecha">
+    <strong>{{ consulta.fecha|date:"d/m/Y" }}</strong>
+    {% if consulta.tipo_consulta %}
+    <span class="badge badge-teal">{{ consulta.get_tipo_consulta_display }}</span>
+    {% endif %}
+  </div>
 </div>
-<div style="margin-bottom:4px">
-  <span class="fecha">{{ consulta.fecha|date:"d/m/Y" }}</span>
-  {% if consulta.tipo_consulta %}
-  <span class="badge-tipo">{{ consulta.get_tipo_consulta_display }}</span>
+
+<div class="divider-teal"></div>
+
+{# ── Ficha paciente ──────────────────────────────────────────────────── #}
+<div class="paciente-card">
+  <div>
+    <div class="paciente-nombre">{{ consulta.paciente.nombre_completo }}</div>
+    <div class="paciente-meta">
+      {% if consulta.paciente.fecha_nacimiento %}{{ consulta.paciente.get_edad_detallada }}{% endif %}
+      {% if consulta.lugar %}&nbsp;·&nbsp; {{ consulta.lugar.nombre }}{% endif %}
+    </div>
+  </div>
+  {% if consulta.motivo_consulta %}
+  <div style="font-size:8.5pt; color:var(--slate-500); text-align:right;">
+    <span style="font-weight:600; color:var(--slate-700);">Motivo:</span><br>{{ consulta.motivo_consulta }}
+  </div>
   {% endif %}
 </div>
-<hr class="linea-gris">
 
 {# ── Antropometría ────────────────────────────────────────────────── #}
 {% if consulta.peso or consulta.talla or consulta.perimetro_cefalico or consulta.clasificacion_nutricional %}
-<div class="seccion-titulo">Antropometría</div>
-<table class="antrop-tabla">
-  <tr>
-    {% if consulta.peso %}
-    <td class="antrop-card">
-      <div class="antrop-valor">{{ consulta.peso }} <span class="antrop-unidad">kg</span></div>
-      <div class="antrop-etiqueta">Peso{% if consulta.percentil_peso %}<span class="badge-pct">P{{ consulta.percentil_peso }}</span>{% endif %}</div>
-    </td>
-    {% endif %}
-    {% if consulta.talla %}
-    <td class="antrop-card">
-      <div class="antrop-valor">{{ consulta.talla }} <span class="antrop-unidad">cm</span></div>
-      <div class="antrop-etiqueta">Talla{% if consulta.percentil_talla %}<span class="badge-pct">P{{ consulta.percentil_talla }}</span>{% endif %}</div>
-    </td>
-    {% endif %}
-    {% if consulta.perimetro_cefalico %}
-    <td class="antrop-card">
-      <div class="antrop-valor">{{ consulta.perimetro_cefalico }} <span class="antrop-unidad">cm</span></div>
-      <div class="antrop-etiqueta">PC{% if consulta.percentil_pc %}<span class="badge-pct">P{{ consulta.percentil_pc }}</span>{% endif %}</div>
-    </td>
-    {% endif %}
-    {% if consulta.clasificacion_nutricional %}
-    <td class="badge-clasif {% if consulta.clasificacion_nutricional == 'normal' %}clasif-normal{% elif consulta.clasificacion_nutricional == 'obesidad' or consulta.clasificacion_nutricional == 'desnutricion_severa' %}clasif-danger{% else %}clasif-warning{% endif %}">
-      {{ consulta.get_clasificacion_nutricional_display }}
-    </td>
-    {% endif %}
-  </tr>
-</table>
+<div class="sec-label">Antropometría</div>
+<div class="antrop-grid">
+  {% if consulta.peso %}
+  <div class="antrop-card">
+    <div class="antrop-valor">{{ consulta.peso }} <span class="antrop-unidad">kg</span></div>
+    <div class="antrop-label">Peso{% if consulta.percentil_peso %}<span class="pct-badge">P{{ consulta.percentil_peso }}</span>{% endif %}</div>
+  </div>
+  {% endif %}
+  {% if consulta.talla %}
+  <div class="antrop-card">
+    <div class="antrop-valor">{{ consulta.talla }} <span class="antrop-unidad">cm</span></div>
+    <div class="antrop-label">Talla{% if consulta.percentil_talla %}<span class="pct-badge">P{{ consulta.percentil_talla }}</span>{% endif %}</div>
+  </div>
+  {% endif %}
+  {% if consulta.perimetro_cefalico %}
+  <div class="antrop-card">
+    <div class="antrop-valor">{{ consulta.perimetro_cefalico }} <span class="antrop-unidad">cm</span></div>
+    <div class="antrop-label">PC{% if consulta.percentil_pc %}<span class="pct-badge">P{{ consulta.percentil_pc }}</span>{% endif %}</div>
+  </div>
+  {% endif %}
+  {% if consulta.clasificacion_nutricional %}
+  <div class="clasif-card {% if consulta.clasificacion_nutricional == 'normal' %}clasif-normal{% elif consulta.clasificacion_nutricional == 'obesidad' or consulta.clasificacion_nutricional == 'desnutricion_severa' %}clasif-danger{% else %}clasif-warning{% endif %}">
+    {{ consulta.get_clasificacion_nutricional_display }}
+  </div>
+  {% endif %}
+</div>
 {% endif %}
 
 {# ── Signos vitales ────────────────────────────────────────────────── #}
 {% if consulta.frecuencia_cardiaca or consulta.frecuencia_respiratoria or consulta.temperatura or consulta.saturacion_oxigeno or consulta.tension_arterial %}
-<div style="margin: 6px 0 10px;">
-  {% if consulta.frecuencia_cardiaca %}<span class="sv-chip">&#9829; {{ consulta.frecuencia_cardiaca }} lpm</span>{% endif %}
-  {% if consulta.frecuencia_respiratoria %}<span class="sv-chip">~ {{ consulta.frecuencia_respiratoria }} rpm</span>{% endif %}
-  {% if consulta.temperatura %}<span class="sv-chip">T° {{ consulta.temperatura }} °C</span>{% endif %}
-  {% if consulta.saturacion_oxigeno %}<span class="sv-chip">SatO&#x2082; {{ consulta.saturacion_oxigeno }}%</span>{% endif %}
-  {% if consulta.tension_arterial %}<span class="sv-chip">TA {{ consulta.tension_arterial }}</span>{% endif %}
+<div class="sec-label">Signos Vitales</div>
+<div class="sv-grid">
+  {% if consulta.frecuencia_cardiaca %}
+  <div class="sv-chip"><span class="sv-icon">♥</span> {{ consulta.frecuencia_cardiaca }} lpm</div>
+  {% endif %}
+  {% if consulta.frecuencia_respiratoria %}
+  <div class="sv-chip"><span class="sv-icon">≈</span> {{ consulta.frecuencia_respiratoria }} rpm</div>
+  {% endif %}
+  {% if consulta.temperatura %}
+  <div class="sv-chip"><span class="sv-icon">🌡</span> {{ consulta.temperatura }} °C</div>
+  {% endif %}
+  {% if consulta.saturacion_oxigeno %}
+  <div class="sv-chip"><span class="sv-icon">◎</span> SatO₂ {{ consulta.saturacion_oxigeno }}%</div>
+  {% endif %}
+  {% if consulta.tension_arterial %}
+  <div class="sv-chip"><span class="sv-icon">↑↓</span> TA {{ consulta.tension_arterial }}</div>
+  {% endif %}
 </div>
 {% endif %}
 
-{# ── Secciones clínicas ───────────────────────────────────────────── #}
-{% if consulta.motivo_consulta %}
-<div class="seccion-titulo">Motivo</div>
-<div class="seccion-cuerpo">{{ consulta.motivo_consulta }}</div>
-{% endif %}
+<hr class="divider-light">
 
+{# ── Secciones clínicas ───────────────────────────────────────────── #}
 {% if consulta.sintomas_actuales %}
-<div class="seccion-titulo">Síntomas</div>
-<div class="seccion-cuerpo">{{ consulta.sintomas_actuales }}</div>
+<div class="sec-label">Síntomas</div>
+<div class="sec-body">{{ consulta.sintomas_actuales }}</div>
 {% endif %}
 
 {% if consulta.examen_fisico %}
-<div class="seccion-titulo">Examen físico</div>
-<div class="seccion-cuerpo">{{ consulta.examen_fisico }}</div>
+<div class="sec-label">Examen Físico</div>
+<div class="sec-body">{{ consulta.examen_fisico }}</div>
 {% endif %}
 
 {% if consulta.desarrollo_psicomotor %}
-<div class="seccion-titulo">Desarrollo psicomotor</div>
-<div class="seccion-cuerpo">{{ consulta.desarrollo_psicomotor }}</div>
-{% endif %}
-
-<div class="seccion-titulo">Diagnóstico</div>
-<div class="seccion-cuerpo">{{ consulta.diagnostico }}</div>
-
-{% if consulta.tratamiento %}
-<div class="seccion-titulo">Tratamiento</div>
-<div class="seccion-cuerpo">{{ consulta.tratamiento }}</div>
-{% endif %}
-
-{% if consulta.indicaciones %}
-<div class="seccion-titulo">Indicaciones</div>
-<div class="seccion-cuerpo">{{ consulta.indicaciones }}</div>
+<div class="sec-label">Desarrollo Psicomotor</div>
+<div class="sec-body">{{ consulta.desarrollo_psicomotor }}</div>
 {% endif %}
 
 {% if consulta.laboratorio %}
-<div class="seccion-titulo">Laboratorio / Paraclínicos</div>
-<div class="seccion-cuerpo">{{ consulta.laboratorio }}</div>
+<div class="sec-label">Laboratorio / Paraclínicos</div>
+<div class="sec-body">{{ consulta.laboratorio }}</div>
 {% endif %}
 
 {% if consulta.observaciones %}
-<div class="seccion-titulo">Observaciones</div>
-<div class="seccion-cuerpo">{{ consulta.observaciones }}</div>
+<div class="sec-label">Observaciones</div>
+<div class="sec-body">{{ consulta.observaciones }}</div>
 {% endif %}
 
+<hr class="divider-light">
+
+{# ── Diagnóstico ──────────────────────────────────────────────────── #}
+<div class="sec-label">Diagnóstico</div>
+<div class="sec-destacado sec-body">{{ consulta.diagnostico }}</div>
+
+{# ── Tratamiento ──────────────────────────────────────────────────── #}
+{% if consulta.tratamiento %}
+<div class="sec-label">Tratamiento</div>
+<div class="sec-destacado sec-body">{{ consulta.tratamiento }}</div>
+{% endif %}
+
+{# ── Indicaciones ─────────────────────────────────────────────────── #}
+{% if consulta.indicaciones %}
+<div class="sec-label">Indicaciones</div>
+<div class="sec-body">{{ consulta.indicaciones }}</div>
+{% endif %}
+
+{# ── Próxima cita ─────────────────────────────────────────────────── #}
 {% if consulta.proxima_cita %}
 <div class="prox-cita">
-  <strong>Próxima cita:</strong> {{ consulta.proxima_cita|date:"d/m/Y" }}
+  📅 &nbsp;<strong>Próxima cita:</strong> {{ consulta.proxima_cita|date:"d \d\e F \d\e Y" }}
 </div>
 {% endif %}
 
@@ -243,8 +488,9 @@
 
 {# ── Pie ───────────────────────────────────────────────────────────── #}
 <div class="pie">
-  Fecha de emisión: {{ hoy }}{% if telefono %} &nbsp;·&nbsp; Tel: {{ telefono }}{% endif %}
+  Emitido el {{ hoy }}{% if telefono %} &nbsp;·&nbsp; Tel: {{ telefono }}{% endif %}
 </div>
 
+</div>{# .page-wrap #}
 </body>
 </html>
