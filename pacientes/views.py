@@ -475,13 +475,25 @@ def informe_referencia_pdf(request, pk):
 # ── Vacunas ────────────────────────────────────────────────────────────────────
 
 def _esquema_por_grupos(esquema):
-    """Agrupa el esquema de vacunas por grupo_etario para la UI y el PDF."""
-    from collections import OrderedDict
-    grupos = OrderedDict()
+    """Agrupa el esquema de vacunas por grupo_etario para la UI y el PDF.
+    Los grupos se ordenan cronológicamente por la edad mínima de sus vacunas;
+    'Vacunación anual' y 'Otras vacunas' van siempre al final.
+    """
+    grupos = {}
     for e in esquema:
         g = getattr(e['vacuna'], 'grupo_etario', '') or 'Otras vacunas'
         grupos.setdefault(g, []).append(e)
-    return [{'label': k, 'vacunas': v} for k, v in grupos.items()]
+
+    _ULTIMO = {'Vacunación anual', 'Otras vacunas'}
+
+    def _sort_key(item):
+        label, vacunas = item
+        if label in _ULTIMO:
+            return (1, 9999)
+        min_meses = min(e['vacuna'].edad_recomendada_meses for e in vacunas)
+        return (0, min_meses)
+
+    return [{'label': k, 'vacunas': v} for k, v in sorted(grupos.items(), key=_sort_key)]
 
 
 def _vacunas_resumen(paciente, tenant):
@@ -490,7 +502,7 @@ def _vacunas_resumen(paciente, tenant):
 
     vacunas = Vacuna.objects.filter(activa=True).filter(
         _m.Q(tenant=None) | _m.Q(tenant=tenant)
-    ).order_by('orden', 'edad_recomendada_meses', 'dosis_numero')
+    ).order_by('edad_recomendada_meses', 'dosis_numero')
 
     aplicadas_ids = set(
         VacunaAplicada.objects.filter(paciente=paciente, tenant=tenant)
@@ -551,7 +563,7 @@ def _estado_esquema(paciente, tenant):
 
     vacunas = Vacuna.objects.filter(activa=True).filter(
         _m.Q(tenant=None) | _m.Q(tenant=tenant)
-    ).order_by('orden', 'edad_recomendada_meses', 'dosis_numero')
+    ).order_by('edad_recomendada_meses', 'dosis_numero')
 
     # Cargar todas las aplicaciones de una vez
     todas_qs = list(
