@@ -78,8 +78,8 @@ def catalogo_vacunas(request):
         return _r(request, '/configuracion/')
     from pacientes.models import Vacuna
     from django.db.models import Q
-    pai = Vacuna.objects.filter(tenant=None, activa=True).order_by('orden', 'edad_recomendada_meses', 'dosis_numero')
-    extras = Vacuna.objects.filter(tenant=request.tenant).order_by('orden', 'edad_recomendada_meses', 'dosis_numero')
+    pai = Vacuna.objects.filter(tenant=None, activa=True).order_by('edad_recomendada_meses', 'dosis_numero')
+    extras = Vacuna.objects.filter(tenant=request.tenant).order_by('edad_recomendada_meses', 'dosis_numero')
     return render(request, 'configuracion/vacunas.html', {
         'pai': pai,
         'extras': extras,

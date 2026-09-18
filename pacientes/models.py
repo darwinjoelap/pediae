@@ -520,7 +520,7 @@ class Vacuna(models.Model):
     class Meta:
         verbose_name = 'Vacuna'
         verbose_name_plural = 'Vacunas'
-        ordering = ['orden', 'edad_recomendada_meses', 'dosis_numero']
+        ordering = ['edad_recomendada_meses', 'dosis_numero']
 
     def __str__(self):
         return f'{self.nombre} (dosis {self.dosis_numero}) — {self.edad_recomendada_meses}m'
@@ -567,7 +567,7 @@ class VacunaAplicada(models.Model):
     class Meta:
         verbose_name = 'Vacuna aplicada'
         verbose_name_plural = 'Vacunas aplicadas'
-        ordering = ['vacuna__orden', 'fecha']
+        ordering = ['vacuna__edad_recomendada_meses', 'fecha']
 
     def __str__(self):
         return f'{self.paciente} — {self.vacuna.nombre} d{self.vacuna.dosis_numero} ({self.fecha})'
