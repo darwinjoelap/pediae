@@ -154,7 +154,8 @@
                   data-edad="{{ v.edad_recomendada_meses }}"
                   data-edad-max="{{ v.edad_max_meses|default:'' }}"
                   data-orden="{{ v.orden }}"
-                  data-es-anual="{{ v.es_anual|yesno:'true,false' }}">
+                  data-es-anual="{{ v.es_anual|yesno:'true,false' }}"
+                  data-grupo-etario="{{ v.grupo_etario|default:'' }}">
                   <i class="bi bi-pencil-square"></i>
                 </button>
 
@@ -235,6 +236,22 @@
             <input type="number" name="edad_max_meses" class="form-control" placeholder="Opcional" min="0">
             <div class="form-text">Deja vacío si no aplica</div>
           </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Grupo etario</label>
+            <input type="text" name="grupo_etario" class="form-control"
+              placeholder="Ej: 2 meses, 12 meses, Adolescentes">
+            <div class="form-text">Se completa automáticamente si marcas "Vacuna anual".</div>
+          </div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="es_anual"
+                id="nueva-es-anual" role="switch">
+              <label class="form-check-label fw-semibold" for="nueva-es-anual">
+                Vacuna anual
+                <small class="text-muted fw-normal">— permite historial y repetición año a año</small>
+              </label>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -283,6 +300,22 @@
             <label class="form-label fw-semibold">Edad máxima (meses)</label>
             <input type="number" name="edad_max_meses" id="edit-edad-max" class="form-control" placeholder="Opcional" min="0">
           </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Grupo etario</label>
+            <input type="text" name="grupo_etario" id="edit-grupo-etario" class="form-control"
+              placeholder="Ej: 2 meses, 12 meses, Adolescentes">
+            <div class="form-text">Se completa automáticamente si marcas "Vacuna anual".</div>
+          </div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="es_anual"
+                id="edit-es-anual" role="switch">
+              <label class="form-check-label fw-semibold" for="edit-es-anual">
+                Vacuna anual
+                <small class="text-muted fw-normal">— permite historial y repetición año a año</small>
+              </label>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -311,12 +344,14 @@
     document.getElementById('formEditarVacuna').action =
       prefix + '/configuracion/vacunas/' + pk + '/editar/';
 
-    document.getElementById('edit-nombre').value    = btn.dataset.nombre    || '';
-    document.getElementById('edit-enfermedad').value = btn.dataset.enfermedad || '';
-    document.getElementById('edit-dosis').value     = btn.dataset.dosis     || 1;
-    document.getElementById('edit-edad').value      = btn.dataset.edad      || 0;
-    document.getElementById('edit-edad-max').value  = btn.dataset.edadMax   || '';
-    document.getElementById('edit-orden').value     = btn.dataset.orden     || 0;
+    document.getElementById('edit-nombre').value       = btn.dataset.nombre       || '';
+    document.getElementById('edit-enfermedad').value   = btn.dataset.enfermedad   || '';
+    document.getElementById('edit-dosis').value        = btn.dataset.dosis        || 1;
+    document.getElementById('edit-edad').value         = btn.dataset.edad         || 0;
+    document.getElementById('edit-edad-max').value     = btn.dataset.edadMax      || '';
+    document.getElementById('edit-orden').value        = btn.dataset.orden        || 0;
+    document.getElementById('edit-grupo-etario').value = btn.dataset.grupoEtario  || '';
+    document.getElementById('edit-es-anual').checked   = btn.dataset.esAnual === 'true';
   });
 })();
 </script>
