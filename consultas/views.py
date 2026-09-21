@@ -738,10 +738,16 @@ def nuevo_procedimiento(request, paciente_id):
         if cita_id:
             try:
                 cita = Cita.objects.get(pk=cita_id, tenant=request.tenant)
-                cita.estado = 'atendida'
-                cita.save(update_fields=['estado'])
             except Cita.DoesNotExist:
                 pass
+
+        if cita and Procedimiento.objects.filter(cita=cita).exists():
+            messages.warning(request, 'Esta cita ya tiene un procedimiento registrado.')
+            return _r(request, f'/pacientes/{paciente_id}/')
+
+        if cita:
+            cita.estado = 'atendida'
+            cita.save(update_fields=['estado'])
 
         Procedimiento.objects.create(
             tenant=request.tenant,
