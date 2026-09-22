@@ -167,38 +167,37 @@
   </div>
   <div class="card-body">
     {% if consulta.servicios_usados.all %}
-    <div class="d-flex flex-wrap gap-2 mb-3">
+    <div class="d-flex flex-column gap-2 mb-3">
       {% for cs in consulta.servicios_usados.all %}
-      <span class="badge fs-6 fw-normal d-inline-flex align-items-center gap-2"
-            style="background-color:{% if cs.exonerado %}#6c757d{% else %}var(--color-primary){% endif %}">
-        {{ cs.servicio.nombre }} —
-        {% if cs.exonerado %}
-          <span>exonerado</span>
-        {% elif cs.descuento_usd > 0 %}
-          <span><s class="opacity-75">${{ cs.precio_usd }}</s> ${{ cs.monto_a_cobrar }}</span>
-        {% else %}
-          <span>${{ cs.precio_usd }}</span>
-        {% endif %}
-        <button type="button" class="btn btn-link p-0 m-0 text-white lh-1"
-                style="font-size:0.85rem;opacity:0.8;"
-                title="Exonerar / aplicar descuento"
+      <div class="d-flex flex-wrap align-items-center gap-2 border rounded p-2">
+        <span class="badge fs-6 fw-normal" style="background-color:{% if cs.exonerado %}#6c757d{% else %}var(--color-primary){% endif %}">
+          {{ cs.servicio.nombre }} —
+          {% if cs.exonerado %}
+            exonerado
+          {% elif cs.descuento_usd > 0 %}
+            <s class="opacity-75">${{ cs.precio_usd }}</s> ${{ cs.monto_a_cobrar }}
+          {% else %}
+            ${{ cs.precio_usd }}
+          {% endif %}
+        </span>
+        <button type="button" class="btn btn-outline-secondary btn-sm"
+                title="Exonerar o aplicar descuento a este servicio"
                 data-bs-toggle="modal" data-bs-target="#modalEditarServicioConsulta"
                 data-pk="{{ cs.pk }}"
                 data-nombre="{{ cs.servicio.nombre }}"
                 data-exonerado="{{ cs.exonerado|yesno:'1,0' }}"
                 data-descuento="{{ cs.descuento_usd }}">
-          <i class="bi bi-pencil"></i>
+          <i class="bi bi-percent me-1"></i> Descuento / Exonerar
         </button>
-        <form method="post" action="{{ TENANT_PREFIX }}/consultas/servicio/{{ cs.pk }}/eliminar/" class="d-inline m-0 p-0">
+        <form method="post" action="{{ TENANT_PREFIX }}/consultas/servicio/{{ cs.pk }}/eliminar/" class="d-inline m-0 p-0 ms-auto">
           {% csrf_token %}
-          <button type="submit" class="btn btn-link p-0 m-0 text-white lh-1"
-                  style="font-size:0.85rem;opacity:0.8;"
+          <button type="submit" class="btn btn-outline-danger btn-sm"
                   onclick="return confirm('¿Quitar este servicio?')"
                   title="Quitar servicio">
             <i class="bi bi-x-lg"></i>
           </button>
         </form>
-      </span>
+      </div>
       {% endfor %}
     </div>
     {% else %}
