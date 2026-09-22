@@ -15,7 +15,12 @@ urlpatterns = [
     path('procedimiento/<int:paciente_id>/', views.nuevo_procedimiento, name='nuevo_procedimiento'),
     path('procedimiento/<int:pk>/pago/', views.toggle_pago_procedimiento, name='toggle_pago_procedimiento'),
     path('procedimiento/<int:pk>/eliminar/', views.eliminar_procedimiento, name='eliminar_procedimiento'),
+    path('procedimiento/<int:pk>/editar/', views.editar_procedimiento, name='editar_procedimiento'),
+    path('procedimiento/<int:pk>/agregar-servicio/', views.agregar_servicio_procedimiento, name='agregar_servicio_procedimiento'),
     path('servicio/<int:pk>/eliminar/', views.eliminar_servicio, name='eliminar_servicio'),
+    path('servicio/<int:pk>/editar/', views.editar_linea_servicio, name='editar_linea_servicio'),
+    path('procedimiento/servicio/<int:pk>/eliminar/', views.eliminar_servicio_procedimiento, name='eliminar_servicio_procedimiento'),
+    path('procedimiento/servicio/<int:pk>/editar/', views.editar_linea_servicio_procedimiento, name='editar_linea_servicio_procedimiento'),
     path('<int:pk>/eliminar/', views.eliminar_consulta, name='eliminar'),
     # Glosario de medicamentos
     path('medicamentos/', views.lista_medicamentos, name='lista_medicamentos'),

@@ -84,7 +84,7 @@ def detalle_paciente(request, pk):
 
     procedimientos = Procedimiento.objects.filter(
         paciente=paciente, tenant=request.tenant
-    ).select_related('servicio')
+    ).prefetch_related('servicios_usados__servicio')
 
     # Vacunas: resumen para el perfil (atrasadas + próximas pendientes)
     vacunas_resumen = _vacunas_resumen(paciente, request.tenant)

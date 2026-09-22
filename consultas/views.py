@@ -713,19 +713,17 @@ def nuevo_procedimiento(request, paciente_id):
 
     paciente = get_object_or_404(Paciente, pk=paciente_id, tenant=request.tenant)
     from servicios.models import Servicio
-    from .models import Procedimiento
+    from .models import Procedimiento, ProcedimientoServicio
     from datetime import date
 
     if request.method == 'POST':
-        servicio_id = request.POST.get('servicio')
+        servicios_ids = request.POST.getlist('servicios')
         notas = request.POST.get('notas', '')
         pagado = 'pagado' in request.POST
         cita_id = request.POST.get('cita_id')
 
-        try:
-            srv = Servicio.objects.get(pk=servicio_id, tenant=request.tenant, activo=True)
-        except Servicio.DoesNotExist:
-            messages.error(request, 'Servicio no válido.')
+        if not servicios_ids:
+            messages.error(request, 'Selecciona al menos un servicio.')
             return _r(request, f'/pacientes/{paciente_id}/')
 
         try:
@@ -749,22 +747,154 @@ def nuevo_procedimiento(request, paciente_id):
             cita.estado = 'atendida'
             cita.save(update_fields=['estado'])
 
-        Procedimiento.objects.create(
+        proc = Procedimiento.objects.create(
             tenant=request.tenant,
             paciente=paciente,
             medico=request.user,
             fecha=date.today(),
-            servicio=srv,
-            precio_usd=srv.precio_usd,
-            tasa_cambio=tasa,
             notas=notas,
             pagado=pagado,
             cita=cita,
         )
-        messages.success(request, f'Procedimiento "{srv.nombre}" registrado.')
+
+        creados = 0
+        for sid in servicios_ids:
+            try:
+                srv = Servicio.objects.get(pk=sid, tenant=request.tenant, activo=True)
+            except Servicio.DoesNotExist:
+                continue
+            ProcedimientoServicio.objects.create(
+                procedimiento=proc,
+                servicio=srv,
+                precio_usd=srv.precio_usd,
+                costo_adquisicion_usd=srv.costo_adquisicion_usd,
+                tasa_cambio=tasa,
+            )
+            creados += 1
+
+        if creados == 0:
+            proc.delete()
+            messages.error(request, 'Ningún servicio seleccionado es válido.')
+            return _r(request, f'/pacientes/{paciente_id}/')
+
+        messages.success(request, 'Procedimiento registrado correctamente.')
         return _r(request, f'/pacientes/{paciente_id}/')
 
     return _r(request, f'/pacientes/{paciente_id}/')
+
+
+@login_required
+def editar_procedimiento(request, pk):
+    """Edita los datos generales del procedimiento (fecha, notas, pagado)."""
+    from .models import Procedimiento
+    if not request.user.es_medico:
+        return _r(request, '/agenda/')
+    proc = get_object_or_404(Procedimiento, pk=pk, tenant=request.tenant)
+    if request.method == 'POST':
+        from datetime import datetime
+        fecha_str = request.POST.get('fecha')
+        if fecha_str:
+            try:
+                proc.fecha = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        proc.notas = request.POST.get('notas', '')
+        proc.pagado = 'pagado' in request.POST
+        proc.save(update_fields=['fecha', 'notas', 'pagado'])
+        messages.success(request, 'Procedimiento actualizado.')
+    return _r(request, f'/pacientes/{proc.paciente.pk}/')
+
+
+@login_required
+def agregar_servicio_procedimiento(request, pk):
+    """Agrega un servicio adicional a un procedimiento ya existente."""
+    from .models import Procedimiento, ProcedimientoServicio
+    if not request.user.es_medico:
+        return _r(request, '/agenda/')
+    proc = get_object_or_404(Procedimiento, pk=pk, tenant=request.tenant)
+    if request.method == 'POST':
+        from servicios.models import Servicio
+        servicio_id = request.POST.get('servicio')
+        try:
+            srv = Servicio.objects.get(pk=servicio_id, tenant=request.tenant, activo=True)
+            try:
+                tasa = request.tenant.tasa_cambio.tasa
+            except Exception:
+                tasa = None
+            ProcedimientoServicio.objects.create(
+                procedimiento=proc,
+                servicio=srv,
+                precio_usd=srv.precio_usd,
+                costo_adquisicion_usd=srv.costo_adquisicion_usd,
+                tasa_cambio=tasa,
+            )
+            messages.success(request, f'Servicio "{srv.nombre}" agregado.')
+        except Servicio.DoesNotExist:
+            messages.error(request, 'Servicio no encontrado.')
+    return _r(request, f'/pacientes/{proc.paciente.pk}/')
+
+
+@login_required
+def eliminar_servicio_procedimiento(request, pk):
+    """Elimina una línea ProcedimientoServicio (no borra el procedimiento)."""
+    from .models import ProcedimientoServicio
+    if not request.user.es_medico:
+        return _r(request, '/agenda/')
+    ps = get_object_or_404(ProcedimientoServicio, pk=pk, procedimiento__tenant=request.tenant)
+    paciente_pk = ps.procedimiento.paciente.pk
+    if request.method == 'POST':
+        ps.delete()
+        messages.success(request, 'Servicio eliminado.')
+    return _r(request, f'/pacientes/{paciente_pk}/')
+
+
+@login_required
+def editar_linea_servicio(request, pk):
+    """Marca como exonerado y/o aplica descuento a un ConsultaServicio."""
+    from decimal import Decimal, InvalidOperation
+    if not request.user.es_medico:
+        return _r(request, '/agenda/')
+    cs = get_object_or_404(ConsultaServicio, pk=pk, consulta__tenant=request.tenant)
+    consulta_pk = cs.consulta.pk
+    if request.method == 'POST':
+        cs.exonerado = 'exonerado' in request.POST
+        try:
+            descuento = Decimal(request.POST.get('descuento_usd') or '0')
+        except InvalidOperation:
+            descuento = Decimal('0')
+        if descuento < 0:
+            descuento = Decimal('0')
+        if descuento > cs.precio_usd:
+            descuento = cs.precio_usd
+        cs.descuento_usd = descuento
+        cs.save(update_fields=['exonerado', 'descuento_usd'])
+        messages.success(request, 'Servicio actualizado.')
+    return _r(request, f'/consultas/{consulta_pk}/')
+
+
+@login_required
+def editar_linea_servicio_procedimiento(request, pk):
+    """Marca como exonerado y/o aplica descuento a un ProcedimientoServicio."""
+    from .models import ProcedimientoServicio
+    from decimal import Decimal, InvalidOperation
+    if not request.user.es_medico:
+        return _r(request, '/agenda/')
+    ps = get_object_or_404(ProcedimientoServicio, pk=pk, procedimiento__tenant=request.tenant)
+    paciente_pk = ps.procedimiento.paciente.pk
+    if request.method == 'POST':
+        ps.exonerado = 'exonerado' in request.POST
+        try:
+            descuento = Decimal(request.POST.get('descuento_usd') or '0')
+        except InvalidOperation:
+            descuento = Decimal('0')
+        if descuento < 0:
+            descuento = Decimal('0')
+        if descuento > ps.precio_usd:
+            descuento = ps.precio_usd
+        ps.descuento_usd = descuento
+        ps.save(update_fields=['exonerado', 'descuento_usd'])
+        messages.success(request, 'Servicio actualizado.')
+    return _r(request, f'/pacientes/{paciente_pk}/')
 
 
 @login_required

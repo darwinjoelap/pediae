@@ -77,7 +77,9 @@ def agenda_dia(request, fecha):
                 cita.consulta_registrada = Consulta.objects.filter(cita=cita).first()
 
             if not cita.consulta_registrada:
-                cita.procedimiento_registrado = Procedimiento.objects.filter(cita=cita).first()
+                cita.procedimiento_registrado = Procedimiento.objects.filter(
+                    cita=cita
+                ).prefetch_related('servicios_usados__servicio').first()
 
     consultas_sin_cita = Consulta.objects.filter(
         tenant=tenant, fecha=fecha_obj, cita__isnull=True,
@@ -85,7 +87,7 @@ def agenda_dia(request, fecha):
 
     procedimientos_sin_cita = Procedimiento.objects.filter(
         tenant=tenant, fecha=fecha_obj, cita__isnull=True,
-    ).select_related('paciente', 'servicio', 'medico')
+    ).select_related('paciente', 'medico').prefetch_related('servicios_usados__servicio')
 
     atendidos_sin_cita = consultas_sin_cita.count() + procedimientos_sin_cita.count()
     resumen = {

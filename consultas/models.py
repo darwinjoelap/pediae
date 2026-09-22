@@ -1,6 +1,21 @@
 from django.db import models
+from django.db.models import Case, When, Value, F, DecimalField
 from pacientes.models import Paciente
 from agenda.models import Cita
+
+
+def monto_efectivo_expr():
+    """
+    Expresión reutilizable para sumar en BD lo que realmente se cobra por
+    una línea de servicio (ConsultaServicio o ProcedimientoServicio):
+    $0 si está exonerada, si no precio_usd - descuento_usd.
+    Se usa en los reportes de ingresos (reportes/views.py).
+    """
+    return Case(
+        When(exonerado=True, then=Value(0)),
+        default=F('precio_usd') - F('descuento_usd'),
+        output_field=DecimalField(max_digits=8, decimal_places=2),
+    )
 
 
 class Consulta(models.Model):
@@ -268,16 +283,16 @@ class Consulta(models.Model):
 
     @property
     def total_usd(self):
-        return sum(s.precio_usd for s in self.servicios_usados.all())
+        return sum(s.monto_a_cobrar for s in self.servicios_usados.all())
 
     @property
     def total_bs(self):
-        servicios = self.servicios_usados.all()
+        servicios = [s for s in self.servicios_usados.all() if s.tasa_cambio]
         if not servicios:
             return None
         total = sum(
-            float(s.precio_usd) * float(s.tasa_cambio)
-            for s in servicios if s.tasa_cambio
+            float(s.monto_a_cobrar) * float(s.tasa_cambio)
+            for s in servicios
         )
         return round(total, 2) if total else None
 
@@ -348,6 +363,15 @@ class ConsultaServicio(models.Model):
         null=True, blank=True,
         verbose_name='Tasa al momento'
     )
+    exonerado = models.BooleanField(
+        default=False, verbose_name='Exonerado',
+        help_text='No se cobra este servicio, pero queda registrado.'
+    )
+    descuento_usd = models.DecimalField(
+        max_digits=8, decimal_places=2, default=0,
+        verbose_name='Descuento (USD)',
+        help_text='Se resta del precio del servicio. No aplica si está exonerado.'
+    )
 
     class Meta:
         verbose_name = 'Servicio de consulta'
@@ -357,13 +381,29 @@ class ConsultaServicio(models.Model):
         return f'{self.servicio.nombre} — ${self.precio_usd}'
 
     @property
+    def monto_a_cobrar(self):
+        if self.exonerado:
+            return 0
+        return max(self.precio_usd - self.descuento_usd, 0)
+
+    @property
     def precio_bs(self):
         if self.tasa_cambio:
             return round(float(self.precio_usd) * float(self.tasa_cambio), 2)
         return None
 
+    @property
+    def monto_a_cobrar_bs(self):
+        if self.tasa_cambio:
+            return round(float(self.monto_a_cobrar) * float(self.tasa_cambio), 2)
+        return None
+
 
 class Procedimiento(models.Model):
+    """
+    Encabezado de un procedimiento. Puede agrupar varios servicios —
+    ver ProcedimientoServicio, mismo patrón que Consulta/ConsultaServicio.
+    """
     tenant = models.ForeignKey(
         'tenant.Tenant', on_delete=models.CASCADE,
         related_name='procedimientos'
@@ -381,14 +421,6 @@ class Procedimiento(models.Model):
         null=True, blank=True, related_name='procedimientos'
     )
     fecha = models.DateField()
-    servicio = models.ForeignKey(
-        'servicios.Servicio', on_delete=models.PROTECT,
-        related_name='procedimientos'
-    )
-    precio_usd = models.DecimalField(max_digits=8, decimal_places=2)
-    tasa_cambio = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True
-    )
     notas = models.TextField(blank=True, verbose_name='Notas')
     pagado = models.BooleanField(default=False)
     creado_en = models.DateTimeField(auto_now_add=True)
@@ -403,8 +435,83 @@ class Procedimiento(models.Model):
         from datetime import date, timedelta
         return self.creado_en.date() >= date.today() - timedelta(days=7)
 
+    @property
+    def total_usd(self):
+        return sum(s.monto_a_cobrar for s in self.servicios_usados.all())
+
+    @property
+    def total_bs(self):
+        servicios = [s for s in self.servicios_usados.all() if s.tasa_cambio]
+        if not servicios:
+            return None
+        total = sum(
+            float(s.monto_a_cobrar) * float(s.tasa_cambio)
+            for s in servicios
+        )
+        return round(total, 2) if total else None
+
     def __str__(self):
-        return f'{self.servicio.nombre} — {self.paciente.nombre_completo} ({self.fecha})'
+        nombres = ', '.join(s.servicio.nombre for s in self.servicios_usados.all())
+        return f'{nombres or "Procedimiento"} — {self.paciente.nombre_completo} ({self.fecha})'
+
+
+class ProcedimientoServicio(models.Model):
+    procedimiento = models.ForeignKey(
+        Procedimiento, on_delete=models.CASCADE,
+        related_name='servicios_usados'
+    )
+    servicio = models.ForeignKey(
+        'servicios.Servicio', on_delete=models.PROTECT,
+        related_name='procedimientos_usados'
+    )
+    precio_usd = models.DecimalField(
+        max_digits=8, decimal_places=2,
+        verbose_name='Precio USD al momento'
+    )
+    costo_adquisicion_usd = models.DecimalField(
+        max_digits=8, decimal_places=2,
+        null=True, blank=True, default=None,
+        verbose_name='Costo adquisición USD al momento',
+    )
+    tasa_cambio = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Tasa al momento'
+    )
+    exonerado = models.BooleanField(
+        default=False, verbose_name='Exonerado',
+        help_text='No se cobra este servicio, pero queda registrado.'
+    )
+    descuento_usd = models.DecimalField(
+        max_digits=8, decimal_places=2, default=0,
+        verbose_name='Descuento (USD)',
+        help_text='Se resta del precio del servicio. No aplica si está exonerado.'
+    )
+
+    class Meta:
+        verbose_name = 'Servicio de procedimiento'
+        verbose_name_plural = 'Servicios de procedimiento'
+
+    def __str__(self):
+        return f'{self.servicio.nombre} — ${self.precio_usd}'
+
+    @property
+    def monto_a_cobrar(self):
+        if self.exonerado:
+            return 0
+        return max(self.precio_usd - self.descuento_usd, 0)
+
+    @property
+    def precio_bs(self):
+        if self.tasa_cambio:
+            return round(float(self.precio_usd) * float(self.tasa_cambio), 2)
+        return None
+
+    @property
+    def monto_a_cobrar_bs(self):
+        if self.tasa_cambio:
+            return round(float(self.monto_a_cobrar) * float(self.tasa_cambio), 2)
+        return None
 
 
 class Medicamento(models.Model):

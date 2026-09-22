@@ -321,8 +321,9 @@
             </a>
           </h6>
           <div class="text-muted small">
-            <i class="bi bi-scissors me-1"></i>{{ proc.servicio.nombre }}
-            <span class="ms-2 fw-bold" style="color:var(--color-primary)">${{ proc.precio_usd }}</span>
+            <i class="bi bi-scissors me-1"></i>
+            {% for ps in proc.servicios_usados.all %}{{ ps.servicio.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            <span class="ms-2 fw-bold" style="color:var(--color-primary)">${{ proc.total_usd }}</span>
           </div>
           {% if proc.notas %}
           <div class="text-muted small mt-1">{{ proc.notas }}</div>

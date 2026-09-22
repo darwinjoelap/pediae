@@ -642,32 +642,94 @@
 <div class="d-flex flex-column gap-2">
   {% for proc in procedimientos %}
   <div class="card border-0 shadow-sm">
-    <div class="card-body py-2 d-flex justify-content-between align-items-center">
-      <div>
-        <span class="fw-bold">{{ proc.servicio.nombre }}</span>
-        <span class="text-muted small ms-2">{{ proc.fecha|date:"d/m/Y" }}</span>
-        {% if proc.notas %}
-        <div class="text-muted small">{{ proc.notas }}</div>
-        {% endif %}
+    <div class="card-body py-2">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <span class="text-muted small">{{ proc.fecha|date:"d/m/Y" }}</span>
+          {% if proc.pagado %}
+          <span class="badge bg-success ms-1" style="font-size:0.65rem">Pagado</span>
+          {% else %}
+          <span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem">Pendiente</span>
+          {% endif %}
+          {% if proc.notas %}
+          <div class="text-muted small">{{ proc.notas }}</div>
+          {% endif %}
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-bold" style="color:var(--color-primary)">${{ proc.total_usd }}</span>
+          {% if user.es_medico %}
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+            title="Editar procedimiento"
+            data-bs-toggle="modal" data-bs-target="#modalEditarProcHeader"
+            data-pk="{{ proc.pk }}"
+            data-fecha="{{ proc.fecha|date:'Y-m-d' }}"
+            data-notas="{{ proc.notas }}"
+            data-pagado="{{ proc.pagado|yesno:'1,0' }}">
+            <i class="bi bi-pencil"></i>
+          </button>
+          {% endif %}
+          {% if user.es_medico and proc.puede_eliminar %}
+          <button type="button" class="btn btn-outline-danger btn-sm"
+            title="Eliminar procedimiento"
+            data-bs-toggle="modal" data-bs-target="#modalEliminarProc"
+            data-pk="{{ proc.pk }}"
+            data-fecha="{{ proc.fecha|date:'d/m/Y' }}">
+            <i class="bi bi-trash3"></i>
+          </button>
+          {% endif %}
+        </div>
       </div>
-      <div class="d-flex align-items-center gap-2">
-        <span class="fw-bold" style="color:var(--color-primary)">${{ proc.precio_usd }}</span>
-        {% if proc.pagado %}
-        <span class="badge bg-success" style="font-size:0.65rem">Pagado</span>
-        {% else %}
-        <span class="badge bg-warning text-dark" style="font-size:0.65rem">Pendiente</span>
-        {% endif %}
-        {% if user.es_medico and proc.puede_eliminar %}
-        <button type="button" class="btn btn-outline-danger btn-sm"
-          title="Eliminar procedimiento"
-          data-bs-toggle="modal" data-bs-target="#modalEliminarProc"
-          data-pk="{{ proc.pk }}"
-          data-nombre="{{ proc.servicio.nombre }}"
-          data-fecha="{{ proc.fecha|date:'d/m/Y' }}">
-          <i class="bi bi-trash3"></i>
+      <div class="mt-2 d-flex flex-wrap gap-2">
+        {% for ps in proc.servicios_usados.all %}
+        <span class="badge fs-6 fw-normal d-inline-flex align-items-center gap-2"
+              style="background-color:{% if ps.exonerado %}#6c757d{% else %}var(--color-primary){% endif %}">
+          {{ ps.servicio.nombre }} —
+          {% if ps.exonerado %}
+            <span>exonerado</span>
+          {% elif ps.descuento_usd > 0 %}
+            <span><s class="opacity-75">${{ ps.precio_usd }}</s> ${{ ps.monto_a_cobrar }}</span>
+          {% else %}
+            <span>${{ ps.precio_usd }}</span>
+          {% endif %}
+          {% if user.es_medico %}
+          <button type="button" class="btn btn-link p-0 m-0 text-white lh-1"
+                  style="font-size:0.85rem;opacity:0.8;"
+                  title="Exonerar / aplicar descuento"
+                  data-bs-toggle="modal" data-bs-target="#modalEditarServicioProc"
+                  data-pk="{{ ps.pk }}"
+                  data-nombre="{{ ps.servicio.nombre }}"
+                  data-exonerado="{{ ps.exonerado|yesno:'1,0' }}"
+                  data-descuento="{{ ps.descuento_usd }}">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <form method="post" action="{{ TENANT_PREFIX }}/consultas/procedimiento/servicio/{{ ps.pk }}/eliminar/" class="d-inline m-0 p-0">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-link p-0 m-0 text-white lh-1"
+                    style="font-size:0.85rem;opacity:0.8;"
+                    onclick="return confirm('¿Quitar este servicio?')"
+                    title="Quitar servicio">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </form>
+          {% endif %}
+        </span>
+        {% endfor %}
+      </div>
+      {% if user.es_medico %}
+      <form method="post" action="{{ TENANT_PREFIX }}/consultas/procedimiento/{{ proc.pk }}/agregar-servicio/"
+            class="d-flex gap-2 mt-2">
+        {% csrf_token %}
+        <select name="servicio" class="form-select form-select-sm" required>
+          <option value="">— Agregar servicio —</option>
+          {% for s in servicios_disponibles %}
+          <option value="{{ s.pk }}">{{ s.nombre }} (${{ s.precio_usd }})</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-outline-primary text-nowrap">
+          <i class="bi bi-plus-lg me-1"></i> Agregar
         </button>
-        {% endif %}
-      </div>
+      </form>
+      {% endif %}
     </div>
   </div>
   {% endfor %}
@@ -685,7 +747,7 @@
       <form id="formEliminarProc" method="post" action="">
         {% csrf_token %}
         <div class="modal-body">
-          <p>¿Estás seguro de eliminar el procedimiento <strong id="eliminarProcNombre"></strong> del <strong id="eliminarProcFecha"></strong>?</p>
+          <p>¿Estás seguro de eliminar el procedimiento del <strong id="eliminarProcFecha"></strong>? Se eliminan todos sus servicios.</p>
           <p class="text-danger small mb-0"><i class="bi bi-exclamation-circle me-1"></i>Esta acción <strong>no se puede deshacer</strong>.</p>
         </div>
         <div class="modal-footer">
@@ -701,10 +763,100 @@
 <script>
   document.getElementById('modalEliminarProc').addEventListener('show.bs.modal', function(e) {
     var btn = e.relatedTarget;
-    document.getElementById('eliminarProcNombre').textContent = btn.dataset.nombre;
     document.getElementById('eliminarProcFecha').textContent = btn.dataset.fecha;
     document.getElementById('formEliminarProc').action =
       '{{ TENANT_PREFIX }}/consultas/procedimiento/' + btn.dataset.pk + '/eliminar/';
+  });
+</script>
+
+<!-- Modal: editar datos generales del procedimiento -->
+<div class="modal fade" id="modalEditarProcHeader" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil me-1"></i> Editar procedimiento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formEditarProcHeader" method="post" action="">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Fecha</label>
+            <input type="date" class="form-control" name="fecha" id="editarProcFecha">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Notas</label>
+            <textarea name="notas" class="form-control" rows="2" id="editarProcNotas"></textarea>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="pagado" id="editarProcPagado">
+            <label class="form-check-label fw-bold" for="editarProcPagado">
+              <i class="bi bi-cash-coin me-1"></i> Pagado
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i> Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+  document.getElementById('modalEditarProcHeader').addEventListener('show.bs.modal', function(e) {
+    var btn = e.relatedTarget;
+    document.getElementById('editarProcFecha').value = btn.dataset.fecha;
+    document.getElementById('editarProcNotas').value = btn.dataset.notas;
+    document.getElementById('editarProcPagado').checked = btn.dataset.pagado === '1';
+    document.getElementById('formEditarProcHeader').action =
+      '{{ TENANT_PREFIX }}/consultas/procedimiento/' + btn.dataset.pk + '/editar/';
+  });
+</script>
+
+<!-- Modal: exonerar / descuento de un servicio de procedimiento -->
+<div class="modal fade" id="modalEditarServicioProc" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-pencil me-1"></i> <span id="editarServicioProcNombre"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="formEditarServicioProc" method="post" action="">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" name="exonerado" id="editarServicioProcExonerado">
+            <label class="form-check-label fw-bold" for="editarServicioProcExonerado">
+              <i class="bi bi-heart me-1"></i> Exonerar (no se cobra)
+            </label>
+          </div>
+          <div class="mb-1">
+            <label class="form-label" for="editarServicioProcDescuento">Descuento (USD)</label>
+            <input type="number" step="0.01" min="0" class="form-control"
+                   name="descuento_usd" id="editarServicioProcDescuento">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg me-1"></i> Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+  document.getElementById('modalEditarServicioProc').addEventListener('show.bs.modal', function (e) {
+    var btn = e.relatedTarget;
+    document.getElementById('editarServicioProcNombre').textContent = btn.dataset.nombre;
+    document.getElementById('editarServicioProcExonerado').checked = btn.dataset.exonerado === '1';
+    document.getElementById('editarServicioProcDescuento').value = btn.dataset.descuento;
+    document.getElementById('formEditarServicioProc').action =
+      '{{ TENANT_PREFIX }}/consultas/procedimiento/servicio/' + btn.dataset.pk + '/editar/';
   });
 </script>
 {% endif %}
@@ -788,14 +940,20 @@
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label fw-bold">
-              Servicio / Procedimiento <span class="text-danger">*</span>
+              Servicios / Procedimientos <span class="text-danger">*</span>
             </label>
-            <select name="servicio" class="form-select" required>
-              <option value="">— Seleccionar —</option>
+            <div class="border rounded p-2" style="max-height:220px;overflow-y:auto">
               {% for s in servicios_disponibles %}
-              <option value="{{ s.pk }}">{{ s.nombre }} — ${{ s.precio_usd }}</option>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox"
+                  name="servicios" value="{{ s.pk }}" id="proc_srv_{{ s.pk }}">
+                <label class="form-check-label d-flex justify-content-between align-items-center w-100" for="proc_srv_{{ s.pk }}">
+                  <span>{{ s.nombre }}</span>
+                  <span class="badge ms-2" style="background-color:var(--color-primary)">${{ s.precio_usd }}</span>
+                </label>
+              </div>
               {% endfor %}
-            </select>
+            </div>
           </div>
           <div class="mb-3">
             <label class="form-label">
@@ -810,6 +968,9 @@
               <i class="bi bi-cash-coin me-1"></i> Pagado
             </label>
           </div>
+          <p class="text-muted small mb-0 mt-2">
+            <i class="bi bi-info-circle me-1"></i>Exoneraciones y descuentos por servicio se ajustan después de registrar, desde cada procedimiento.
+          </p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>

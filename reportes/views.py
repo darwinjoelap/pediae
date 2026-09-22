@@ -6,7 +6,7 @@ from django.db.models.functions import TruncMonth
 from pediae.decorators import tenant_login_required as login_required
 from datetime import date, timedelta
 from pacientes.models import Paciente
-from consultas.models import ConsultaServicio
+from consultas.models import ConsultaServicio, monto_efectivo_expr
 from django.db.models import Sum
 import io
 import json
@@ -425,19 +425,19 @@ def estadisticas(request):
     _pendientes         = citas.filter(estado__in=['programada', 'confirmada', 'tentativa']).count()
     _citas_finalizadas  = _atendidas_con_cita + _canceladas + _no_asistio
 
-    # Ingresos
+    # Ingresos — Sum(monto_efectivo_expr()) descuenta exoneraciones/descuentos
     consultas_ids = consultas.values_list('id', flat=True)
     total_ingresos_usd = ConsultaServicio.objects.filter(
         consulta_id__in=consultas_ids,
         consulta__pagado=True,
-    ).aggregate(total=Sum('precio_usd'))['total'] or 0
+    ).aggregate(total=Sum(monto_efectivo_expr()))['total'] or 0
 
     ingresos_pendientes = ConsultaServicio.objects.filter(
         consulta_id__in=consultas_ids,
         consulta__pagado=False,
-    ).aggregate(total=Sum('precio_usd'))['total'] or 0
+    ).aggregate(total=Sum(monto_efectivo_expr()))['total'] or 0
 
-    from consultas.models import Procedimiento
+    from consultas.models import Procedimiento, ProcedimientoServicio
     procedimientos_qs = Procedimiento.objects.filter(
         tenant=_tenant,
         fecha__range=[fecha_desde, fecha_hasta],
@@ -481,13 +481,13 @@ def estadisticas(request):
         ],
     }
 
-    total_ingresos_proc = procedimientos_qs.filter(
-        pagado=True
-    ).aggregate(total=Sum('precio_usd'))['total'] or 0
+    total_ingresos_proc = ProcedimientoServicio.objects.filter(
+        procedimiento__in=procedimientos_qs, procedimiento__pagado=True
+    ).aggregate(total=Sum(monto_efectivo_expr()))['total'] or 0
 
-    ingresos_pendientes_proc = procedimientos_qs.filter(
-        pagado=False
-    ).aggregate(total=Sum('precio_usd'))['total'] or 0
+    ingresos_pendientes_proc = ProcedimientoServicio.objects.filter(
+        procedimiento__in=procedimientos_qs, procedimiento__pagado=False
+    ).aggregate(total=Sum(monto_efectivo_expr()))['total'] or 0
 
     total_ingresos_usd = total_ingresos_usd + total_ingresos_proc
     ingresos_pendientes = ingresos_pendientes + ingresos_pendientes_proc
@@ -503,7 +503,7 @@ def estadisticas(request):
         consulta_id__in=consultas_ids,
     ).values('servicio__nombre').annotate(
         total=Count('id'),
-        ingresos=Sum('precio_usd'),
+        ingresos=Sum(monto_efectivo_expr()),
     ).order_by('-total')[:8]
 
     ingresos_mes = ConsultaServicio.objects.filter(
@@ -512,7 +512,7 @@ def estadisticas(request):
     ).annotate(
         mes=TruncMonth('consulta__fecha')
     ).values('mes').annotate(
-        total=Sum('precio_usd')
+        total=Sum(monto_efectivo_expr())
     ).order_by('mes')
 
     # Pacientes nuevos por mes
@@ -744,13 +744,13 @@ def estadisticas_pdf(request):
         consulta__tenant=_tenant,
         consulta__fecha__range=[fecha_desde, fecha_hasta],
         consulta__pagado=True,
-    ).aggregate(total=Sum('precio_usd'))['total'] or 0
+    ).aggregate(total=Sum(monto_efectivo_expr()))['total'] or 0
 
     ingresos_pendientes = ConsultaServicio.objects.filter(
         consulta__tenant=_tenant,
         consulta__fecha__range=[fecha_desde, fecha_hasta],
         consulta__pagado=False,
-    ).aggregate(total=Sum('precio_usd'))['total'] or 0
+    ).aggregate(total=Sum(monto_efectivo_expr()))['total'] or 0
 
     total_costo_adquisicion_pdf = ConsultaServicio.objects.filter(
         consulta__tenant=_tenant,
@@ -873,7 +873,7 @@ def pagos_pendientes(request):
         return _r(request, '/agenda/')
 
     _tenant = request.tenant
-    from consultas.models import Consulta, ConsultaServicio, Procedimiento
+    from consultas.models import Consulta, ConsultaServicio, Procedimiento, ProcedimientoServicio, monto_efectivo_expr
     from django.db.models import Sum
 
     consultas = Consulta.objects.filter(
@@ -884,15 +884,17 @@ def pagos_pendientes(request):
 
     procedimientos = Procedimiento.objects.filter(
         tenant=_tenant, pagado=False,
-    ).select_related('paciente', 'servicio').order_by('-fecha')
+    ).select_related('paciente').prefetch_related(
+        'servicios_usados__servicio'
+    ).order_by('-fecha')
 
     total_consultas = ConsultaServicio.objects.filter(
         consulta__tenant=_tenant, consulta__pagado=False,
-    ).aggregate(total=Sum('precio_usd'))['total'] or 0
+    ).aggregate(total=Sum(monto_efectivo_expr()))['total'] or 0
 
-    total_procedimientos = Procedimiento.objects.filter(
-        tenant=_tenant, pagado=False,
-    ).aggregate(total=Sum('precio_usd'))['total'] or 0
+    total_procedimientos = ProcedimientoServicio.objects.filter(
+        procedimiento__tenant=_tenant, procedimiento__pagado=False,
+    ).aggregate(total=Sum(monto_efectivo_expr()))['total'] or 0
 
     total_pendiente = total_consultas + total_procedimientos
 

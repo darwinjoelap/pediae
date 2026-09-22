@@ -45,7 +45,8 @@
           <div class="mt-2 d-flex flex-wrap gap-1">
             {% for cs in c.servicios_usados.all %}
             <span class="badge" style="background-color:var(--color-primary)">
-              {{ cs.servicio.nombre }} ${{ cs.precio_usd }}
+              {{ cs.servicio.nombre }}
+              {% if cs.exonerado %} (exonerado){% else %} ${{ cs.monto_a_cobrar }}{% endif %}
             </span>
             {% endfor %}
           </div>
@@ -93,7 +94,14 @@
           </div>
           <div class="text-muted small">
             <i class="bi bi-calendar me-1"></i>{{ proc.fecha|date:"d/m/Y" }}
-            <span class="ms-2"><i class="bi bi-scissors me-1"></i>{{ proc.servicio.nombre }}</span>
+          </div>
+          <div class="mt-1 d-flex flex-wrap gap-1">
+            {% for ps in proc.servicios_usados.all %}
+            <span class="badge" style="background-color:var(--color-primary)">
+              {{ ps.servicio.nombre }}
+              {% if ps.exonerado %} (exonerado){% else %} ${{ ps.monto_a_cobrar }}{% endif %}
+            </span>
+            {% endfor %}
           </div>
           {% if proc.notas %}
           <div class="text-muted small mt-1">{{ proc.notas }}</div>
@@ -101,7 +109,7 @@
         </div>
         <div class="d-flex flex-column align-items-end gap-2 ms-3">
           <span class="fw-bold" style="color:var(--color-primary)">
-            ${{ proc.precio_usd }} USD
+            ${{ proc.total_usd }} USD
           </span>
           <form method="post" action="{{ TENANT_PREFIX }}/consultas/procedimiento/{{ proc.pk }}/pago/" class="d-inline">
             {% csrf_token %}
