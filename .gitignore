@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Claude / Cowork (contexto local, no versionar)
+CLAUDE.md
+Claude outputs/
+
+# Respaldos locales
+*-1.py
+*-1.html
