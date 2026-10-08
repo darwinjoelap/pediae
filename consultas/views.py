@@ -27,6 +27,11 @@ def nueva_consulta(request, paciente_id):
     cita = None
     if cita_id:
         cita = get_object_or_404(Cita, pk=cita_id, tenant=request.tenant)
+        # Cita ya atendida → avisar ANTES de que se llene el formulario de nuevo
+        existente = Consulta.objects.filter(cita=cita).first()
+        if existente and request.method == 'GET':
+            messages.info(request, 'Esta cita ya tiene una consulta registrada. Te llevo a ella.')
+            return _r(request, f'/consultas/{existente.pk}/')
     else:
         # Buscar cita del día para este paciente sin consulta registrada
         from datetime import date as _date
@@ -57,11 +62,32 @@ def nueva_consulta(request, paciente_id):
             consulta.medico = request.user
             consulta.pagado = 'pagado' in request.POST
             consulta.notas_pago = request.POST.get('notas_pago', '')
-            if cita:
-                consulta.cita = cita
-                cita.estado = 'atendida'
-                cita.save(update_fields=['estado'])
-            consulta.save()
+            from django.db import IntegrityError, transaction
+            cita_ocupada = False
+            if cita and Consulta.objects.filter(cita=cita).exists():
+                # La cita ya tiene consulta: NO se descarta lo escrito, se guarda sin vincular la cita
+                cita_ocupada = True
+                cita = None
+            try:
+                with transaction.atomic():
+                    if cita:
+                        consulta.cita = cita
+                        cita.estado = 'atendida'
+                        cita.save(update_fields=['estado'])
+                    consulta.save()
+            except IntegrityError:
+                # Carrera entre dos envíos simultáneos con la misma cita → guardar sin vincular
+                cita_ocupada = True
+                cita = None
+                consulta.pk = None
+                consulta.cita = None
+                consulta.save()
+            if cita_ocupada:
+                messages.warning(
+                    request,
+                    'Esa cita ya tenía una consulta registrada. Lo que escribiste se guardó como una '
+                    'consulta adicional para no perderlo: revisa el historial y elimina la que sobre.'
+                )
 
             # Guardar servicios seleccionados
             servicios_ids = request.POST.getlist('servicios')

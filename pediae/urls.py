@@ -27,6 +27,7 @@ urlpatterns = [
     path('sw.js', sw_view),
     path('admin/', admin.site.urls),
     path('panel/', include('panel.urls')),
+    path('offline/', include('offline.urls')),
     path('t/<slug:tenant_slug>/', include('pediae.tenant_urls')),
     path('', root_redirect),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

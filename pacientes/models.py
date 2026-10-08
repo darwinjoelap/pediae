@@ -451,19 +451,24 @@ class Paciente(models.Model):
             )
             if self.pk:
                 qs = qs.exclude(pk=self.pk)
-            if qs.exists():
-                raise ValidationError({'cedula_representante': 'Ya existe un paciente registrado con esta cédula de representante en este consultorio.'})
+            otro = qs.first()
+            if otro:
+                self._duplicado = otro  # la vista lo usa para mostrar el enlace a la ficha
+                raise ValidationError({'cedula_representante': f'Ya existe un paciente registrado con esta cédula de representante: {otro.nombre_completo}.'})
         else:
             # Cédula es opcional — solo validar unicidad si se proporcionó
             if self.cedula:
+                self.cedula = self.cedula.strip().upper()
                 qs = Paciente.objects.filter(
                     tenant=self.tenant,
-                    cedula=self.cedula,
+                    cedula__iexact=self.cedula,
                 )
                 if self.pk:
                     qs = qs.exclude(pk=self.pk)
-                if qs.exists():
-                    raise ValidationError({'cedula': 'Ya existe un paciente registrado con esta cédula en este consultorio.'})
+                otro = qs.first()
+                if otro:
+                    self._duplicado = otro  # la vista lo usa para mostrar el enlace a la ficha
+                    raise ValidationError({'cedula': f'Ya existe un paciente registrado con esta cédula: {otro.nombre_completo}.'})
 
     @staticmethod
     def _limpiar_telefono(valor):

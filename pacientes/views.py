@@ -37,9 +37,13 @@ def nueva_paciente(request):
     else:
         FormClass = PacienteAsistenteForm
 
+    paciente_existente = None
     if request.method == 'POST':
-        form = FormClass(request.POST)
-        if form.is_valid():
+        # El tenant va en la instancia ANTES de validar → Paciente.clean() detecta la cédula duplicada
+        form = FormClass(request.POST, instance=Paciente(tenant=request.tenant))
+        if not form.is_valid():
+            paciente_existente = getattr(form.instance, '_duplicado', None)
+        else:
             paciente = form.save(commit=False)
             paciente.tenant = request.tenant
             paciente.save()
@@ -58,6 +62,7 @@ def nueva_paciente(request):
         'form': form,
         'titulo': 'Registrar paciente',
         'modo_nuevo_doctora': request.user.es_medico,
+        'paciente_existente': paciente_existente,
     })
 
 
@@ -245,13 +250,16 @@ def editar_paciente(request, pk):
             p.save()
             messages.success(request, 'Ficha actualizada correctamente.')
             return _r(request, f'/pacientes/{paciente.pk}/')
+        paciente_existente = getattr(form.instance, '_duplicado', None)
     else:
         form = FormClass(instance=paciente)
+        paciente_existente = None
 
     return render(request, 'pacientes/form.html', {
         'form': form,
         'paciente': paciente,
         'titulo': 'Editar ficha',
+        'paciente_existente': paciente_existente,
     })
 
 

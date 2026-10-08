@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'consultas',
     'servicios',
     'reportes',
+    'offline',
 ]
 
 MIDDLEWARE = [
@@ -41,6 +42,7 @@ MIDDLEWARE = [
     'tenant.subscription_middleware.SubscriptionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'offline.middleware.IdempotenciaMiddleware',
 ]
 
 ROOT_URLCONF = 'pediae.urls'
