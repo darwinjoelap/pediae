@@ -3,4 +3,5 @@ from . import views
 
 urlpatterns = [
     path('ping/', views.ping, name='offline_ping'),
+    path('precache/', views.precache, name='offline_precache'),
 ]

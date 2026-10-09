@@ -45,6 +45,15 @@ class IdempotenciaMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        if request.method == 'GET' and request.META.get('HTTP_X_OFFLINE_PREFETCH'):
+            # Precarga en segundo plano: no debe "consumir" los mensajes pendientes del usuario
+            response = self.get_response(request)
+            storage = getattr(request, '_messages', None)
+            if storage is not None:
+                storage.used = False
+                storage._queued_messages = []
+                storage.added_new = False
+            return response
         if request.method != 'POST':
             return self.get_response(request)
         clave = _clave(request)

@@ -40,9 +40,13 @@
   // Acciones que NO se encolan (PDFs, eliminar, sesión). Con red funcionan igual que siempre.
   var EXCLUIR_ACTION = /(logout|login|pdf|constancia|reposo|recipe|referencia|informe|imprimir|curvas|eliminar)/i;
 
+  var CACHE_PAGINAS = 'paginas-v1';      // mismo nombre que en sw.js
+  var PRECARGA_CADA = 20 * 60 * 1000;     // refrescar copias como máximo cada 20 min (en la agenda: cada 3 min)
+
   var NS = 'ofl:' + APP + ':' + USER + ':';
   var K_OUTBOX = NS + 'outbox';
   var K_DRAFT = NS + 'draft:';
+  var K_PRECARGA = NS + 'precarga';
 
   var estado = { red: 'online', fallosPing: 0, sincronizando: false, auth: true };
   var outboxCache = [];
@@ -429,11 +433,18 @@
       if (navigator.onLine === false) {
         e.preventDefault();
         toast('Sin conexión: esta acción necesita internet. Inténtalo cuando vuelva la señal.', 'danger');
-      } else if (/logout/i.test(form.getAttribute('action') || '') && pendientes().length) {
-        if (!confirm('Hay ' + pendientes().length + ' registro(s) guardados en este dispositivo que aún no se han enviado.\n' +
+      } else if (/logout/i.test(form.getAttribute('action') || '')) {
+        e.preventDefault();
+        if (pendientes().length &&
+            !confirm('Hay ' + pendientes().length + ' registro(s) guardados en este dispositivo que aún no se han enviado.\n' +
                      'Se enviarán cuando vuelvas a entrar con tu usuario en este dispositivo.\n\n¿Salir de todos modos?')) {
-          e.preventDefault();
+          return;
         }
+        // Al salir se borran las historias guardadas en el dispositivo (privacidad)
+        borrarCopias().then(function () {
+          form.__oflNativo = true;
+          HTMLFormElement.prototype.submit.call(form);
+        });
       }
       return;
     }
@@ -655,6 +666,7 @@
         estado.auth = !!d.auth;
         cambiarRed(Date.now() - t0 > LENTO_MS ? 'lento' : 'online');
         if (estado.auth && (!antesAuth || listosParaEnviar(false).length)) programarSync(300);
+        if (estado.auth && estado.red === 'online' && !window.__OFFLINE_COPIA) setTimeout(function () { precargar(false); }, 1500);
         pintarIndicador();
       })
       .catch(function () { clearTimeout(timer); marcarProblema(); })
@@ -755,6 +767,13 @@
     if (!cola.length) {
       html += '<div class="ofl-row text-muted">No hay nada pendiente. Lo que escribas se guarda en este dispositivo mientras tanto.</div>';
     }
+    var pre = lsGet(K_PRECARGA, null);
+    html += '<div class="ofl-row small d-flex align-items-center gap-2"><span class="flex-grow-1 text-muted">' +
+      '<i class="bi bi-phone me-1"></i>' + (estado.precargando ? 'Guardando agenda y fichas para usar sin conexión…'
+        : pre && pre.t ? 'Agenda y fichas guardadas para usar sin conexión · ' + esc(hora(pre.t))
+        : 'Aún no se han guardado páginas para usar sin conexión.') + '</span>' +
+      (estado.red === 'online' && !estado.precargando ? '<button type="button" class="btn btn-sm btn-outline-secondary" data-ofl="precargar">Actualizar</button>' : '') +
+      '</div>';
     cola.forEach(function (i) {
       html += '<div class="ofl-row">' +
         '<div class="d-flex justify-content-between gap-2"><strong>' + esc(i.titulo) + '</strong>' +
@@ -770,6 +789,8 @@
     panel.innerHTML = html;
     var b = panel.querySelector('[data-ofl=sync]');
     if (b) b.onclick = function () { estado.fallosPing = 0; sincronizar(true); ping(); };
+    var bp = panel.querySelector('[data-ofl=precargar]');
+    if (bp) bp.onclick = function () { precargar(true); };
     Array.prototype.forEach.call(panel.querySelectorAll('[data-ofl=quitar]'), function (btn) {
       btn.onclick = function () {
         if (!confirm('¿Quitar este registro de la cola? No se enviará al servidor.\n(El borrador del formulario se conserva en este dispositivo.)')) return;
@@ -788,6 +809,74 @@
     setTimeout(function () { t.remove(); }, ms || 4500);
   }
 
+  /* ───────────────────────── páginas sin conexión (Fase 2A) ───────────────────────── */
+
+  // Descarga por adelantado la agenda y las fichas/consultas de las pacientes citadas,
+  // para que el Service Worker las tenga disponibles sin datos.
+  function precargar(forzar) {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+    if (estado.red !== 'online' || estado.precargando || document.hidden) return;
+    var info = lsGet(K_PRECARGA, {}) || {};
+    var espera = /\/agenda\//.test(location.pathname) ? 3 * 60 * 1000 : PRECARGA_CADA;
+    if (!forzar && info.t && Date.now() - info.t < espera) return;
+
+    estado.precargando = true;
+    if (panel && panel.classList.contains('on')) pintarPanel();
+    var guardadas = 0;
+    fetch('/offline/precache/', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : { urls: [] }; })
+      .then(function (d) {
+        var urls = (d && d.urls) || [];
+        var i = 0;
+        (function siguiente() {
+          if (i >= urls.length || estado.red !== 'online') { fin(); return; }
+          var u = urls[i++];
+          fetch(u, { credentials: 'same-origin', headers: { 'X-Offline-Prefetch': '1' } })
+            .then(function (r) { if (r.ok && !r.redirected) guardadas++; })
+            .catch(function () { /* se reintenta en la próxima precarga */ })
+            .then(siguiente);
+        })();
+      })
+      .catch(fin);
+
+    function fin() {
+      estado.precargando = false;
+      if (guardadas) lsSet(K_PRECARGA, { t: Date.now(), n: guardadas });
+      if (forzar && guardadas) toast('<i class="bi bi-check2-circle me-1"></i>Agenda y fichas guardadas para usar sin conexión.', 'success', 3000);
+      if (panel && panel.classList.contains('on')) pintarPanel();
+    }
+  }
+
+  function borrarCopias() {
+    lsDel(K_PRECARGA);
+    var tareas = [];
+    try { if (window.caches) tareas.push(caches.delete(CACHE_PAGINAS)); } catch (e) { /* nada */ }
+    return Promise.race([
+      Promise.all(tareas).catch(function () {}),
+      new Promise(function (r) { setTimeout(r, 1500); })
+    ]);
+  }
+
+  // La página vino de la copia guardada (sin red o red muy lenta)
+  function avisoCopia() {
+    var c = window.__OFFLINE_COPIA;
+    if (!c) return;
+    // Los mensajes de Django de la copia son viejos: no mostrarlos
+    Array.prototype.forEach.call(document.querySelectorAll('.alert.auto-close'), function (a) { a.remove(); });
+    var cont = document.querySelector('main .container-fluid') || document.querySelector('main') || document.body;
+    var div = document.createElement('div');
+    div.className = 'alert alert-secondary py-2 px-3 small d-flex align-items-center gap-2 ofl-copia';
+    div.innerHTML = '<i class="bi bi-phone"></i><span class="flex-grow-1"><strong>Copia guardada en este dispositivo</strong>' +
+      (c.guardado ? ' · ' + esc(hora(c.guardado)) : '') +
+      (c.motivo === 'lento' ? ' (la conexión está muy lenta).' : ' (sin conexión).') +
+      ' Lo que registres se enviará solo.</span>' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary">Actualizar</button>';
+    div.querySelector('button').onclick = function () { location.reload(); };
+    cont.insertBefore(div, cont.firstChild);
+    estado.red = c.motivo === 'lento' ? 'lento' : 'offline';   // sin toast: el aviso ya lo explica
+    if (estado.red === 'offline') estado.fallosPing = 2;
+  }
+
   /* ───────────────────────── arranque ───────────────────────── */
 
   function iniciar() {
@@ -801,6 +890,7 @@
     document.addEventListener('submit', alEnviar, false);
     window.addEventListener('pagehide', guardarTodoLoSucio);   // fase burbuja: corre después de los handlers propios del form
 
+    avisoCopia();
     formsPost().forEach(function (f) { if (conBorrador(f)) ofrecerBorrador(f); });
 
     window.addEventListener('online', function () { estado.fallosPing = 0; ping(); });
@@ -817,13 +907,14 @@
     });
 
     if (navigator.onLine === false) cambiarRed('offline');
-    else if (conexionDebil()) cambiarRed('lento');
+    else if (conexionDebil() && !window.__OFFLINE_COPIA) cambiarRed('lento');
     pintarIndicador();
     setTimeout(ping, 1500);
     programarSync(2000);
 
     // API mínima para depurar desde la consola
-    window.OfflineGinea = { estado: estado, cola: pendientes, sincronizar: function () { sincronizar(true); } };
+    window.OfflineGinea = { estado: estado, cola: pendientes, sincronizar: function () { sincronizar(true); },
+                            precargar: function () { precargar(true); } };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
